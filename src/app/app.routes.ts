@@ -1,0 +1,47 @@
+import { Routes } from '@angular/router';
+import { HomeComponent } from './pages/home.component';
+import { RegisterComponent } from './pages/register.component';
+import { LoginComponent } from './pages/login.component';
+import { ForgotPasswordComponent } from './pages/forgot-password.component';
+import { StatsComponent } from './pages/stats.component';
+import { LadderComponent } from './pages/ladder.component';
+import { SquadComponent } from './pages/squad.component';
+import { ReportComponent } from './pages/report.component';
+import { DownloadComponent } from './pages/download.component';
+import { MySquadComponent } from './pages/my-squad.component';
+import { CreateMatchComponent } from './pages/create-match.component';
+import { BanListComponent } from './pages/ban-list.component';
+import { ReportListComponent } from './pages/report-list.component';
+import { ContactComponent } from './pages/contact.component';
+import { FaqComponent } from './pages/faq.component';
+import { ChatComponent } from './pages/chat.component';
+import { AboutComponent } from './pages/about.component';
+import { MapUpdatesComponent } from './pages/map-updates.component';
+import { UserProfileComponent } from './pages/user-profile.component';
+import { ShoppingBagComponent } from './pages/shopping-bag.component';
+import { PlatformUpdatesComponent } from './pages/platform-updates.component';
+
+export const routes: Routes = [
+  { path: '', component: HomeComponent },
+  { path: 'register', component: RegisterComponent },
+  { path: 'login', component: LoginComponent },
+  { path: 'forgot-password', component: ForgotPasswordComponent },
+  { path: 'matches', component: StatsComponent },
+  { path: 'ladder', component: LadderComponent },
+  { path: 'squad', component: SquadComponent },
+  { path: 'my-squad', component: MySquadComponent },
+  { path: 'create-match', component: CreateMatchComponent },
+  { path: 'report', component: ReportComponent },
+  { path: 'report-list', component: ReportListComponent },
+  { path: 'ban-list', component: BanListComponent },
+  { path: 'download', component: DownloadComponent },
+  { path: 'map-updates', component: MapUpdatesComponent },
+  { path: 'settings', component: UserProfileComponent },
+  { path: 'my-items', component: ShoppingBagComponent },
+  { path: 'platform-updates', component: PlatformUpdatesComponent },
+  { path: 'contact', component: ContactComponent },
+  { path: 'faq', component: FaqComponent },
+  { path: 'chat', component: ChatComponent },
+  { path: 'about', component: AboutComponent },
+  { path: '**', redirectTo: '' }
+];

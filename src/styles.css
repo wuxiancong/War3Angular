@@ -1,0 +1,232 @@
+/* You can add global styles to this file, and also import other style files */
+@import url('https://fonts.googleapis.com/icon?family=Material+Icons');
+@import "tailwindcss";
+
+@theme {
+  --color-primary: var(--primary);
+  --color-secondary: var(--secondary);
+  --color-tertiary: var(--tertiary);
+  --color-accent: var(--accent);
+  --color-accent-glow: var(--accent-glow);
+  --color-text-main: var(--text);
+  --color-text-muted: var(--text-muted);
+  --color-text-hover: var(--text-hover);
+  --color-text-inverted: var(--text-inverted);
+  --color-border-main: var(--border);
+  --color-border-muted: var(--border-muted);
+  --color-success: var(--success);
+  --color-error: var(--error);
+}
+
+:root {
+    --primary: #0c0f14;
+    --secondary: #161b22;
+    --tertiary: #222831;
+    --card-bg: rgba(26, 30, 36, 0.4);
+    --accent: #ff4655;
+    --accent-glow: rgba(255, 70, 85, 0.4);
+    --text: #d0d3d8;
+    --text-muted: #8b8e93;
+    --text-hover: #FFFFFF;
+    --text-inverted: #0c0f14;
+    --border: #2f3640;
+    --border-muted: #3a3f47;
+    --success: #3adb76;
+    --error: #e74c3c;
+    --hero-overlay: rgba(5, 7, 10, 0.8);
+    --bg-header: rgba(12, 15, 20, 0.8);
+    --bg-footer: #0c0f14;
+    --dropdown-bg: rgba(15, 18, 23, 0.98);
+}
+
+html {
+    overflow-y: auto;
+    overflow-x: hidden;
+    height: 100%;
+}
+
+html::-webkit-scrollbar {
+    width: 8px;
+}
+
+html::-webkit-scrollbar-track {
+    background: var(--primary);
+}
+
+html::-webkit-scrollbar-thumb {
+    background: var(--border-muted);
+    border-radius: 4px;
+    border: 1px solid var(--primary);
+}
+
+html::-webkit-scrollbar-thumb:hover {
+    background: var(--accent);
+}
+
+body {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100%;
+    height: 100%;
+}
+
+app-root {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    margin: 0;
+    padding: 0;
+}
+
+[data-theme='light'] {
+    --primary: #eef0f2;
+    --secondary: #e4e6e8;
+    --tertiary: #d8dadc;
+    --card-bg: rgba(252, 252, 253, 0.5);
+    --accent: #5a8aab;
+    --accent-glow: rgba(90, 138, 171, 0.3);
+    --text: #3c4043;
+    --text-muted: #6c7073;
+    --text-hover: #1a1e24;
+    --text-inverted: #fcfcfd;
+    --border: #caced0;
+    --border-muted: #b8bcbf;
+    --success: #6a9955;
+    --error: #c05c5c;
+    --hero-overlay: rgba(238, 240, 242, 0.7);
+    --bg-header: rgba(238, 240, 242, 0.8);
+    --bg-footer: #eef0f2;
+    --dropdown-bg: rgba(245, 247, 249, 0.98);
+}
+
+body {
+    background-color: var(--primary);
+    color: var(--text);
+    font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+    margin: 0;
+    transition: all 0.3s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+
+body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100vh;
+    background-color: var(--primary);
+    background-image: 
+        radial-gradient(circle at 15% 50%, var(--accent-glow) 0%, transparent 40%),
+        radial-gradient(circle at 85% 20%, var(--accent-glow) 0%, transparent 40%),
+        radial-gradient(circle at 50% 80%, var(--accent-glow) 0%, transparent 40%),
+        linear-gradient(var(--border-muted) 1px, transparent 1px),
+        linear-gradient(90deg, var(--border-muted) 1px, transparent 1px);
+    background-size: 100% 100%, 100% 100%, 100% 100%, 40px 40px, 40px 40px;
+    background-position: 0 0, 0 0, 0 0, -1px -1px, -1px -1px;
+    z-index: -2;
+}
+
+body::after {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100vh;
+    background-color: var(--primary);
+    opacity: 0.4; /* Dark overlay to make text readable but keep the pattern visible */
+    z-index: -1;
+    transition: background-color 0.3s ease;
+}
+
+.halo {
+    position: fixed; width: 600px; height: 600px; border-radius: 50%;
+    background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+    left: -250px; top: -250px; pointer-events: none; z-index: 0;
+    animation: haloPulse 6s infinite ease-in-out;
+}
+@keyframes haloPulse { 0%, 100% { opacity: 0.3; transform: scale(1); } 50% { opacity: 0.7; transform: scale(1.1); } }
+
+/* Portal Animation */
+.portal-container {
+    position: relative;
+    width: 120px;
+    height: 120px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.energy-ring {
+    position: absolute;
+    border-radius: 50%;
+    border: 3px solid transparent;
+    animation: spin linear infinite;
+}
+
+.ring-1 {
+    width: 100%;
+    height: 100%;
+    border-top-color: var(--accent);
+    border-bottom-color: var(--accent);
+    animation-duration: 3s;
+    opacity: 0.8;
+    box-shadow: 0 0 15px var(--accent-glow), inset 0 0 15px var(--accent-glow);
+}
+
+.ring-2 {
+    width: 75%;
+    height: 75%;
+    border-left-color: var(--accent);
+    border-right-color: var(--accent);
+    animation-duration: 2s;
+    animation-direction: reverse;
+    opacity: 0.6;
+}
+
+.ring-3 {
+    width: 50%;
+    height: 50%;
+    border-top-color: var(--accent);
+    border-bottom-color: var(--accent);
+    animation-duration: 1.5s;
+    opacity: 0.9;
+    box-shadow: 0 0 10px var(--accent-glow);
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Custom Scrollbar */
+.custom-scrollbar::-webkit-scrollbar { 
+    width: 6px; 
+    height: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track { 
+    background: transparent; 
+}
+.custom-scrollbar::-webkit-scrollbar-thumb { 
+    background: var(--border-muted); 
+    border-radius: 10px; 
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { 
+    background: var(--accent); 
+}
+
+/* Global Dropdown Style */
+.dropdown-blur {
+    backdrop-filter: blur(40px) saturate(200%) !important;
+    -webkit-backdrop-filter: blur(40px) saturate(200%) !important;
+    background-color: var(--dropdown-bg) !important;
+    box-shadow: 0 20px 50px -12px rgba(0, 0, 0, 0.8) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+[data-theme='light'] .dropdown-blur {
+    border: 1px solid rgba(0, 0, 0, 0.1) !important;
+    box-shadow: 0 20px 50px -12px rgba(0, 0, 0, 0.2) !important;
+}
