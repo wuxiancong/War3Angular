@@ -238,22 +238,22 @@ import { NgClass } from '@angular/common';
           <!-- 菜单内容区 -->
           <div class="flex-grow overflow-y-auto px-6 py-8 space-y-8 custom-scrollbar">
               <div class="flex flex-col space-y-1">
-                  <a routerLink="/" (click)="closeMenu()" routerLinkActive="!text-white bg-accent" [routerLinkActiveOptions]="{exact: true}" class="px-4 py-4 rounded-xl text-lg font-bold text-[var(--text-main)] flex items-center gap-4 group active:bg-accent active:!text-white transition-all">
+                  <a routerLink="/" (click)="closeMenu()" routerLinkActive="!text-white bg-accent" [routerLinkActiveOptions]="{exact: true}" class="px-4 py-4 rounded-xl text-lg font-bold text-[var(--text-main)] flex items-center gap-4 group active:bg-accent active:!text-white transition-all border border-white/5">
                       <span class="material-icons text-accent group-active:!text-white">home</span>
                       <span class="group-active:!text-white">{{ 'nav.home' | t }}</span>
                   </a>
-                  <a routerLink="/matches" (click)="closeMenu()" routerLinkActive="!text-white bg-accent" class="px-4 py-4 rounded-xl text-lg font-bold text-[var(--text-main)] flex items-center gap-4 group active:bg-accent active:!text-white transition-all">
+                  <a routerLink="/matches" (click)="closeMenu()" routerLinkActive="!text-white bg-accent" class="px-4 py-4 rounded-xl text-lg font-bold text-[var(--text-main)] flex items-center gap-4 group active:bg-accent active:!text-white transition-all border border-white/5">
                       <span class="material-icons text-accent group-active:!text-white">sports_esports</span>
                       <span class="group-active:!text-white">{{ 'nav.matches' | t }}</span>
                   </a>
-                  <a routerLink="/ladder" (click)="closeMenu()" routerLinkActive="!text-white bg-accent" class="px-4 py-4 rounded-xl text-lg font-bold text-[var(--text-main)] flex items-center gap-4 group active:bg-accent active:!text-white transition-all">
+                  <a routerLink="/ladder" (click)="closeMenu()" routerLinkActive="!text-white bg-accent" class="px-4 py-4 rounded-xl text-lg font-bold text-[var(--text-main)] flex items-center gap-4 group active:bg-accent active:!text-white transition-all border border-white/5">
                       <span class="material-icons text-accent group-active:!text-white">leaderboard</span>
                       <span class="group-active:!text-white">{{ 'nav.ladder' | t }}</span>
                   </a>
                   
                   <!-- 移动端 战队预约 -->
                   <div class="pt-4 pb-2">
-                      <a routerLink="/squad" (click)="closeMenu()" routerLinkActive="!text-white bg-accent" class="px-4 py-4 rounded-xl text-lg font-bold text-[var(--text-main)] flex items-center gap-4 group active:bg-accent active:!text-white transition-all">
+                      <a routerLink="/squad" (click)="closeMenu()" routerLinkActive="!text-white bg-accent" class="px-4 py-4 rounded-xl text-lg font-bold text-[var(--text-main)] flex items-center gap-4 group active:bg-accent active:!text-white transition-all border border-white/5">
                           <span class="material-icons text-accent group-active:!text-white">groups</span>
                           <span class="group-active:!text-white">{{ 'nav.team' | t }}</span>
                       </a>
@@ -271,7 +271,7 @@ import { NgClass } from '@angular/common';
 
                   <!-- 移动端 玩家举报 -->
                   <div class="pt-4 pb-2">
-                      <a routerLink="/report" (click)="closeMenu()" routerLinkActive="!text-white bg-accent" class="px-4 py-4 rounded-xl text-lg font-bold text-[var(--text-main)] flex items-center gap-4 group active:bg-accent active:!text-white transition-all">
+                      <a routerLink="/report" (click)="closeMenu()" routerLinkActive="!text-white bg-accent" class="px-4 py-4 rounded-xl text-lg font-bold text-[var(--text-main)] flex items-center gap-4 group active:bg-accent active:!text-white transition-all border border-white/5">
                           <span class="material-icons text-accent group-active:!text-white">report_problem</span>
                           <span class="group-active:!text-white">{{ 'nav.report' | t }}</span>
                       </a>
@@ -289,7 +289,7 @@ import { NgClass } from '@angular/common';
 
                   <!-- 移动端 联系客服 -->
                   <div class="pt-4 pb-2">
-                      <a routerLink="/contact" (click)="closeMenu()" routerLinkActive="!text-white bg-accent" class="px-4 py-4 rounded-xl text-lg font-bold text-[var(--text-main)] flex items-center gap-4 group active:bg-accent active:!text-white transition-all">
+                      <a routerLink="/contact" (click)="closeMenu()" routerLinkActive="!text-white bg-accent" class="px-4 py-4 rounded-xl text-lg font-bold text-[var(--text-main)] flex items-center gap-4 group active:bg-accent active:!text-white transition-all border border-white/5">
                           <span class="material-icons text-accent group-active:!text-white">contact_support</span>
                           <span class="group-active:!text-white">{{ 'nav.support' | t }}</span>
                       </a>
@@ -307,7 +307,7 @@ import { NgClass } from '@angular/common';
 
                   <!-- 移动端 下载中心 -->
                   <div class="pt-4 pb-2">
-                      <a routerLink="/download" (click)="closeMenu()" routerLinkActive="!text-white bg-accent" class="px-4 py-4 rounded-xl text-lg font-bold text-[var(--text-main)] flex items-center gap-4 group active:bg-accent active:!text-white transition-all">
+                      <a routerLink="/download" (click)="closeMenu()" routerLinkActive="!text-white bg-accent" class="px-4 py-4 rounded-xl text-lg font-bold text-[var(--text-main)] flex items-center gap-4 group active:bg-accent active:!text-white transition-all border border-white/5">
                           <span class="material-icons text-accent group-active:!text-white">download</span>
                           <span class="group-active:!text-white">{{ 'nav.download' | t }}</span>
                       </a>
@@ -386,9 +386,46 @@ import { NgClass } from '@angular/common';
                           </button>
                       </div>
                   } @else {
-                      <button (click)="authService.logout(); closeMenu()" class="w-full bg-red-500/10 text-red-400 py-4 font-black uppercase rounded-2xl text-sm tracking-widest active:bg-red-500 active:text-white active:scale-95 transition-all">
-                          {{ 'auth.logout' | t }}
-                      </button>
+                      <!-- 移动端 用户中心 -->
+                      <div class="pt-4 pb-2">
+                          <button (click)="toggleMobileUserMenu()" 
+                                  class="w-full px-4 py-4 rounded-xl text-lg font-bold text-[var(--text-main)] flex items-center justify-between group active:bg-accent active:!text-white transition-all border border-white/5">
+                              <div class="flex items-center gap-4">
+                                  <div class="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-sm font-bold text-white">
+                                      {{ authService.currentUser()?.username?.charAt(0)?.toUpperCase() }}
+                                  </div>
+                                  <span class="group-active:!text-white">{{ authService.currentUser()?.username }}</span>
+                              </div>
+                              <span class="material-icons text-accent group-active:!text-white transition-transform" [class.rotate-180]="isMobileUserMenuOpen()">expand_more</span>
+                          </button>
+                          
+                          <div class="space-y-1 pl-4 overflow-hidden transition-all duration-300"
+                               [class.max-h-0]="!isMobileUserMenuOpen()"
+                               [class.max-h-[500px]]="isMobileUserMenuOpen()"
+                               [class.opacity-0]="!isMobileUserMenuOpen()"
+                               [class.opacity-100]="isMobileUserMenuOpen()">
+                              <button (click)="openWelcome(); closeMenu()" class="w-full text-left px-4 py-3 rounded-xl text-md font-bold text-[var(--text-main)] flex items-center gap-3 active:bg-accent active:!text-white transition-all">
+                                  <span class="material-icons text-accent text-sm group-active:!text-white">auto_awesome</span>
+                                  欢迎界面
+                              </button>
+                              <a routerLink="/settings" (click)="closeMenu()" class="px-4 py-3 rounded-xl text-md font-bold text-[var(--text-main)] flex items-center gap-3 active:bg-accent active:!text-white transition-all">
+                                  <span class="material-icons text-accent text-sm group-active:!text-white">settings</span>
+                                  账号设置
+                              </a>
+                              <a routerLink="/my-items" (click)="closeMenu()" class="px-4 py-3 rounded-xl text-md font-bold text-[var(--text-main)] flex items-center gap-3 active:bg-accent active:!text-white transition-all">
+                                  <span class="material-icons text-accent text-sm group-active:!text-white">inventory_2</span>
+                                  我的物品
+                              </a>
+                              <button (click)="switchAccount(); closeMenu()" class="w-full text-left px-4 py-3 rounded-xl text-md font-bold text-[var(--text-main)] flex items-center gap-3 active:bg-accent active:!text-white transition-all">
+                                  <span class="material-icons text-accent text-sm group-active:!text-white">swap_horiz</span>
+                                  切换账号
+                              </button>
+                              <button (click)="authService.logout(); closeMenu()" class="w-full text-left px-4 py-3 rounded-xl text-md font-bold text-red-400 flex items-center gap-3 active:bg-red-500 active:!text-white transition-all">
+                                  <span class="material-icons text-red-400 text-sm group-active:!text-white">logout</span>
+                                  {{ 'auth.logout' | t }}
+                              </button>
+                          </div>
+                      </div>
                   }
               </div>
           </div>
@@ -413,6 +450,7 @@ export class HeaderComponent {
   isDownloadDropdownOpen = signal(false);
   isLangDropdownOpen = signal(false);
   isMobileLangOpen = signal(false);
+  isMobileUserMenuOpen = signal(false);
   isUserDropdownOpen = signal(false);
   isWelcomeOpen = signal(false);
 
@@ -454,6 +492,10 @@ export class HeaderComponent {
 
   toggleMenu() {
     this.isMenuOpen.update(v => !v);
+  }
+
+  toggleMobileUserMenu() {
+    this.isMobileUserMenuOpen.update(v => !v);
   }
 
   closeMenu() {

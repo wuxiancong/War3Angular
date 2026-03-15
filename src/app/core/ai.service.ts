@@ -115,8 +115,8 @@ export class AIService {
     }
 
     // If we reach here, all keys failed
-    const finalError = new Error(`All Gemini API keys failed (${maxAttempts} keys tried). Last error: ${errors[errors.length - 1]}`);
-    (finalError as any).allErrors = errors;
+    const finalError = new Error(`All Gemini API keys failed (${maxAttempts} keys tried). Last error: ${errors[errors.length - 1]}`) as Error & { allErrors: string[] };
+    finalError.allErrors = errors;
     throw finalError;
   }
 

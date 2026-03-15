@@ -18,7 +18,7 @@ const messages = {
             },
             noResults: "暂无举报记录"
         },
-        auth: { login: "登录", register: "注册" },
+        auth: { login: "登录", register: "注册", logout: "退出登录" },
         hero: { mainTitle: "无兄弟 不Dota", subTitle: "叫上你的队友 再次集结征战远古遗迹", cta: "下载 CC对战平台" },
         reg: { 
             title: "账号注册", 
@@ -292,7 +292,7 @@ const messages = {
             },
             noResults: "No report records found."
         },
-        auth: { login: "LOGIN", register: "JOIN" },
+        auth: { login: "LOGIN", register: "JOIN", logout: "LOGOUT" },
         hero: { mainTitle: "NO BROTHERS NO DOTA", subTitle: "GATHER YOUR SQUAD AND BATTLE FOR THE ANCIENTS", cta: "GET CLIENT" },
         reg: { 
             title: "REGISTER", 

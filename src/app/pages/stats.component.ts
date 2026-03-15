@@ -1,4 +1,4 @@
-import { Component, signal, ElementRef, viewChild, inject, PLATFORM_ID, afterNextRender, effect } from '@angular/core';
+import { Component, signal, ElementRef, viewChild, inject, PLATFORM_ID, afterNextRender, effect, computed } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { TranslatePipe } from '../core/i18n/translate.pipe';
 import { NgClass } from '@angular/common';
@@ -32,6 +32,22 @@ interface TrendData {
   y: number;
 }
 
+interface GameRecord {
+  hero: string;
+  mode: string;
+  duration: string;
+  kda: string;
+  change: number;
+}
+
+interface TopRecord {
+  title: string;
+  hero: string;
+  value: string;
+  label: string;
+  icon: string;
+}
+
 @Component({
   selector: 'app-stats',
   standalone: true,
@@ -48,11 +64,11 @@ interface TrendData {
             </h1>
         </div>
 
-        <div class="space-y-8">
-            <!-- Row 1: Overview & Mode Distribution (Horizontal) -->
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch">
-                <!-- Basic Stats Grid -->
-                <div class="bg-[var(--card-bg)] backdrop-blur-md rounded-xl p-6 border border-[var(--border)] shadow-xl flex flex-col lg:col-span-2">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+            <!-- Left Column -->
+            <div class="lg:col-span-2 space-y-8">
+                <!-- 1. Basic Stats Card (560px) -->
+                <div class="bg-[var(--card-bg)] backdrop-blur-md rounded-xl p-6 border border-[var(--border)] shadow-xl flex flex-col h-[560px]">
                     <h2 class="text-lg font-bold text-accent italic uppercase tracking-wider mb-6 flex items-center gap-2">
                         <span class="material-icons text-sm">analytics</span>
                         {{ 'matches.overview' | t }}
@@ -69,8 +85,104 @@ interface TrendData {
                     </div>
                 </div>
 
-                <!-- Mode Distribution Pie Chart -->
-                <div class="bg-[var(--card-bg)] backdrop-blur-md rounded-xl p-6 border border-[var(--border)] shadow-xl flex flex-col lg:col-span-1">
+                <!-- 2. Recent Win Rate Trend (260px) -->
+                <div class="bg-[var(--card-bg)] backdrop-blur-md rounded-xl p-6 border border-[var(--border)] shadow-xl h-[260px] flex flex-col">
+                    <h2 class="text-lg font-bold text-accent italic uppercase tracking-wider mb-4 flex items-center gap-2">
+                        <span class="material-icons text-sm">trending_up</span>
+                        最近15场胜率趋势
+                    </h2>
+                    <div #trendChart class="w-full flex-grow relative overflow-hidden">
+                        <!-- D3 Chart will be rendered here -->
+                    </div>
+                </div>
+
+                <!-- 3. Best Heroes (380px) -->
+                <div class="bg-[var(--card-bg)] backdrop-blur-md rounded-xl p-6 border border-[var(--border)] shadow-xl h-auto lg:h-[380px] flex flex-col">
+                    <h2 class="text-lg font-bold text-accent italic uppercase tracking-wider mb-6 flex items-center gap-2">
+                        <span class="material-icons text-sm">stars</span>
+                        最佳胜率
+                    </h2>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 flex-grow">
+                        @for (hero of bestHeroes(); track hero.name; let i = $index) {
+                            <div class="group bg-[var(--primary)]/50 p-3 rounded-xl border border-[var(--border)] hover:border-accent/30 transition-all duration-500 relative overflow-hidden text-center flex flex-col justify-center">
+                                <!-- Rank Badge -->
+                                <div class="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold border-2 border-[var(--secondary)]"
+                                     [ngClass]="{
+                                         'bg-yellow-500 text-black': i === 0,
+                                         'bg-gray-300 text-black': i === 1,
+                                         'bg-orange-600 text-white': i === 2
+                                     }">
+                                    {{ i + 1 }}
+                                </div>
+
+                                <div class="w-10 h-10 mx-auto rounded-full bg-white/5 border-2 border-accent/20 flex items-center justify-center mb-1 group-hover:scale-110 transition-transform relative overflow-hidden shrink-0">
+                                    <span class="text-base font-black italic text-accent absolute">{{ hero.name.charAt(0) }}</span>
+                                    <img [src]="'assets/images/heroes/' + hero.name + '.png'" 
+                                         (error)="img.style.display='none'" 
+                                         #img
+                                         alt="{{hero.name}}" 
+                                         class="w-full h-full object-cover relative z-10">
+                                </div>
+                                <h3 class="text-sm font-bold text-[var(--text-main)] mb-1">{{ hero.name }}</h3>
+                                <div class="text-[10px] text-[var(--text-muted)] mb-1">{{ hero.games }} 场</div>
+                                <div class="text-base font-black text-green-400 mb-1">{{ hero.winRate }}%</div>
+                                <div class="text-[9px] text-accent/80 font-mono uppercase tracking-widest">KDA: {{ hero.kda }}</div>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <!-- 4. Last Five Games (480px) -->
+                <div class="bg-[var(--card-bg)] backdrop-blur-md rounded-xl p-6 border border-[var(--border)] shadow-xl h-auto lg:h-[480px] flex flex-col">
+                    <h2 class="text-lg font-bold text-accent italic uppercase tracking-wider mb-6 flex items-center gap-2">
+                        <span class="material-icons text-sm">history</span>
+                        最后五场游戏
+                    </h2>
+                    <div class="flex-grow overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="text-[10px] uppercase text-[var(--text-muted)] border-b border-white/5">
+                                    <th class="py-2 w-[30%]">英雄</th>
+                                    <th class="py-2 w-[15%]">模式</th>
+                                    <th class="py-2 w-[15%]">时长</th>
+                                    <th class="py-2 w-[25%]">K / D / A</th>
+                                    <th class="py-2 w-[15%]">分数变动</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-white/5">
+                                @for (game of lastFiveGames(); track $index) {
+                                    <tr class="text-sm">
+                                        <td class="py-3.5">
+                                            <div class="flex items-center gap-3">
+                                                <div class="w-10 h-10 rounded-full bg-[var(--card-bg)] border border-accent/50 flex items-center justify-center relative overflow-hidden shrink-0">
+                                                    <span class="text-base font-black italic text-accent absolute">{{ game.hero.charAt(0) }}</span>
+                                                    <img [src]="'assets/images/heroes/' + game.hero + '.png'" 
+                                                         (error)="img.style.display='none'" 
+                                                         #img
+                                                         alt="{{game.hero}}" 
+                                                         class="w-full h-full object-cover relative z-10">
+                                                </div>
+                                                <span class="font-bold text-[var(--text-main)]">{{ game.hero }}</span>
+                                            </div>
+                                        </td>
+                                        <td class="py-3.5 text-[var(--text-muted)]">{{ game.mode }}</td>
+                                        <td class="py-3.5">{{ game.duration }}</td>
+                                        <td class="py-3.5 text-accent font-mono">{{ game.kda }}</td>
+                                        <td class="py-3.5 font-bold" [ngClass]="game.change > 0 ? 'text-green-400' : 'text-red-400'">
+                                            {{ game.change > 0 ? '+' : '' }}{{ game.change }}
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column -->
+            <div class="lg:col-span-1 space-y-8">
+                <!-- 5. Mode Distribution (560px) -->
+                <div class="bg-[var(--card-bg)] backdrop-blur-md rounded-xl p-6 border border-[var(--border)] shadow-xl h-[560px] flex flex-col">
                     <h2 class="text-lg font-bold text-accent italic uppercase tracking-wider mb-6 flex items-center gap-2">
                         <span class="material-icons text-sm">pie_chart</span>
                         模式分布图
@@ -105,69 +217,24 @@ interface TrendData {
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Row 2: Trend + Heroes (Left) vs Rankings (Right) -->
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch">
-                <!-- Left Column: Trend & Heroes -->
-                <div class="flex flex-col gap-8 lg:col-span-2">
-                    <!-- Win Rate Trend Chart -->
-                    <div class="bg-[var(--card-bg)] backdrop-blur-md rounded-xl p-6 border border-[var(--border)] shadow-xl flex-grow flex flex-col">
-                        <h2 class="text-lg font-bold text-accent italic uppercase tracking-wider mb-4 flex items-center gap-2">
-                            <span class="material-icons text-sm">trending_up</span>
-                            最近15场胜率趋势
+                <!-- 6. Season Rankings (672px) -->
+                <div class="bg-[var(--card-bg)] backdrop-blur-md rounded-xl p-6 border border-[var(--border)] shadow-xl h-[672px] flex flex-col">
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-lg font-bold text-accent italic uppercase tracking-wider flex items-center gap-2">
+                            <span class="material-icons text-sm">leaderboard</span>
+                            赛季排名 TOP 10
                         </h2>
-                        <div #trendChart class="w-full flex-grow min-h-[180px] relative overflow-hidden">
-                            <!-- D3 Chart will be rendered here -->
-                        </div>
+                        <select [value]="rankingType()" (change)="onRankingTypeChange($event)" 
+                                class="bg-[var(--secondary)] border border-[var(--border)] text-[var(--text-main)] text-xs rounded-lg px-2 py-1 outline-none focus:border-accent">
+                            <option value="solo">个人</option>
+                            <option value="team">战队</option>
+                        </select>
                     </div>
-
-                    <!-- Best Heroes -->
-                    <div class="bg-[var(--card-bg)] backdrop-blur-md rounded-xl p-6 border border-[var(--border)] shadow-xl flex-grow flex flex-col">
-                        <h2 class="text-lg font-bold text-accent italic uppercase tracking-wider mb-6 flex items-center gap-2">
-                            <span class="material-icons text-sm">stars</span>
-                            最佳英雄
-                        </h2>
-                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 flex-grow">
-                            @for (hero of bestHeroes(); track hero.name; let i = $index) {
-                                <div class="group bg-[var(--primary)]/50 p-4 rounded-xl border border-[var(--border)] hover:border-accent/30 transition-all duration-500 relative overflow-hidden text-center flex flex-col justify-center">
-                                    <!-- Rank Badge -->
-                                    <div class="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold border-2 border-[var(--secondary)]"
-                                         [ngClass]="{
-                                             'bg-yellow-500 text-black': i === 0,
-                                             'bg-gray-300 text-black': i === 1,
-                                             'bg-orange-600 text-white': i === 2
-                                         }">
-                                        {{ i + 1 }}
-                                    </div>
-
-                                    <div class="w-12 h-12 mx-auto rounded-full bg-white/5 border-2 border-accent/20 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform relative overflow-hidden">
-                                        <span class="text-xl font-black italic text-accent absolute">{{ hero.name.charAt(0) }}</span>
-                                        <img [src]="'assets/images/heroes/' + hero.name + '.png'" 
-                                             (error)="img.style.display='none'" 
-                                             #img
-                                             alt="{{hero.name}}" 
-                                             class="w-full h-full object-cover relative z-10">
-                                    </div>
-                                    <h3 class="text-sm font-bold text-[var(--text-main)] mb-1">{{ hero.name }}</h3>
-                                    <div class="text-[10px] text-[var(--text-muted)] mb-2">{{ hero.games }} 场</div>
-                                    <div class="text-lg font-black text-green-400 mb-1">{{ hero.winRate }}%</div>
-                                    <div class="text-[8px] text-accent/60 font-mono uppercase tracking-widest">KDA: {{ hero.kda }}</div>
-                                </div>
-                            }
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Right Column: Season Rankings -->
-                <div class="bg-[var(--card-bg)] backdrop-blur-md rounded-xl p-6 border border-[var(--border)] shadow-xl flex flex-col lg:col-span-1">
-                    <h2 class="text-lg font-bold text-accent italic uppercase tracking-wider mb-6 flex items-center gap-2">
-                        <span class="material-icons text-sm">leaderboard</span>
-                        赛季排名 TOP 10
-                    </h2>
-                    <div class="space-y-2 flex-grow">
+                    
+                    <div class="space-y-1 flex-grow overflow-hidden">
                         @for (rank of seasonRankings(); track rank.name) {
-                            <div class="flex items-center gap-3 p-3 rounded-lg border transition-all"
+                            <div class="flex items-center gap-3 p-2 rounded-lg border transition-all h-[48px]"
                                  [ngClass]="{
                                      'bg-accent border-accent/50 text-[var(--text-inverted)]': rank.isCurrent,
                                      'bg-[var(--primary)]/50 border-[var(--border)] text-[var(--text-muted)]': !rank.isCurrent
@@ -182,9 +249,46 @@ interface TrendData {
                                      }">
                                     {{ rank.rank }}
                                 </div>
-                                <span class="text-lg shrink-0">{{ getCountryFlag(rank.country) }}</span>
-                                <span class="text-sm font-bold truncate flex-grow" [class.text-[var(--text-main)]]="!rank.isCurrent">{{ rank.name }}</span>
-                                <span class="font-mono text-xs font-bold" [class.text-accent]="!rank.isCurrent">{{ rank.score }}</span>
+                                <div class="w-6 h-4 shrink-0 rounded-[2px] overflow-hidden border border-white/10 relative shadow-sm">
+                                    <img [src]="'https://flagcdn.com/w20/' + rank.country.toLowerCase() + '.png'" 
+                                         [alt]="rank.country"
+                                         class="w-full h-full object-cover">
+                                </div>
+                                <span class="text-xs font-bold truncate flex-grow" [class.text-[var(--text-main)]]="!rank.isCurrent">{{ rank.name }}</span>
+                                <span class="font-mono text-[10px] font-bold" [class.text-accent]="!rank.isCurrent">{{ rank.score }}</span>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <!-- 7. Top Heroes Stats (480px) -->
+                <div class="bg-[var(--card-bg)] backdrop-blur-md rounded-xl p-6 border border-[var(--border)] shadow-xl h-auto lg:h-[480px] flex flex-col">
+                    <h2 class="text-lg font-bold text-accent italic uppercase tracking-wider mb-6 flex items-center gap-2">
+                        <span class="material-icons text-sm">emoji_events</span>
+                        最佳英雄
+                    </h2>
+                    <div class="grid grid-cols-2 gap-2.5 flex-grow">
+                        @for (record of topRecords(); track record.title) {
+                            <div class="bg-[var(--secondary)] rounded-md border border-[var(--border)] flex items-center p-2.5 gap-3">
+                                <!-- 英雄头像占位 (圆形 + 首字) -->
+                                <div class="w-10 h-10 rounded-full bg-[var(--card-bg)] border border-accent/50 flex items-center justify-center relative shrink-0">
+                                    <div class="w-full h-full rounded-full overflow-hidden relative flex items-center justify-center">
+                                        <span class="text-[var(--text-main)] font-bold text-base absolute">{{ record.hero.charAt(0) }}</span>
+                                        <img [src]="'assets/images/heroes/' + record.hero + '.png'" 
+                                             (error)="img.style.display='none'" 
+                                             #img
+                                             alt="{{record.hero}}" 
+                                             class="w-full h-full object-cover relative z-10">
+                                    </div>
+                                    <!-- 右下角小图标 -->
+                                    <span class="absolute -bottom-0.5 -right-0.5 text-xs z-20 drop-shadow-md">{{ record.icon }}</span>
+                                </div>
+
+                                <div class="flex flex-col justify-center min-w-0 flex-grow gap-0.5">
+                                    <div class="text-[10px] text-[var(--text-muted)]">{{ record.title }}</div>
+                                    <div class="text-[13px] font-bold text-[var(--text-main)] truncate w-full">{{ record.hero }}</div>
+                                    <div class="text-[11px] font-bold text-accent">{{ record.label }}: {{ record.value }}</div>
+                                </div>
                             </div>
                         }
                     </div>
@@ -202,6 +306,7 @@ export class StatsComponent {
   trendChartEl = viewChild<ElementRef>('trendChart');
   pieChartEl = viewChild<ElementRef>('pieChart');
   hoveredMode = signal<string | null>(null);
+  rankingType = signal<'solo' | 'team'>('solo');
 
   basicStats = signal([
     { icon: '🏆', title: '全球排名', value: '#156', color: '#f59e0b' },
@@ -242,17 +347,72 @@ export class StatsComponent {
     { label: 'XL', value: 5, color: '#F8C471' },
   ]);
 
-  seasonRankings = signal<Ranking[]>([
-    { rank: 1, name: 'Sky', score: 3256, country: 'CN' },
-    { rank: 2, name: 'Moon', score: 3189, country: 'KR' },
-    { rank: 3, name: 'Grubby', score: 3124, country: 'EU' },
-    { rank: 4, name: 'Lyn', score: 3087, country: 'KR' },
-    { rank: 5, name: 'TH000', score: 3056, country: 'CN' },
-    { rank: 6, name: 'Infi', score: 2988, country: 'CN' },
-    { rank: 7, name: 'Fly100%', score: 2945, country: 'CN' },
-    { rank: 8, name: 'Focus', score: 2890, country: 'KR' },
-    { rank: 9, name: 'Remind', score: 2850, country: 'KR' },
-    { rank: 156, name: 'Bimawen', score: 2456, country: 'CN', isCurrent: true },
+  soloPlayers: Ranking[] = [
+    { rank: 1, name: "Sky", score: 3256, country: "CN" },
+    { rank: 2, name: "Moon", score: 3189, country: "KR" },
+    { rank: 3, name: "Grubby", score: 3124, country: "EU" },
+    { rank: 156, name: "Bimawen", score: 2456, country: "CN", isCurrent: true },
+    { rank: 4, name: "Lyn", score: 3087, country: "KR" },
+    { rank: 5, name: "TH000", score: 3056, country: "CN" },
+    { rank: 6, name: "Top1RusYA", score: 3015, country: "RU" },
+    { rank: 7, name: "AMIR0V", score: 2989, country: "KZ" },
+    { rank: 8, name: "Martlnez", score: 2974, country: "TR" },
+    { rank: 9, name: "Tommy", score: 2900, country: "US" },
+    { rank: 10, name: "Immensely-S", score: 2880, country: "JP" }
+  ];
+
+  teamPlayers: Ranking[] = [
+    { rank: 1, name: "World Elite (WE)", score: 8940, country: "CN" },
+    { rank: 2, name: "Mouz Esports", score: 8720, country: "EU" },
+    { rank: 3, name: "KSV_NV", score: 8550, country: "KR" },
+    { rank: 12, name: "My_Team_Alpha", score: 5600, country: "CN", isCurrent: true },
+    { rank: 4, name: "Team Liquid", score: 8400, country: "US" },
+    { rank: 5, name: "Newbee", score: 8210, country: "CN" },
+    { rank: 6, name: "Infi_Fanclub", score: 7900, country: "CN" },
+    { rank: 7, name: "Russia_United", score: 7750, country: "RU" },
+    { rank: 8, name: "Sk-Gaming", score: 7600, country: "EU" },
+    { rank: 9, name: "Top_Guns", score: 7420, country: "US" },
+    { rank: 10, name: "Golden_Viper", score: 7300, country: "KR" }
+  ];
+
+  seasonRankings = computed(() => {
+    const players = this.rankingType() === 'solo' ? this.soloPlayers : this.teamPlayers;
+    
+    // Get top 3
+    const top3 = players.filter(p => p.rank <= 3).sort((a, b) => a.rank - b.rank);
+    
+    // Get current player
+    const current = players.find(p => p.isCurrent);
+    
+    // Get others (rank > 3 and not current)
+    const others = players.filter(p => p.rank > 3 && !p.isCurrent)
+                         .sort((a, b) => a.rank - b.rank)
+                         .slice(0, 7); // Take 7 to make it 11 total if current is present
+    
+    const result = [...top3];
+    if (current) {
+      result.push(current);
+    }
+    result.push(...others);
+    
+    return result;
+  });
+
+  lastFiveGames = signal<GameRecord[]>([
+    { hero: "地穴刺客", mode: "xl, TB", duration: "28:45", kda: "7 / 3 / 21", change: 148 },
+    { hero: "隐形刺客", mode: "xl, TB", duration: "28:46", kda: "4 / 6 / 10", change: -41 },
+    { hero: "敌法师", mode: "xl, TB", duration: "43:12", kda: "9 / 2 / 4", change: 251 },
+    { hero: "潮汐猎人", mode: "xl, TB", duration: "39:17", kda: "4 / 4 / 19", change: 246 },
+    { hero: "幻影刺客", mode: "ar, TB", duration: "27:01", kda: "5 / 5 / 3", change: -28 }
+  ]);
+
+  topRecords = signal<TopRecord[]>([
+    { title: "最秀英雄", hero: "巫妖", value: "18.5", label: "酷炫因子", icon: "👑" },
+    { title: "最佳击杀", hero: "骷髅王", value: "22", label: "平均击杀", icon: "⚔️" },
+    { title: "最佳助攻", hero: "骷髅王", value: "31", label: "平均助攻", icon: "🤝" },
+    { title: "最长时间", hero: "骷髅王", value: "66:22", label: "游戏时长", icon: "⏰" },
+    { title: "最佳发育", hero: "幻影刺客", value: "436", label: "补刀数", icon: "💰" },
+    { title: "推塔最多", hero: "幻影刺客", value: "13", label: "反补建筑", icon: "🏰" }
   ]);
 
   recentGames = [1, 0, 1, 1, 0, 1, 0, 0, 1, 1, 1, 0, 1, 0, 1];
@@ -333,12 +493,21 @@ export class StatsComponent {
     });
   }
 
+  onRankingTypeChange(event: Event) {
+    const value = (event.target as HTMLSelectElement).value as 'solo' | 'team';
+    this.rankingType.set(value);
+  }
+
   getCountryFlag(country: string): string {
     const flags: Record<string, string> = {
       'CN': '🇨🇳',
       'KR': '🇰🇷',
       'EU': '🇪🇺',
-      'US': '🇺🇸'
+      'US': '🇺🇸',
+      'RU': '🇷🇺',
+      'KZ': '🇰🇿',
+      'TR': '🇹🇷',
+      'JP': '🇯🇵'
     };
     return flags[country] || '🏴';
   }
