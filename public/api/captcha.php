@@ -61,8 +61,12 @@ $targetX = mt_rand(100, $rangeX);
 // 目标 Y 坐标 (margin 到 height - pieceSize - margin)
 $targetY = mt_rand($margin, $bg_height - $piece_size - $margin);
 
-// 存入 Session 供注册时校验
-$_SESSION['captcha_x'] = $targetX;
+// 生成无状态的 Token，替代 Session
+$secret_key = 'WAR3_CAPTCHA_SECRET_KEY_2026';
+$timestamp = time();
+$payload = $targetX . '|' . $timestamp;
+$signature = hash_hmac('sha256', $payload, $secret_key);
+$captcha_token = base64_encode($payload . '|' . $signature);
 
 // 创建拼图块 (带透明通道)
 $slice_img = imagecreatetruecolor($piece_size, $piece_size);
@@ -94,5 +98,6 @@ echo json_encode([
     'bg_img' => $bg_base64,
     'slice_img' => $slice_base64,
     'x' => $targetX,
-    'y' => $targetY
+    'y' => $targetY,
+    'captcha_token' => $captcha_token
 ]);

@@ -208,29 +208,66 @@ class Database {
 
             if (!$pvpgnData) return false;
 
-            // 2. 更新 users 表中的对应字段
-            // 注意：这里需要根据你的表结构映射字段
+            // 2. 更新 users 表中的对应字段，同步所有 28 个 PvPGN 原生字段
             $sql = "UPDATE users SET 
                 uid = ?,
+                acct_username = ?,
                 acct_userid = ?,
                 acct_passhash1 = ?,
-                acct_salt = ?,
-                acct_verifier = ?,
-                acct_ctime = ?,
+                acct_email = ?,
                 auth_admin = ?,
-                auth_operator = ?
+                auth_normallogin = ?,
+                auth_changepass = ?,
+                auth_changeprofile = ?,
+                auth_botlogin = ?,
+                auth_operator = ?,
+                new_at_team_flag = ?,
+                auth_lock = ?,
+                auth_locktime = ?,
+                auth_lockreason = ?,
+                auth_mute = ?,
+                auth_mutetime = ?,
+                auth_mutereason = ?,
+                auth_command_groups = ?,
+                acct_lastlogin_time = ?,
+                acct_lastlogin_owner = ?,
+                acct_lastlogin_clienttag = ?,
+                acct_lastlogin_ip = ?,
+                acct_ctime = ?,
+                acct_userlang = ?,
+                acct_verifier = ?,
+                acct_salt = ?
                 WHERE username = ?";
             
             $stmt2 = $this->pdo->prepare($sql);
             return $stmt2->execute([
-                $pvpgnData['uid'],
-                $pvpgnData['uid'], // 假设 acct_userid 也是使用 uid
-                $pvpgnData['acct_passhash1'],
-                $pvpgnData['acct_salt'],
-                $pvpgnData['acct_verifier'],
-                $pvpgnData['acct_ctime'],
-                $pvpgnData['auth_admin'],
-                $pvpgnData['auth_operator'],
+                $pvpgnData['uid'] ?? null,
+                $pvpgnData['acct_username'] ?? null,
+                $pvpgnData['acct_userid'] ?? null,
+                $pvpgnData['acct_passhash1'] ?? null,
+                $pvpgnData['acct_email'] ?? null,
+                $pvpgnData['auth_admin'] ?? 'false',
+                $pvpgnData['auth_normallogin'] ?? 'true',
+                $pvpgnData['auth_changepass'] ?? 'true',
+                $pvpgnData['auth_changeprofile'] ?? 'true',
+                $pvpgnData['auth_botlogin'] ?? 'false',
+                $pvpgnData['auth_operator'] ?? 'false',
+                $pvpgnData['new_at_team_flag'] ?? 0,
+                $pvpgnData['auth_lock'] ?? 'false',
+                $pvpgnData['auth_locktime'] ?? 0,
+                $pvpgnData['auth_lockreason'] ?? null,
+                $pvpgnData['auth_mute'] ?? 'false',
+                $pvpgnData['auth_mutetime'] ?? 0,
+                $pvpgnData['auth_mutereason'] ?? null,
+                $pvpgnData['auth_command_groups'] ?? '1',
+                $pvpgnData['acct_lastlogin_time'] ?? 0,
+                $pvpgnData['acct_lastlogin_owner'] ?? null,
+                $pvpgnData['acct_lastlogin_clienttag'] ?? null,
+                $pvpgnData['acct_lastlogin_ip'] ?? null,
+                $pvpgnData['acct_ctime'] ?? null,
+                $pvpgnData['acct_userlang'] ?? null,
+                $pvpgnData['acct_verifier'] ?? null,
+                $pvpgnData['acct_salt'] ?? null,
                 $username
             ]);
         } catch (PDOException $e) {

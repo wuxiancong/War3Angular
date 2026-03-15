@@ -19,7 +19,7 @@ $password = $data['password'] ?? '';
 $source = $data['source'] ?? 'web'; // 获取登录来源，默认为 web
 
 if (empty($username) || empty($password)) {
-    echo json_encode(['success' => false, 'message' => '用户名或密码不能为空']);
+    echo json_encode(['success' => false, 'error_code' => 'ERR_EMPTY_CREDENTIALS', 'message' => '用户名或密码不能为空']);
     exit;
 }
 
@@ -27,12 +27,23 @@ $db = new Database();
 $user = $db->getUser($username);
 
 if (!$user) {
-    echo json_encode(['success' => false, 'message' => '用户不存在']);
+    echo json_encode(['success' => false, 'error_code' => 'ERR_USER_NOT_FOUND', 'message' => '用户不存在']);
     exit;
 }
 
 // 验证网页端 Hash
 if (password_verify($password, $user['web_password_hash'])) {
+    // 检查邮箱是否已验证
+    if ($user['is_email_verified'] == 0) {
+        echo json_encode([
+            'success' => false, 
+            'error_code' => 'ERR_EMAIL_NOT_VERIFIED',
+            'message' => '您的邮箱尚未验证，请先前往邮箱激活账号。',
+            'needs_verification' => true
+        ]);
+        exit;
+    }
+
     // 生成一个简单的 Token (实际应用中应使用 JWT)
     $token = bin2hex(random_bytes(16));
     
@@ -40,6 +51,7 @@ if (password_verify($password, $user['web_password_hash'])) {
     
     $response = [
         'success' => true,
+        'error_code' => 'SUCCESS',
         'token' => $token,
         'message' => '登录成功',
         'source' => $source
@@ -52,5 +64,5 @@ if (password_verify($password, $user['web_password_hash'])) {
     
     echo json_encode($response);
 } else {
-    echo json_encode(['success' => false, 'message' => '密码错误']);
+    echo json_encode(['success' => false, 'error_code' => 'ERR_INVALID_PASSWORD', 'message' => '密码错误']);
 }

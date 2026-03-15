@@ -30,34 +30,52 @@ $phone = trim($data['phone'] ?? '');
 $salt = $data['salt'] ?? '';
 $verifier = $data['verifier'] ?? '';
 $slide_x = isset($data['slide_x']) ? (int)$data['slide_x'] : null;
+$captcha_token = $data['captcha_token'] ?? '';
 
-if (empty($username) || empty($password) || empty($email) || $slide_x === null) {
-    echo json_encode(['success' => false, 'message' => '缺少必填字段: ' . (empty($username)?'用户名 ':'') . (empty($password)?'密码 ':'') . (empty($email)?'邮箱 ':'') . ($slide_x===null?'验证码 ':'')]);
+if (empty($username) || empty($password) || empty($email) || $slide_x === null || empty($captcha_token)) {
+    echo json_encode(['success' => false, 'error_code' => 'ERR_MISSING_FIELDS', 'message' => '缺少必填字段']);
     exit;
 }
 
-// 1. 验证滑块验证码
-if (!isset($_SESSION['captcha_x'])) {
-    echo json_encode(['success' => false, 'message' => '验证码已过期，请刷新重试']);
+// 1. 验证滑块验证码 Token
+$secret_key = 'WAR3_CAPTCHA_SECRET_KEY_2026';
+$decoded = base64_decode($captcha_token);
+if (!$decoded) {
+    echo json_encode(['success' => false, 'error_code' => 'ERR_CAPTCHA_FORMAT', 'message' => '验证码格式错误，请刷新重试']);
     exit;
 }
 
-$real_x = $_SESSION['captcha_x'];
+$parts = explode('|', $decoded);
+if (count($parts) !== 3) {
+    echo json_encode(['success' => false, 'error_code' => 'ERR_CAPTCHA_FORMAT', 'message' => '验证码格式错误，请刷新重试']);
+    exit;
+}
+
+list($real_x, $timestamp, $hash) = $parts;
+$expected_hash = hash_hmac('sha256', $real_x . '|' . $timestamp, $secret_key);
+
+if (!hash_equals($expected_hash, $hash)) {
+    echo json_encode(['success' => false, 'error_code' => 'ERR_CAPTCHA_SIGNATURE', 'message' => '验证码签名无效，请刷新重试']);
+    exit;
+}
+
+if (time() - (int)$timestamp > 300) { // 5分钟过期
+    echo json_encode(['success' => false, 'error_code' => 'ERR_CAPTCHA_EXPIRED', 'message' => '验证码已过期，请刷新重试']);
+    exit;
+}
+
 $tolerance = 5; // 允许的误差像素
 
-if (abs($real_x - $slide_x) > $tolerance) {
-    echo json_encode(['success' => false, 'message' => '滑块验证失败，请重试']);
+if (abs((int)$real_x - $slide_x) > $tolerance) {
+    echo json_encode(['success' => false, 'error_code' => 'ERR_CAPTCHA_FAILED', 'message' => '滑块验证失败，请重试']);
     exit;
 }
-
-// 验证成功后，清除 session 防止重复使用
-unset($_SESSION['captcha_x']);
 
 // 2. 检查用户是否已存在
 $db = new Database();
 $checkResult = $db->checkUserInBothTables($username);
 if ($checkResult['exists']) {
-    echo json_encode(['success' => false, 'message' => '该用户名已被注册']);
+    echo json_encode(['success' => false, 'error_code' => 'ERR_USER_EXISTS', 'message' => '该用户名已被注册']);
     exit;
 }
 
@@ -126,15 +144,21 @@ if ($db->createUser($username, $password, $email, $phone, $salt, $verifier, $ema
     $headers .= "From: noreply@{$host}" . "\r\n";
     
     // 发送邮件 (注意：在某些服务器或本地环境中，mail() 函数可能无法正常工作，需要配置 sendmail 或使用 SMTP 插件)
-    @mail($email, $subject, $message, $headers);
+    require_once 'mailer.php';
+    $mailer = new Mailer();
+    $subject = "欢迎注册！请验证您的邮箱";
+    $message = $mailer->getVerificationTemplate($username, $verify_link);
+
+    $mail_sent = $mailer->send($email, $subject, $message);
 
     echo json_encode([
         'success' => true, 
-        'message' => '注册成功！请检查您的邮箱进行验证。',
+        'error_code' => 'SUCCESS_REGISTERED',
+        'message' => '注册成功！请检查您的邮箱进行验证。' . (!$mail_sent ? ' (注意：邮件发送失败，请检查 SMTP 配置)' : ''),
         'token' => $jwt_token,
         'debug_verify_link' => $verify_link // 仅供测试阶段查看，生产环境请移除
     ]);
 } else {
     http_response_code(500);
-    echo json_encode(['success' => false, 'message' => '注册失败，请稍后再试']);
+    echo json_encode(['success' => false, 'error_code' => 'ERR_REGISTER_FAILED', 'message' => '注册失败，请稍后再试']);
 }

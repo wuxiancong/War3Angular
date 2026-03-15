@@ -274,6 +274,25 @@ const messages = {
             systemInstruction: "你是一个 Dota 1 竞技平台（CC对战平台）的在线客服助手。你需要以专业、热情、简洁的方式回答玩家关于平台使用、地图版本、英雄数据、举报流程等方面的问题。如果玩家问到你不确定的技术细节，请引导他们联系人工客服或查看 FAQ。",
             deepseekError: "抱歉，DeepSeek 返回的数据格式异常。",
             geminiError: "抱歉，我暂时无法回答这个问题。"
+        },
+        error: {
+            ERR_EMPTY_CREDENTIALS: "用户名或密码不能为空",
+            ERR_USER_NOT_FOUND: "用户不存在",
+            ERR_EMAIL_NOT_VERIFIED: "您的邮箱尚未验证，请先前往邮箱激活账号。",
+            ERR_INVALID_PASSWORD: "密码错误",
+            ERR_EMPTY_USERNAME: "用户名不能为空",
+            ERR_EMAIL_ALREADY_VERIFIED: "该邮箱已经验证过了，无需重复验证",
+            SUCCESS_EMAIL_SENT: "验证邮件已重新发送，请检查您的邮箱。",
+            ERR_EMAIL_SEND_FAILED: "邮件发送失败，请检查服务器配置",
+            ERR_SYSTEM_ERROR: "系统错误，请稍后再试",
+            ERR_MISSING_FIELDS: "缺少必填字段",
+            ERR_CAPTCHA_FORMAT: "验证码格式错误，请刷新重试",
+            ERR_CAPTCHA_SIGNATURE: "验证码签名无效，请刷新重试",
+            ERR_CAPTCHA_EXPIRED: "验证码已过期，请刷新重试",
+            ERR_CAPTCHA_FAILED: "滑块验证失败，请重试",
+            ERR_USER_EXISTS: "该用户名已被注册",
+            SUCCESS_REGISTERED: "注册成功！请检查您的邮箱进行验证。",
+            ERR_REGISTER_FAILED: "注册失败，请稍后再试"
         }
     },
     en: {
@@ -548,6 +567,25 @@ const messages = {
             systemInstruction: "You are an online customer service assistant for a Dota 1 competitive platform (CC Battle Platform). You need to answer players' questions about platform usage, map versions, hero data, reporting processes, etc., in a professional, enthusiastic, and concise manner. If a player asks about technical details you are unsure of, guide them to contact human support or check the FAQ.",
             deepseekError: "Sorry, the data returned by DeepSeek is in an abnormal format.",
             geminiError: "Sorry, I am temporarily unable to answer this question."
+        },
+        error: {
+            ERR_EMPTY_CREDENTIALS: "Username or password cannot be empty",
+            ERR_USER_NOT_FOUND: "User does not exist",
+            ERR_EMAIL_NOT_VERIFIED: "Your email is not verified. Please check your inbox to activate your account.",
+            ERR_INVALID_PASSWORD: "Incorrect password",
+            ERR_EMPTY_USERNAME: "Username cannot be empty",
+            ERR_EMAIL_ALREADY_VERIFIED: "This email is already verified",
+            SUCCESS_EMAIL_SENT: "Verification email has been resent. Please check your inbox.",
+            ERR_EMAIL_SEND_FAILED: "Failed to send email. Please check server configuration.",
+            ERR_SYSTEM_ERROR: "System error, please try again later",
+            ERR_MISSING_FIELDS: "Missing required fields",
+            ERR_CAPTCHA_FORMAT: "Captcha format error, please refresh and try again",
+            ERR_CAPTCHA_SIGNATURE: "Invalid captcha signature, please refresh and try again",
+            ERR_CAPTCHA_EXPIRED: "Captcha expired, please refresh and try again",
+            ERR_CAPTCHA_FAILED: "Slider verification failed, please try again",
+            ERR_USER_EXISTS: "Username is already registered",
+            SUCCESS_REGISTERED: "Registration successful! Please check your email for verification.",
+            ERR_REGISTER_FAILED: "Registration failed, please try again later"
         }
     }
 };

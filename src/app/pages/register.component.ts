@@ -6,7 +6,6 @@ import { NgClass, isPlatformBrowser } from '@angular/common';
 import { RouterLink, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { timeout } from 'rxjs/operators';
-import { BnetSRP3 } from '../utils/bnet-srp3';
 
 @Component({
   selector: 'app-register',
@@ -253,6 +252,7 @@ export class RegisterComponent implements OnDestroy {
   
   bgUrl = signal('');
   sliceUrl = signal('');
+  captchaToken = signal('');
   showPassword = signal(false);
   showConfirmPassword = signal(false);
 
@@ -324,7 +324,7 @@ export class RegisterComponent implements OnDestroy {
 
   refreshPuzzle() {
     this.isLoadingImage.set(true);
-    this.http.get<{success: boolean, bg_img: string, slice_img: string, x: number, y: number, message?: string}>('/api/captcha.php')
+    this.http.get<{success: boolean, bg_img: string, slice_img: string, x: number, y: number, captcha_token: string, message?: string}>('/api/captcha.php', { withCredentials: true })
       .subscribe({
         next: (res) => {
           this.isLoadingImage.set(false);
@@ -333,6 +333,7 @@ export class RegisterComponent implements OnDestroy {
             this.sliceUrl.set(res.slice_img);
             this.rawTargetX.set(res.x);
             this.rawTargetY.set(res.y);
+            this.captchaToken.set(res.captcha_token);
             this.initDimensions();
           } else {
             this.errorMessage.set(res.message || '无法加载验证码');
@@ -400,12 +401,20 @@ export class RegisterComponent implements OnDestroy {
     this.isDragging.set(false);
     this.removeDragListeners();
     
-    // 前端不再校验具体位置，直接标记为“待提交验证”
-    // 或者我们可以保留一个简单的本地校验，但最终以服务器为准
-    // 这里我们假设用户只要拖动了滑块，就允许点击提交，由后端 register.php 校验 slide_x
-    this.verifyState.set('success');
-    this.errorMessage.set('');
-    this.startVerifyTimer();
+    const currentX = Math.round(this.puzzleX() / this.scale());
+    const targetX = this.rawTargetX();
+    
+    // 允许 5 像素的误差
+    if (Math.abs(currentX - targetX) <= 5) {
+      this.verifyState.set('success');
+      this.errorMessage.set('');
+      this.startVerifyTimer();
+    } else {
+      this.verifyState.set('fail');
+      setTimeout(() => {
+        this.resetPuzzle();
+      }, 1000);
+    }
   }
 
   startVerifyTimer() {
@@ -467,7 +476,7 @@ export class RegisterComponent implements OnDestroy {
 
   i18n = inject(I18nService);
 
-  async submit() {
+  submit() {
     if (this.canSubmit() && !this.isLoading()) {
       this.isLoading.set(true);
       this.errorMessage.set('');
@@ -477,55 +486,41 @@ export class RegisterComponent implements OnDestroy {
       const password = this.form.get('pass')?.value || '';
       const email = this.form.get('email')?.value || '';
 
-      try {
-        const srp = new BnetSRP3(username, password);
-        const saltBytes = srp.getSalt();
-        const verifierBytes = await srp.getVerifier();
-
-        // Convert to hex strings for the backend
-        const saltHex = Array.from(saltBytes).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
-        const verifierHex = Array.from(verifierBytes).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
-
-        // 使用相对路径的 API URL
-        const apiUrl = '/api/register.php';
-        
-        this.http.post<{success: boolean, message: string}>(apiUrl, { 
-          username, 
-          password, 
-          email,
-          salt: saltHex,
-          verifier: verifierHex,
-          slide_x: Math.round(this.puzzleX() / this.scale())
-        }).pipe(
-            timeout(5000) // 5秒超时
-        ).subscribe({
-          next: (res) => {
-            this.isLoading.set(false);
-            if (res.success) {
-              this.successMessage.set(this.i18n.t('reg.regSuccess'));
-              // 弹出成功提示
-              alert(this.i18n.t('reg.regSuccess'));
-              setTimeout(() => this.router.navigate(['/login']), 2000);
-            } else {
-              this.errorMessage.set(res.message || this.i18n.t('reg.regFail'));
-              // 失败后重置验证码
-              this.resetPuzzle();
-            }
-          },
-          error: (err) => {
-            this.isLoading.set(false);
-            const backendMsg = err.error?.message;
-            this.errorMessage.set(backendMsg || this.i18n.t('reg.networkError'));
-            console.error(err);
+      // 使用相对路径的 API URL
+      const apiUrl = '/api/register.php';
+      
+      this.http.post<{success: boolean, message: string, debug_verify_link?: string}>(apiUrl, { 
+        username, 
+        password, 
+        email,
+        slide_x: Math.round(this.puzzleX() / this.scale()),
+        captcha_token: this.captchaToken()
+      }, { withCredentials: true }).pipe(
+          timeout(5000) // 5秒超时
+      ).subscribe({
+        next: (res) => {
+          this.isLoading.set(false);
+          if (res.debug_verify_link) {
+            console.log('%c[测试环境] 激活链接: %c' + res.debug_verify_link, 'color: #4CAF50; font-weight: bold;', 'color: #2196F3; text-decoration: underline;');
           }
-        });
-      } catch (err: unknown) {
-        this.isLoading.set(false);
-        // 显示详细错误信息以便调试
-        const detail = err instanceof Error ? err.message : String(err);
-        this.errorMessage.set(`${this.i18n.t('reg.cryptoError')} (${detail})`);
-        console.error('SRP Generation Error:', err);
-      }
+          if (res.success) {
+            this.successMessage.set(this.i18n.t('reg.regSuccess'));
+            // 弹出成功提示
+            alert(res.message || this.i18n.t('reg.regSuccess'));
+            setTimeout(() => this.router.navigate(['/login']), 2000);
+          } else {
+            this.errorMessage.set(res.message || this.i18n.t('reg.regFail'));
+            // 失败后重置验证码
+            this.resetPuzzle();
+          }
+        },
+        error: (err) => {
+          this.isLoading.set(false);
+          const backendMsg = err.error?.message;
+          this.errorMessage.set(backendMsg || this.i18n.t('reg.networkError'));
+          console.error(err);
+        }
+      });
     }
   }
 }

@@ -111,9 +111,16 @@ interface LoginStep2Response {
             
             <!-- 预留固定高度的错误提示容器 -->
             <div class="h-[80px] mt-4 overflow-y-auto">
-                @if (errorMessage()) {
-                    <div class="bg-red-500/20 border border-red-500 text-red-400 px-4 py-1 rounded text-sm text-center animate-pulse">
+                @if (errorMessage() && (!needsVerification() || errorUsernames().includes(form.get('user')?.value || ''))) {
+                    <div class="bg-red-500/20 border border-red-500 text-red-400 px-4 py-1 rounded text-sm text-center">
                         {{ errorMessage() }}
+                        @if (needsVerification()) {
+                            <div class="mt-1">
+                                <button (click)="resendVerification()" class="text-[var(--text-muted)] hover:text-[var(--accent)] cursor-pointer text-sm transition-colors bg-transparent border-none">
+                                    没收到邮件？
+                                </button>
+                            </div>
+                        }
                     </div>
                 }
             </div>
@@ -130,6 +137,8 @@ export class LoginComponent {
   
   isLoading = signal(false);
   errorMessage = signal('');
+  errorUsernames = signal<string[]>([]);
+  needsVerification = signal(false);
   focusedField = signal<string | null>(null);
   showPassword = signal(false);
   loginStep = signal<'web' | 'srp1' | 'srp2'>('web');
@@ -203,6 +212,7 @@ export class LoginComponent {
     
     this.isLoading.set(true);
     this.errorMessage.set('');
+    this.needsVerification.set(false);
     
     const username = this.form.get('user')?.value || '';
     const password = this.form.get('pass')?.value || '';
@@ -218,7 +228,7 @@ export class LoginComponent {
 
     try {
       // 第一步：网页端验证 (Web Login)
-      this.http.post<{ success: boolean; token?: string; message?: string }>('/api/web_login.php', {
+      this.http.post<{ success: boolean; token?: string; message?: string; needs_verification?: boolean; error_code?: string }>('/api/web_login.php', {
         username,
         password,
         source: this.loginSource()
@@ -241,7 +251,19 @@ export class LoginComponent {
             }
           } else {
             this.isLoading.set(false);
-            this.errorMessage.set(res.message || this.i18n.t('login.webAuthFail'));
+            if (res.error_code) {
+              this.errorMessage.set(this.i18n.t(`error.${res.error_code}`));
+            } else {
+              this.errorMessage.set(res.message || this.i18n.t('login.webAuthFail'));
+            }
+            if (res.needs_verification) {
+              this.needsVerification.set(true);
+              if (!this.errorUsernames().includes(username)) {
+                this.errorUsernames.update(names => [...names, username]);
+              }
+            } else {
+              this.needsVerification.set(false);
+            }
           }
         },
         error: (err) => {
@@ -322,5 +344,34 @@ export class LoginComponent {
         console.error(err);
       }
     });
+  }
+
+  resendVerification() {
+    const username = this.form.get('user')?.value;
+    if (!username) return;
+
+    this.isLoading.set(true);
+    this.http.post<{ success: boolean; message: string; error_code?: string; debug_verify_link?: string }>('/api/resend_verification.php', { username })
+      .subscribe({
+        next: (res) => {
+          this.isLoading.set(false);
+          if (res.error_code) {
+            this.errorMessage.set(this.i18n.t(`error.${res.error_code}`));
+          } else {
+            this.errorMessage.set(res.message);
+          }
+          if (res.debug_verify_link) {
+            console.log('%c[测试环境] 激活链接: %c' + res.debug_verify_link, 'color: #4CAF50; font-weight: bold;', 'color: #2196F3; text-decoration: underline;');
+          }
+          if (res.success) {
+            this.needsVerification.set(false);
+          }
+        },
+        error: (err) => {
+          this.isLoading.set(false);
+          this.errorMessage.set(this.i18n.t('reg.networkError'));
+          console.error(err);
+        }
+      });
   }
 }
