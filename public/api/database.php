@@ -231,6 +231,15 @@ class Database {
     }
 
     /**
+     * 通过用户名获取临时用户
+     */
+    public function getTempUserByUsername($username) {
+        $stmt = $this->pdo->prepare("SELECT * FROM temp_users WHERE username = ?");
+        $stmt->execute([$username]);
+        return $stmt->fetch();
+    }
+
+    /**
      * 删除临时用户
      */
     public function deleteTempUser($username) {
