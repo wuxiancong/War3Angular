@@ -95,16 +95,11 @@ class Mailer {
                 if ($error !== null) {
                     $this->log("mail() 内部错误详情: " . $error['message']);
                 } else {
-                    $this->log("mail() 返回 false，但没有产生 PHP 错误。这通常意味着 sendmail 进程返回了非零退出码。");
-                    
-                    // 尝试执行一个测试命令来查看 sendmail 的实际输出
-                    $sendmail_path = ini_get('sendmail_path');
-                    if ($sendmail_path) {
-                        $test_cmd = "echo 'Subject: test' | " . $sendmail_path . " 2>&1";
-                        $output = shell_exec($test_cmd);
-                        $this->log("sendmail 测试执行输出: " . ($output ?: "无输出"));
-                    }
+                    $this->log("mail() 返回 false (sendmail 进程返回了非零退出码)。");
                 }
+            } else {
+                $this->log("mail() 返回 true。邮件已成功移交给本地 Postfix 队列。");
+                $this->log("注意：这不代表邮件已送达！真实的投递状态请在 Ubuntu 终端查看: tail -f /var/log/mail.log");
             }
             
             return $result;
