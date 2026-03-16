@@ -9,10 +9,15 @@ class ClientManager {
     private $socket;
     private $username;
     private $password;
+    private $lastError = null;
 
     public function __construct($host, $port = 6112) {
         $this->host = $host;
         $this->port = $port;
+    }
+
+    public function getLastError() {
+        return $this->lastError;
     }
 
     /**
@@ -21,11 +26,13 @@ class ClientManager {
     public function register($username, $password) {
         $this->username = $username;
         $this->password = $password;
+        $this->lastError = null;
 
         // 1. 建立 TCP 连接
         $this->socket = fsockopen($this->host, $this->port, $errno, $errstr, 5);
         if (!$this->socket) {
-            throw new Exception("无法连接到 PvPGN 服务器: $errstr ($errno)");
+            $this->lastError = "无法连接到 PvPGN 服务器: $errstr ($errno)";
+            throw new Exception($this->lastError);
         }
 
         stream_set_timeout($this->socket, 5);
@@ -52,6 +59,10 @@ class ClientManager {
                     $this->sendPacket(0x25, $payload);
                 }
             }
+            $this->lastError = "未收到 0x50/0x51 响应，连接可能已断开或超时";
+        } catch (Exception $e) {
+            $this->lastError = $e->getMessage();
+            throw $e;
         } finally {
             fclose($this->socket);
         }
@@ -93,13 +104,21 @@ class ClientManager {
         $this->sendPacket(0x52, $payload);
 
         // 4. 等待注册结果
-        $result = $this->readPacket();
-        if ($result && $result['id'] === 0x52) {
-            $status = unpack('V', substr($result['payload'], 0, 4))[1];
-            return $status === 0; // 0 表示成功
+        while ($result = $this->readPacket()) {
+            if ($result['id'] === 0x52) {
+                $status = unpack('V', substr($result['payload'], 0, 4))[1];
+                if ($status === 0) {
+                    return true;
+                } else {
+                    throw new Exception("PvPGN 注册失败，状态码: " . $status);
+                }
+            }
+            if ($result['id'] === 0x25) {
+                $this->sendPacket(0x25, $result['payload']);
+            }
         }
 
-        return false;
+        throw new Exception("PvPGN 注册超时或连接断开");
     }
 
     private function sendPacket($id, $payload) {

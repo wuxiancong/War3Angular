@@ -43,11 +43,12 @@ try {
     if ($pvpgn->register($tempUser['username'], $password)) {
         $pvpgnRegistered = true;
     } else {
-        die("<h2>验证失败</h2><p>PvPGN 游戏服务器注册失败，请稍后重试。</p>");
+        $errorMsg = $pvpgn->getLastError() ?? '未知错误';
+        die("<h2>验证失败</h2><p>PvPGN 游戏服务器注册失败，请稍后重试。详细信息: {$errorMsg}</p>");
     }
 } catch (Exception $e) {
     error_log("PvPGN TCP Registration failed: " . $e->getMessage());
-    die("<h2>验证失败</h2><p>PvPGN 游戏服务器连接失败，请稍后重试。</p>");
+    die("<h2>验证失败</h2><p>PvPGN 游戏服务器连接失败，请稍后重试。详细信息: " . $e->getMessage() . "</p>");
 }
 
 // 3. 注册成功后，将临时用户移动到主用户表
