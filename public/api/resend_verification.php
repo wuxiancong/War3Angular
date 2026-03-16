@@ -24,13 +24,17 @@ if (empty($username)) {
 $db = new Database();
 $user = $db->getUser($username);
 
-if (!$user) {
-    echo json_encode(['success' => false, 'error_code' => 'ERR_USER_NOT_FOUND', 'message' => '用户不存在']);
-    exit;
+if ($user) {
+    if ($user['is_email_verified'] == 1) {
+        echo json_encode(['success' => false, 'error_code' => 'ERR_EMAIL_ALREADY_VERIFIED', 'message' => '该邮箱已经验证过了，无需重复验证']);
+        exit;
+    }
 }
 
-if ($user['is_email_verified'] == 1) {
-    echo json_encode(['success' => false, 'error_code' => 'ERR_EMAIL_ALREADY_VERIFIED', 'message' => '该邮箱已经验证过了，无需重复验证']);
+$tempUser = $db->getTempUserByUsername($username);
+
+if (!$tempUser) {
+    echo json_encode(['success' => false, 'error_code' => 'ERR_USER_NOT_FOUND', 'message' => '用户不存在']);
     exit;
 }
 
@@ -41,9 +45,9 @@ if ($user['is_email_verified'] == 1) {
 $email_token = bin2hex(random_bytes(32));
 $email_expires = date('Y-m-d H:i:s', strtotime('+24 hours'));
 
-// 更新数据库
+// 更新数据库 (更新 temp_users 表)
 $pdo = $db->getConnection();
-$stmt = $pdo->prepare("UPDATE users SET email_verify_token = ?, email_verify_expires = ? WHERE username = ?");
+$stmt = $pdo->prepare("UPDATE temp_users SET email_verify_token = ?, email_verify_expires = ? WHERE username = ?");
 if ($stmt->execute([$email_token, $email_expires, $username])) {
     
     // 发送邮件
@@ -51,23 +55,7 @@ if ($stmt->execute([$email_token, $email_expires, $username])) {
     $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
     $verify_link = "{$protocol}://{$host}/api/verify_email.php?token=" . $email_token;
     
-    $email = $user['acct_email'];
-    $subject = "重发验证邮件：请激活您的账号";
-    $message = "
-    <html>
-    <head><title>邮箱验证</title></head>
-    <body>
-        <h2>您好，{$username}：</h2>
-        <p>您请求重新发送验证邮件。请点击以下链接验证您的邮箱（24小时内有效）：</p>
-        <p><a href='{$verify_link}'>{$verify_link}</a></p>
-        <p>如果您没有请求此操作，请忽略此邮件。</p>
-    </body>
-    </html>
-    ";
-    
-    $headers = "MIME-Version: 1.0" . "\r\n";
-    $headers .= "Content-type:text/html;charset=UTF-8" . "\r\n";
-    $headers .= "From: noreply@{$host}" . "\r\n";
+    $email = $tempUser['acct_email'];
     
     require_once 'mailer.php';
     $mailer = new Mailer();
