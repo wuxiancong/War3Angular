@@ -268,7 +268,12 @@ export class LoginComponent {
         },
         error: (err) => {
           this.isLoading.set(false);
-          this.errorMessage.set(this.i18n.t('reg.networkError'));
+          const status = err.status || 'Unknown';
+          if (status === 404) {
+            this.errorMessage.set(this.i18n.t('error.ERR_CONNECTION_FAILED_404'));
+          } else {
+            this.errorMessage.set(`${this.i18n.t('reg.networkError')} (Code: ${status})`);
+          }
           console.error(err);
         }
       });
@@ -291,16 +296,16 @@ export class LoginComponent {
         A: A_hex,
         web_token: this.webToken()
       }).subscribe({
-        next: async (res) => {
+        next: (res) => {
           if (res.status === 0 && res.salt && res.B) {
             const saltBytes = new Uint8Array(res.salt.match(/.{1,2}/g)!.map((byte: string) => parseInt(byte, 16)));
             const B_bytes = new Uint8Array(res.B.match(/.{1,2}/g)!.map((byte: string) => parseInt(byte, 16)));
 
             srp.setSalt(saltBytes);
-            const M1_bytes = await srp.getClientPasswordProof(B_bytes);
-            const M1_hex = Array.from(M1_bytes).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
-
-            this.sendSRPProof(username, M1_hex);
+            srp.getClientPasswordProof(B_bytes).then(M1_bytes => {
+              const M1_hex = Array.from(M1_bytes).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+              this.sendSRPProof(username, M1_hex);
+            });
           } else {
             this.isLoading.set(false);
             this.errorMessage.set(res.message || this.i18n.t('login.bnetAuthFail'));
@@ -308,7 +313,12 @@ export class LoginComponent {
         },
         error: (err) => {
           this.isLoading.set(false);
-          this.errorMessage.set(this.i18n.t('reg.networkError'));
+          const status = err.status || 'Unknown';
+          if (status === 404) {
+            this.errorMessage.set(this.i18n.t('error.ERR_CONNECTION_FAILED_404'));
+          } else {
+            this.errorMessage.set(`${this.i18n.t('reg.networkError')} (Code: ${status})`);
+          }
           console.error(err);
         }
       });
@@ -340,7 +350,12 @@ export class LoginComponent {
       },
       error: (err) => {
         this.isLoading.set(false);
-        this.errorMessage.set(this.i18n.t('reg.networkError'));
+        const status = err.status || 'Unknown';
+        if (status === 404) {
+          this.errorMessage.set(this.i18n.t('error.ERR_CONNECTION_FAILED_404'));
+        } else {
+          this.errorMessage.set(`${this.i18n.t('reg.networkError')} (Code: ${status})`);
+        }
         console.error(err);
       }
     });
@@ -369,7 +384,12 @@ export class LoginComponent {
         },
         error: (err) => {
           this.isLoading.set(false);
-          this.errorMessage.set(this.i18n.t('reg.networkError'));
+          const status = err.status || 'Unknown';
+          if (status === 404) {
+            this.errorMessage.set(this.i18n.t('error.ERR_CONNECTION_FAILED_404'));
+          } else {
+            this.errorMessage.set(`${this.i18n.t('reg.networkError')} (Code: ${status})`);
+          }
           console.error(err);
         }
       });

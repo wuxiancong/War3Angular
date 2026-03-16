@@ -32,7 +32,7 @@ const messages = {
             verifyComplete: "验证通过", 
             slideToVerify: "向右滑动完成拼图", 
             tryAgain: "请重试", 
-            networkError: "网络请求失败，请检查后端服务是否正常运行。", 
+            networkError: "连接服务器失败", 
             cryptoError: "加密计算失败，请更换现代浏览器重试。", 
             regSuccess: "注册成功！即将跳转到登录页...", 
             regFail: "注册失败", 
@@ -292,7 +292,8 @@ const messages = {
             ERR_CAPTCHA_FAILED: "滑块验证失败，请重试",
             ERR_USER_EXISTS: "该用户名已被注册",
             SUCCESS_REGISTERED: "注册成功！请检查您的邮箱进行验证。",
-            ERR_REGISTER_FAILED: "注册失败，请稍后再试"
+            ERR_REGISTER_FAILED: "注册失败，请稍后再试",
+            ERR_CONNECTION_FAILED_404: "连接服务器失败（404）"
         }
     },
     en: {
@@ -325,7 +326,7 @@ const messages = {
             verifyComplete: "Verified", 
             slideToVerify: "Slide right to complete puzzle", 
             tryAgain: "TRY AGAIN", 
-            networkError: "Network request failed. Please check if the backend service is running.", 
+            networkError: "Connection failed", 
             cryptoError: "Encryption calculation failed. Please try again with a modern browser.", 
             regSuccess: "Registration successful! Redirecting to login page...", 
             regFail: "Registration failed", 
@@ -585,7 +586,8 @@ const messages = {
             ERR_CAPTCHA_FAILED: "Slider verification failed, please try again",
             ERR_USER_EXISTS: "Username is already registered",
             SUCCESS_REGISTERED: "Registration successful! Please check your email for verification.",
-            ERR_REGISTER_FAILED: "Registration failed, please try again later"
+            ERR_REGISTER_FAILED: "Registration failed, please try again later",
+            ERR_CONNECTION_FAILED_404: "Connection failed (404)"
         }
     }
 };

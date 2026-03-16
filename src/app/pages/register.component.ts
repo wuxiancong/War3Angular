@@ -341,7 +341,12 @@ export class RegisterComponent implements OnDestroy {
         },
         error: (err) => {
           this.isLoadingImage.set(false);
-          this.errorMessage.set('网络错误，无法加载验证码');
+          const status = err.status || 'Unknown';
+          if (status === 404) {
+            this.errorMessage.set(this.i18n.t('error.ERR_CONNECTION_FAILED_404'));
+          } else {
+            this.errorMessage.set(`${this.i18n.t('reg.networkError')} (Code: ${status})`);
+          }
           console.error(err);
         }
       });
@@ -516,8 +521,12 @@ export class RegisterComponent implements OnDestroy {
         },
         error: (err) => {
           this.isLoading.set(false);
-          const backendMsg = err.error?.message;
-          this.errorMessage.set(backendMsg || this.i18n.t('reg.networkError'));
+          const status = err.status || 'Unknown';
+          if (status === 404) {
+            this.errorMessage.set(this.i18n.t('error.ERR_CONNECTION_FAILED_404'));
+          } else {
+            this.errorMessage.set(`${this.i18n.t('reg.networkError')} (Code: ${status})`);
+          }
           console.error(err);
         }
       });

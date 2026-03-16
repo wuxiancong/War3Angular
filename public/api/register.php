@@ -9,6 +9,7 @@
  * 4. Generate JWT Token
  */
 session_start();
+error_log("[Register Debug] Register API called");
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *'); 
 header('Access-Control-Allow-Methods: POST, OPTIONS');
