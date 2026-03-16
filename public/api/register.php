@@ -119,9 +119,8 @@ if ($db->createTempUser($username, $password, $email, $phone, $salt, $verifier, 
 
     $mail_sent = $mailer->send($email, $subject, $message);
     
-    if ($mail_sent) {
-        $db->logEmailSent($email);
-    }
+    // 无论发送是否成功，都记录尝试时间，以防止恶意频繁请求
+    $db->logEmailSent($email);
 
     echo json_encode([
         'success' => true, 

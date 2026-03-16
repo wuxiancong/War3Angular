@@ -123,13 +123,16 @@ class Database {
      * 检查是否可以发送邮件 (限制 60 秒内只能发送一次)
      */
     public function canSendEmail($email) {
+        $email = trim($email);
         $stmt = $this->pdo->prepare("SELECT sent_at FROM email_logs WHERE email = ? ORDER BY sent_at DESC LIMIT 1");
         $stmt->execute([$email]);
         $lastSent = $stmt->fetchColumn();
         
         if ($lastSent) {
             $lastSentTime = strtotime($lastSent);
-            if (time() - $lastSentTime < 60) {
+            $diff = time() - $lastSentTime;
+            error_log("canSendEmail: email=$email, lastSent=$lastSent, diff=$diff");
+            if ($diff < 60) {
                 return false;
             }
         }
@@ -140,8 +143,13 @@ class Database {
      * 记录邮件发送时间
      */
     public function logEmailSent($email) {
-        $stmt = $this->pdo->prepare("INSERT INTO email_logs (email, sent_at) VALUES (?, NOW())");
-        return $stmt->execute([$email]);
+        $email = trim($email);
+        $stmt = $this->pdo->prepare("INSERT INTO email_logs (email, sent_at) VALUES (?, ?)");
+        $result = $stmt->execute([$email, date('Y-m-d H:i:s')]);
+        if (!$result) {
+            error_log("logEmailSent failed: " . implode(" ", $stmt->errorInfo()));
+        }
+        return $result;
     }
 
     /**
