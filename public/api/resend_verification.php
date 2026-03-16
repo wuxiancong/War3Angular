@@ -22,6 +22,13 @@ if (empty($username)) {
 }
 
 $db = new Database();
+
+// 检查发送频率
+if (!$db->canSendEmail($tempUser['acct_email'])) {
+    echo json_encode(['success' => false, 'error_code' => 'ERR_TOO_MANY_REQUESTS', 'message' => '发送过于频繁，请稍后再试']);
+    exit;
+}
+
 $user = $db->getUser($username);
 
 if ($user) {
@@ -63,6 +70,10 @@ if ($stmt->execute([$email_token, $email_expires, $username])) {
     $message = $mailer->getVerificationTemplate($username, $verify_link);
     
     $mail_sent = $mailer->send($email, $subject, $message);
+    
+    if ($mail_sent) {
+        $db->logEmailSent($email);
+    }
     
     // 在没有配置 SMTP 服务的开发环境中，mail() 会返回 false。
     // 为了方便测试，我们始终返回成功并附带 debug_verify_link。

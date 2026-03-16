@@ -102,6 +102,12 @@ class Database {
                 UNIQUE KEY idx_temp_username (username),
                 UNIQUE KEY idx_temp_email (acct_email),
                 INDEX idx_temp_token (email_verify_token)
+            // c. 邮件发送记录表 (email_logs)
+            $this->pdo->exec("CREATE TABLE IF NOT EXISTS email_logs (
+                id INT NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '自增ID',
+                email VARCHAR(128) NOT NULL COMMENT '邮箱地址',
+                sent_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '发送时间',
+                INDEX idx_email_sent (email, sent_at)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
         } catch (PDOException $e) {
             // 在实际生产环境中，不要把详细的数据库错误暴露给前端，记录到日志即可
@@ -109,6 +115,31 @@ class Database {
             http_response_code(500);
             die(json_encode(['success' => false, 'message' => '数据库连接失败']));
         }
+    }
+
+    /**
+     * 检查是否可以发送邮件 (限制 60 秒内只能发送一次)
+     */
+    public function canSendEmail($email) {
+        $stmt = $this->pdo->prepare("SELECT sent_at FROM email_logs WHERE email = ? ORDER BY sent_at DESC LIMIT 1");
+        $stmt->execute([$email]);
+        $lastSent = $stmt->fetchColumn();
+        
+        if ($lastSent) {
+            $lastSentTime = strtotime($lastSent);
+            if (time() - $lastSentTime < 60) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * 记录邮件发送时间
+     */
+    public function logEmailSent($email) {
+        $stmt = $this->pdo->prepare("INSERT INTO email_logs (email, sent_at) VALUES (?, NOW())");
+        return $stmt->execute([$email]);
     }
 
     /**

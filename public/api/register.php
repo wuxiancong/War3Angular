@@ -74,6 +74,13 @@ if (abs((int)$real_x - $slide_x) > $tolerance) {
 
 // 2. 检查用户是否已存在
 $db = new Database();
+
+// 检查发送频率
+if (!$db->canSendEmail($email)) {
+    echo json_encode(['success' => false, 'error_code' => 'ERR_TOO_MANY_REQUESTS', 'message' => '发送过于频繁，请稍后再试']);
+    exit;
+}
+
 $checkResult = $db->checkUserInBothTables($username);
 if ($checkResult['exists']) {
     echo json_encode(['success' => false, 'error_code' => 'ERR_USER_EXISTS', 'message' => '该用户名已被注册']);
@@ -111,6 +118,10 @@ if ($db->createTempUser($username, $password, $email, $phone, $salt, $verifier, 
     $message = $mailer->getVerificationTemplate($username, $verify_link);
 
     $mail_sent = $mailer->send($email, $subject, $message);
+    
+    if ($mail_sent) {
+        $db->logEmailSent($email);
+    }
 
     echo json_encode([
         'success' => true, 
