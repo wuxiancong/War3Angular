@@ -102,6 +102,8 @@ class Database {
                 UNIQUE KEY idx_temp_username (username),
                 UNIQUE KEY idx_temp_email (acct_email),
                 INDEX idx_temp_token (email_verify_token)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
             // c. 邮件发送记录表 (email_logs)
             $this->pdo->exec("CREATE TABLE IF NOT EXISTS email_logs (
                 id INT NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '自增ID',
