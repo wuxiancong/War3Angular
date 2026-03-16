@@ -210,19 +210,34 @@ class Database {
     }
 
     /**
-     * 检查邮箱是否存在于 users 或 temp_users 表中
+     * 检查邮箱是否存在于 temp_users, users 或 pvpgn_BNET 表中
      */
     public function checkEmailExists($email) {
+        $email = trim($email);
+
+        // 1. 检查 temp_users 表
+        $stmtTemp = $this->pdo->prepare("SELECT COUNT(*) FROM temp_users WHERE acct_email = ?");
+        $stmtTemp->execute([$email]);
+        if ($stmtTemp->fetchColumn() > 0) {
+            return true;
+        }
+
+        // 2. 检查 users 表
         $stmt = $this->pdo->prepare("SELECT COUNT(*) FROM users WHERE acct_email = ?");
         $stmt->execute([$email]);
         if ($stmt->fetchColumn() > 0) {
             return true;
         }
 
-        $stmtTemp = $this->pdo->prepare("SELECT COUNT(*) FROM temp_users WHERE acct_email = ?");
-        $stmtTemp->execute([$email]);
-        if ($stmtTemp->fetchColumn() > 0) {
-            return true;
+        // 3. 检查 pvpgn_BNET 表
+        try {
+            $stmtPvpgn = $this->pdo->prepare("SELECT COUNT(*) FROM pvpgn_BNET WHERE acct_email = ?");
+            $stmtPvpgn->execute([$email]);
+            if ($stmtPvpgn->fetchColumn() > 0) {
+                return true;
+            }
+        } catch (PDOException $e) {
+            // 表不存在或查询失败，忽略
         }
 
         return false;
@@ -232,6 +247,7 @@ class Database {
      * 创建临时用户 (待邮箱验证)
      */
     public function createTempUser($username, $password, $email, $phone, $salt, $verifier, $email_token, $email_expires, $encrypted_password, $register_ip) {
+        $email = trim($email);
         $sql = "INSERT INTO temp_users (
             username, 
             acct_email, 
