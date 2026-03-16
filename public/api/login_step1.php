@@ -27,6 +27,13 @@ $db = new Database();
 $user = $db->getUser($username);
 
 if (!$user) {
+    // 检查是否在临时表中（未验证邮箱）
+    $tempUser = $db->getTempUserByUsername($username);
+    if ($tempUser) {
+        echo json_encode(['status' => 1, 'message' => '您的邮箱尚未验证，请先前往邮箱激活账号。']);
+        exit;
+    }
+
     echo json_encode(['status' => 1, 'message' => '用户不存在']);
     exit;
 }
