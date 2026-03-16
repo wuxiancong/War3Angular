@@ -80,71 +80,31 @@ if ($checkResult['exists']) {
     exit;
 }
 
-// 3. 生成邮箱验证 Token
+if ($db->checkEmailExists($email)) {
+    echo json_encode(['success' => false, 'error_code' => 'ERR_EMAIL_EXISTS', 'message' => '该邮箱已被注册']);
+    exit;
+}
+
+// 3. 生成邮箱验证 Token 和加密密码
 $email_token = bin2hex(random_bytes(32));
 $email_expires = date('Y-m-d H:i:s', strtotime('+24 hours'));
 
-// 4. 创建用户 (Web 基础数据)
-if ($db->createUser($username, $password, $email, $phone, $salt, $verifier, $email_token, $email_expires)) {
-    
-    // 4.1 尝试通过 TCP 协议注册到 PvPGN 服务器
-    $pvpgnRegistered = false;
-    try {
-        $pvpgn = new ClientManager(PVPGN_HOST, PVPGN_PORT);
-        if ($pvpgn->register($username, $password)) {
-            $pvpgnRegistered = true;
-            // 4.2 注册成功后，从 pvpgn_BNET 同步数据到 users 表
-            $db->syncFromPvpgn($username);
-        }
-    } catch (Exception $e) {
-        error_log("PvPGN TCP Registration failed: " . $e->getMessage());
-    }
+// 加密明文密码，以便在验证邮箱时用于 PvPGN 注册
+$encryption_key = 'WAR3_TEMP_PASS_KEY_2026'; // 生产环境请移至 config.php
+$iv = openssl_random_pseudo_bytes(openssl_cipher_iv_length('aes-256-cbc'));
+$encrypted_password = openssl_encrypt($password, 'aes-256-cbc', $encryption_key, 0, $iv);
+$encrypted_password_with_iv = base64_encode($encrypted_password . '::' . $iv);
 
-    // 5. 签发 JWT Token
-    $jwt_secret = 'YOUR_SUPER_SECRET_JWT_KEY_HERE'; // 请在生产环境中更改此密钥
-    $header = json_encode(['typ' => 'JWT', 'alg' => 'HS256']);
-    $payload = json_encode([
-        'user' => $username,
-        'role' => 'player',
-        'iat' => time(),
-        'exp' => time() + 86400 // 24小时过期
-    ]);
-    
-    $base64UrlHeader = str_replace(['+', '/', '='], ['-', '_', ''], base64_encode($header));
-    $base64UrlPayload = str_replace(['+', '/', '='], ['-', '_', ''], base64_encode($payload));
-    $signature = hash_hmac('sha256', $base64UrlHeader . "." . $base64UrlPayload, $jwt_secret, true);
-    $base64UrlSignature = str_replace(['+', '/', '='], ['-', '_', ''], base64_encode($signature));
-    
-    $jwt_token = $base64UrlHeader . "." . $base64UrlPayload . "." . $base64UrlSignature;
+$register_ip = $_SERVER['REMOTE_ADDR'] ?? '';
 
-    // 6. 发送验证邮件
+// 4. 将用户写入临时表 (temp_users)
+if ($db->createTempUser($username, $password, $email, $phone, $salt, $verifier, $email_token, $email_expires, $encrypted_password_with_iv, $register_ip)) {
+    
+    // 5. 发送验证邮件
     $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http";
     $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
     $verify_link = "{$protocol}://{$host}/api/verify_email.php?token=" . $email_token;
     
-    $subject = "欢迎注册！请验证您的邮箱";
-    $message = "
-    <html>
-    <head>
-        <title>邮箱验证</title>
-    </head>
-    <body>
-        <h2>欢迎注册我们的平台！</h2>
-        <p>您好，{$username}：</p>
-        <p>请点击以下链接验证您的邮箱（24小时内有效）：</p>
-        <p><a href='{$verify_link}'>{$verify_link}</a></p>
-        <p>如果您无法点击链接，请将以下地址复制到浏览器地址栏中打开：</p>
-        <p>{$verify_link}</p>
-        <p>如果您没有注册，请忽略此邮件。</p>
-    </body>
-    </html>
-    ";
-    
-    $headers = "MIME-Version: 1.0" . "\r\n";
-    $headers .= "Content-type:text/html;charset=UTF-8" . "\r\n";
-    $headers .= "From: noreply@{$host}" . "\r\n";
-    
-    // 发送邮件 (注意：在某些服务器或本地环境中，mail() 函数可能无法正常工作，需要配置 sendmail 或使用 SMTP 插件)
     require_once 'mailer.php';
     $mailer = new Mailer();
     $subject = "欢迎注册！请验证您的邮箱";
@@ -154,9 +114,8 @@ if ($db->createUser($username, $password, $email, $phone, $salt, $verifier, $ema
 
     echo json_encode([
         'success' => true, 
-        'error_code' => 'SUCCESS_REGISTERED',
-        'message' => '注册成功！请检查您的邮箱进行验证。' . (!$mail_sent ? ' (注意：邮件发送失败，请检查 SMTP 配置)' : ''),
-        'token' => $jwt_token,
+        'error_code' => 'SUCCESS_REGISTERED_PENDING_VERIFY',
+        'message' => '注册请求已提交！请检查您的邮箱进行验证，验证后方可登录。' . (!$mail_sent ? ' (注意：邮件发送失败，请检查 SMTP 配置)' : ''),
         'debug_verify_link' => $verify_link // 仅供测试阶段查看，生产环境请移除
     ]);
 } else {

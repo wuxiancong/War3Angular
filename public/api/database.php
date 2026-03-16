@@ -5,6 +5,10 @@ require_once 'config.php';
 class Database {
     private $pdo;
 
+    public function getPdo() {
+        return $this->pdo;
+    }
+
     public function __construct() {
         try {
             $this->pdo = new PDO(
@@ -80,6 +84,25 @@ class Database {
                 INDEX idx_email (acct_email),
                 INDEX idx_phone (tellphone_number)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+            // b. 用户临时表 (temp_users)
+            $this->pdo->exec("CREATE TABLE IF NOT EXISTS temp_users (
+                id INT NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '临时表自增ID',
+                username VARCHAR(32) NOT NULL COMMENT '平台登录名',
+                acct_email VARCHAR(128) NOT NULL COMMENT '注册邮箱',
+                tellphone_number VARCHAR(20) DEFAULT NULL COMMENT '绑定手机号',
+                web_password_hash VARCHAR(255) NOT NULL COMMENT '网页端登录密码Hash',
+                encrypted_password VARCHAR(255) NOT NULL COMMENT '加密的明文密码用于PvPGN注册',
+                acct_salt VARCHAR(128) DEFAULT NULL COMMENT '战网密码盐值',
+                acct_verifier VARCHAR(128) DEFAULT NULL COMMENT '战网密码验证器',
+                email_verify_token VARCHAR(64) NOT NULL COMMENT '邮箱验证Token',
+                email_verify_expires DATETIME NOT NULL COMMENT '邮箱验证链接过期时间',
+                register_ip VARCHAR(45) DEFAULT '' COMMENT '初始注册IP (支持IPv6)',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '临时记录创建时间',
+                UNIQUE KEY idx_temp_username (username),
+                UNIQUE KEY idx_temp_email (acct_email),
+                INDEX idx_temp_token (email_verify_token)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
         } catch (PDOException $e) {
             // 在实际生产环境中，不要把详细的数据库错误暴露给前端，记录到日志即可
             error_log("Database connection failed: " . $e->getMessage());
@@ -105,10 +128,11 @@ class Database {
     }
 
     /**
-     * 检查用户名是否存在于 users 或 pvpgn_BNET 表中
+     * 检查用户名是否存在于 users, temp_users 或 pvpgn_BNET 表中
      */
     public function checkUserInBothTables($username) {
         $existsInUsers = false;
+        $existsInTemp = false;
         $existsInPvpgn = false;
 
         // 1. 检查 Web 的 users 表
@@ -118,7 +142,14 @@ class Database {
             $existsInUsers = true;
         }
 
-        // 2. 检查 PvPGN 的 pvpgn_BNET 表 (使用 try-catch 防止表不存在时报错)
+        // 2. 检查 temp_users 表
+        $stmtTemp = $this->pdo->prepare("SELECT COUNT(*) FROM temp_users WHERE username = ?");
+        $stmtTemp->execute([$username]);
+        if ($stmtTemp->fetchColumn() > 0) {
+            $existsInTemp = true;
+        }
+
+        // 3. 检查 PvPGN 的 pvpgn_BNET 表 (使用 try-catch 防止表不存在时报错)
         try {
             $stmt2 = $this->pdo->prepare("SELECT COUNT(*) FROM pvpgn_BNET WHERE username = ?");
             $stmt2->execute([$username]);
@@ -130,10 +161,111 @@ class Database {
         }
 
         return [
-            'exists' => ($existsInUsers || $existsInPvpgn),
+            'exists' => ($existsInUsers || $existsInTemp || $existsInPvpgn),
             'in_users' => $existsInUsers,
+            'in_temp' => $existsInTemp,
             'in_pvpgn' => $existsInPvpgn
         ];
+    }
+
+    /**
+     * 检查邮箱是否存在于 users 或 temp_users 表中
+     */
+    public function checkEmailExists($email) {
+        $stmt = $this->pdo->prepare("SELECT COUNT(*) FROM users WHERE acct_email = ?");
+        $stmt->execute([$email]);
+        if ($stmt->fetchColumn() > 0) {
+            return true;
+        }
+
+        $stmtTemp = $this->pdo->prepare("SELECT COUNT(*) FROM temp_users WHERE acct_email = ?");
+        $stmtTemp->execute([$email]);
+        if ($stmtTemp->fetchColumn() > 0) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * 创建临时用户 (待邮箱验证)
+     */
+    public function createTempUser($username, $password, $email, $phone, $salt, $verifier, $email_token, $email_expires, $encrypted_password, $register_ip) {
+        $sql = "INSERT INTO temp_users (
+            username, 
+            acct_email, 
+            tellphone_number, 
+            web_password_hash,
+            encrypted_password,
+            acct_salt,
+            acct_verifier,
+            email_verify_token,
+            email_verify_expires,
+            register_ip
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        
+        $web_hash = password_hash($password, PASSWORD_BCRYPT);
+        
+        $stmt = $this->pdo->prepare($sql);
+        return $stmt->execute([
+            $username,
+            $email,
+            $phone,
+            $web_hash,
+            $encrypted_password,
+            $salt,
+            $verifier,
+            $email_token,
+            $email_expires,
+            $register_ip
+        ]);
+    }
+
+    /**
+     * 通过 Token 获取临时用户
+     */
+    public function getTempUserByToken($token) {
+        $stmt = $this->pdo->prepare("SELECT * FROM temp_users WHERE email_verify_token = ?");
+        $stmt->execute([$token]);
+        return $stmt->fetch();
+    }
+
+    /**
+     * 删除临时用户
+     */
+    public function deleteTempUser($username) {
+        $stmt = $this->pdo->prepare("DELETE FROM temp_users WHERE username = ?");
+        return $stmt->execute([$username]);
+    }
+
+    /**
+     * 将临时用户移动到主用户表
+     */
+    public function moveTempUserToUsers($tempUser) {
+        $sql = "INSERT INTO users (
+            username, 
+            acct_username, 
+            acct_email, 
+            tellphone_number, 
+            web_password_hash,
+            acct_salt,
+            acct_verifier,
+            is_email_verified,
+            register_ip,
+            register_time
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, NOW())";
+        
+        $stmt = $this->pdo->prepare($sql);
+        return $stmt->execute([
+            $tempUser['username'],
+            $tempUser['username'], // acct_username
+            $tempUser['acct_email'],
+            $tempUser['tellphone_number'],
+            $tempUser['web_password_hash'],
+            $tempUser['acct_salt'],
+            $tempUser['acct_verifier'],
+            $tempUser['register_ip']
+        ]);
     }
 
     /**

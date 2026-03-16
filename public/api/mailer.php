@@ -39,78 +39,20 @@ class Mailer {
         $this->log("========================================");
         $this->log("开始新发送任务: " . $to);
 
-        // 深度环境检测
-        $this->log("PHP Version: " . phpversion());
-        $this->log("OS: " . PHP_OS);
-        $sendmail_path = ini_get('sendmail_path');
-        $this->log("php.ini sendmail_path: " . ($sendmail_path ?: 'EMPTY'));
-        
-        // 检查 sendmail 程序是否存在
-        if ($sendmail_path) {
-            $binary = explode(' ', $sendmail_path)[0];
-            $this->log("检测二进制文件 $binary: " . (file_exists($binary) ? '存在' : '不存在'));
-        }
-
-        // --- 尝试方案一：PHP mail() ---
-        $this->log("执行方案一 (PHP mail)...");
-        $result = $this->sendViaMail($to, $subject, $body);
-        if ($result) {
-            $this->log("方案一成功。");
-            return true;
-        }
-        $this->log("方案一失败。返回值为 false。");
-
-        // --- 尝试方案二：直接 SMTP ---
-        $this->log("执行方案二 (Direct SMTP)...");
+        // 腾讯云默认封禁 25 端口，强烈建议使用 465 端口的 SSL 加密 SMTP。
+        // 因此，我们直接跳过 PHP mail() (它依赖本地 MTA 和 25 端口)，直接使用 SMTP 方案。
+        $this->log("执行 SMTP 发送 (465 端口)...");
         if ($this->sendViaSMTP($to, $subject, $body)) {
-            $this->log("方案二成功。");
+            $this->log("SMTP 发送成功。");
             return true;
         }
 
-        $this->log("所有方案均失败。");
+        $this->log("SMTP 发送失败。");
         return false;
     }
 
     /**
-     * 方案一：PHP mail() 函数
-     */
-    private function sendViaMail($to, $subject, $body) {
-        $headers = [
-            'MIME-Version: 1.0',
-            'Content-type: text/html; charset=UTF-8',
-            'From: Account Verification <' . $this->smtp_user . '>',
-            'Reply-To: ' . $this->smtp_user,
-            'X-Mailer: PHP/' . phpversion()
-        ];
-
-        // 清除之前的错误状态
-        error_clear_last();
-
-        try {
-            $result = @mail($to, '=?UTF-8?B?' . base64_encode($subject) . '?=', $body, implode("\r\n", $headers));
-            
-            if (!$result) {
-                // 如果 mail() 返回 false，捕获底层的警告或错误信息
-                $error = error_get_last();
-                if ($error !== null) {
-                    $this->log("mail() 内部错误详情: " . $error['message']);
-                } else {
-                    $this->log("mail() 返回 false (sendmail 进程返回了非零退出码)。");
-                }
-            } else {
-                $this->log("mail() 返回 true。邮件已成功移交给本地 Postfix 队列。");
-                $this->log("注意：这不代表邮件已送达！真实的投递状态请在 Ubuntu 终端查看: tail -f /var/log/mail.log");
-            }
-            
-            return $result;
-        } catch (Exception $e) {
-            $this->log("mail() 函数执行异常: " . $e->getMessage());
-            return false;
-        }
-    }
-
-    /**
-     * 方案二：SMTP 协议发送
+     * SMTP 协议发送
      */
     private function sendViaSMTP($to, $subject, $body) {
         $context = stream_context_create([
