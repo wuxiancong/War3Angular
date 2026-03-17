@@ -85,7 +85,8 @@ try {
 // 3. 注册成功后，将临时用户移动到主用户表
 if ($pvpgnRegistered && $db->moveTempUserToUsers($tempUser)) {
     // 4. 从 pvpgn_BNET 同步数据到 users 表
-    $db->syncFromPvpgn($tempUser['username']);
+    error_log("Starting sync for user: " . $tempUser['username'] . " with email: " . $tempUser['acct_email']);
+    $db->syncFromPvpgn($tempUser['username'], $tempUser['acct_email']);
     
     // 5. 删除临时用户
     $db->deleteTempUser($tempUser['username']);
