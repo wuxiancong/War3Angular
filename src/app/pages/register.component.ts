@@ -309,7 +309,8 @@ export class RegisterComponent implements OnDestroy {
     if (!this.puzzleContainer) return;
     const containerW = this.puzzleContainer.nativeElement.offsetWidth;
     // PHP 图片原始宽度为 400
-    this.scale.set(containerW / 400);
+    // 确保 scale 不为 0，防止除以 0 导致 NaN
+    this.scale.set(Math.max(containerW / 400, 0.01));
     const containerH = containerW / 2; // 2:1 比例
     this.bgSize.set(`${containerW}px ${containerH}px`);
   }
@@ -490,6 +491,14 @@ export class RegisterComponent implements OnDestroy {
       const username = this.form.get('user')?.value || '';
       const password = this.form.get('pass')?.value || '';
       const email = this.form.get('email')?.value || '';
+      const slide_x = Math.round(this.puzzleX() / this.scale());
+
+      if (isNaN(slide_x)) {
+        this.isLoading.set(false);
+        this.errorMessage.set('验证码校验异常，请刷新重试');
+        this.resetPuzzle();
+        return;
+      }
 
       // 使用相对路径的 API URL
       const apiUrl = '/api/register.php';
@@ -498,7 +507,7 @@ export class RegisterComponent implements OnDestroy {
         username, 
         password, 
         email,
-        slide_x: Math.round(this.puzzleX() / this.scale()),
+        slide_x,
         captcha_token: this.captchaToken()
       }, { withCredentials: true }).pipe(
           timeout(5000) // 5秒超时

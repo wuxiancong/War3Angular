@@ -22,7 +22,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 require_once 'database.php';
 require_once 'client_manager.php';
 
-$data = json_decode(file_get_contents('php://input'), true);
+$raw_input = file_get_contents('php://input');
+$data = json_decode($raw_input, true);
+
+if ($data === null) {
+    echo json_encode(['success' => false, 'error_code' => 'ERR_INVALID_JSON', 'message' => '无效的请求数据 (JSON解析失败)']);
+    exit;
+}
 
 $username = trim($data['username'] ?? '');
 $password = $data['password'] ?? '';
@@ -33,8 +39,20 @@ $verifier = $data['verifier'] ?? '';
 $slide_x = isset($data['slide_x']) ? (int)$data['slide_x'] : null;
 $captcha_token = $data['captcha_token'] ?? '';
 
-if (empty($username) || empty($password) || empty($email) || $slide_x === null || empty($captcha_token)) {
-    echo json_encode(['success' => false, 'error_code' => 'ERR_MISSING_FIELDS', 'message' => '缺少必填字段']);
+$missing = [];
+if ($username === '') $missing[] = 'username';
+if ($password === '') $missing[] = 'password';
+if ($email === '') $missing[] = 'email';
+if ($slide_x === null) $missing[] = 'slide_x';
+if ($captcha_token === '') $missing[] = 'captcha_token';
+
+if (!empty($missing)) {
+    error_log("[Register Debug] Missing fields: " . implode(', ', $missing));
+    echo json_encode([
+        'success' => false, 
+        'error_code' => 'ERR_MISSING_FIELDS', 
+        'message' => '缺少必填字段: ' . implode(', ', $missing)
+    ]);
     exit;
 }
 

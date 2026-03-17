@@ -172,22 +172,23 @@ class Database {
      * 检查用户名是否存在于 users, temp_users 或 pvpgn_BNET 表中
      */
     public function checkUserInBothTables($username) {
+        $username = trim($username);
         $existsInUsers = false;
         $existsInTemp = false;
         $existsInPvpgn = false;
 
-        // 1. 检查 Web 的 users 表
-        $stmt = $this->pdo->prepare("SELECT COUNT(*) FROM users WHERE username = ?");
-        $stmt->execute([$username]);
-        if ($stmt->fetchColumn() > 0) {
-            $existsInUsers = true;
-        }
-
-        // 2. 检查 temp_users 表
+        // 1. 检查 temp_users 表
         $stmtTemp = $this->pdo->prepare("SELECT COUNT(*) FROM temp_users WHERE username = ?");
         $stmtTemp->execute([$username]);
         if ($stmtTemp->fetchColumn() > 0) {
             $existsInTemp = true;
+        }
+
+        // 2. 检查 Web 的 users 表
+        $stmt = $this->pdo->prepare("SELECT COUNT(*) FROM users WHERE username = ?");
+        $stmt->execute([$username]);
+        if ($stmt->fetchColumn() > 0) {
+            $existsInUsers = true;
         }
 
         // 3. 检查 PvPGN 的 pvpgn_BNET 表 (使用 try-catch 防止表不存在时报错)
@@ -247,6 +248,7 @@ class Database {
      * 创建临时用户 (待邮箱验证)
      */
     public function createTempUser($username, $password, $email, $phone, $salt, $verifier, $email_token, $email_expires, $encrypted_password, $register_ip) {
+        $username = trim($username);
         $email = trim($email);
         $sql = "INSERT INTO temp_users (
             username, 
