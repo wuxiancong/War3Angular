@@ -28,8 +28,8 @@ import { NgClass } from '@angular/common';
                   ⚔
               </div>
               <div class="flex flex-col">
-                  <span class="text-lg md:text-xl font-black italic tracking-tighter text-[var(--text-main)] uppercase leading-none">CC对战平台</span>
-                  <span class="text-[8px] font-bold opacity-30 text-[var(--text-main)] uppercase tracking-widest mt-1 hidden sm:block">CC Battle Platform</span>
+                  <span class="text-lg md:text-xl font-black italic tracking-tighter text-[var(--text-main)] uppercase leading-none">{{ 'header.platformName' | t }}</span>
+                  <span class="text-[8px] font-bold opacity-30 text-[var(--text-main)] uppercase tracking-widest mt-1 hidden sm:block">{{ 'header.platformSub' | t }}</span>
               </div>
           </div>
 
@@ -186,24 +186,24 @@ import { NgClass } from '@angular/common';
                                    [class.translate-y-2]="!isUserDropdownOpen()">
                                   <button (click)="openWelcome(); isUserDropdownOpen.set(false)" class="w-full text-left px-4 py-2 text-sm text-[var(--text-muted)] hover:text-accent hover:bg-[var(--border)] transition-colors flex items-center gap-2">
                                       <span class="material-icons text-sm">auto_awesome</span>
-                                      欢迎界面
+                                      {{ 'header.welcome' | t }}
                                   </button>
                                   <a routerLink="/settings" (click)="isUserDropdownOpen.set(false)" class="flex items-center gap-2 px-4 py-2 text-sm text-[var(--text-muted)] hover:text-accent hover:bg-[var(--border)] transition-colors">
                                       <span class="material-icons text-sm">settings</span>
-                                      账号设置
+                                      {{ 'header.settings' | t }}
                                   </a>
                                   <a routerLink="/my-items" (click)="isUserDropdownOpen.set(false)" class="flex items-center gap-2 px-4 py-2 text-sm text-[var(--text-muted)] hover:text-accent hover:bg-[var(--border)] transition-colors">
                                       <span class="material-icons text-sm">inventory_2</span>
-                                      我的物品
+                                      {{ 'header.items' | t }}
                                   </a>
                                   <div class="h-px bg-white/5 my-1"></div>
                                   <button (click)="switchAccount(); isUserDropdownOpen.set(false)" class="w-full text-left px-4 py-2 text-sm text-[var(--text-muted)] hover:text-accent hover:bg-[var(--border)] transition-colors flex items-center gap-2">
                                       <span class="material-icons text-sm">swap_horiz</span>
-                                      切换账号
+                                      {{ 'header.switchAccount' | t }}
                                   </button>
                                   <button (click)="authService.logout(); isUserDropdownOpen.set(false)" class="w-full text-left px-4 py-2 text-sm text-red-400 hover:text-red-500 hover:bg-[var(--border)] transition-colors flex items-center gap-2">
                                       <span class="material-icons text-sm">logout</span>
-                                      退出登录
+                                      {{ 'header.logout' | t }}
                                   </button>
                               </div>
                           </div>
@@ -406,19 +406,19 @@ import { NgClass } from '@angular/common';
                                [class.opacity-100]="isMobileUserMenuOpen()">
                               <button (click)="openWelcome(); closeMenu()" class="w-full text-left px-4 py-3 rounded-xl text-md font-bold text-[var(--text-main)] flex items-center gap-3 active:bg-accent active:!text-white transition-all">
                                   <span class="material-icons text-accent text-sm group-active:!text-white">auto_awesome</span>
-                                  欢迎界面
+                                  {{ 'header.welcome' | t }}
                               </button>
                               <a routerLink="/settings" (click)="closeMenu()" class="px-4 py-3 rounded-xl text-md font-bold text-[var(--text-main)] flex items-center gap-3 active:bg-accent active:!text-white transition-all">
                                   <span class="material-icons text-accent text-sm group-active:!text-white">settings</span>
-                                  账号设置
+                                  {{ 'header.settings' | t }}
                               </a>
                               <a routerLink="/my-items" (click)="closeMenu()" class="px-4 py-3 rounded-xl text-md font-bold text-[var(--text-main)] flex items-center gap-3 active:bg-accent active:!text-white transition-all">
                                   <span class="material-icons text-accent text-sm group-active:!text-white">inventory_2</span>
-                                  我的物品
+                                  {{ 'header.items' | t }}
                               </a>
                               <button (click)="switchAccount(); closeMenu()" class="w-full text-left px-4 py-3 rounded-xl text-md font-bold text-[var(--text-main)] flex items-center gap-3 active:bg-accent active:!text-white transition-all">
                                   <span class="material-icons text-accent text-sm group-active:!text-white">swap_horiz</span>
-                                  切换账号
+                                  {{ 'header.switchAccount' | t }}
                               </button>
                               <button (click)="authService.logout(); closeMenu()" class="w-full text-left px-4 py-3 rounded-xl text-md font-bold text-red-400 flex items-center gap-3 active:bg-red-500 active:!text-white transition-all">
                                   <span class="material-icons text-red-400 text-sm group-active:!text-white">logout</span>

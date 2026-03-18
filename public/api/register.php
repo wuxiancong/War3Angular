@@ -21,6 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once 'database.php';
 require_once 'client_manager.php';
+require_once 'i18n.php';
 
 $raw_input = file_get_contents('php://input');
 $data = json_decode($raw_input, true);
@@ -28,6 +29,12 @@ $data = json_decode($raw_input, true);
 if ($data === null) {
     echo json_encode(['success' => false, 'error_code' => 'ERR_INVALID_JSON', 'message' => '无效的请求数据 (JSON解析失败)']);
     exit;
+}
+
+// Set language if provided in request
+if (isset($data['lang'])) {
+    setcookie('lang', $data['lang'], time() + (86400 * 30), "/");
+    // We might need to manually set it for the current request if I18n is already instantiated
 }
 
 $username = trim($data['username'] ?? '');
@@ -132,7 +139,7 @@ if ($db->createTempUser($username, $password, $email, $phone, $salt, $verifier, 
     
     require_once 'mailer.php';
     $mailer = new Mailer();
-    $subject = "欢迎注册！请验证您的邮箱";
+    $subject = __("email_subject");
     $message = $mailer->getVerificationTemplate($username, $verify_link);
 
     $mail_sent = $mailer->send($email, $subject, $message);
@@ -143,7 +150,7 @@ if ($db->createTempUser($username, $password, $email, $phone, $salt, $verifier, 
     echo json_encode([
         'success' => true, 
         'error_code' => 'SUCCESS_REGISTERED_PENDING_VERIFY',
-        'message' => '注册请求已提交！请检查您的邮箱进行验证，验证后方可登录。' . (!$mail_sent ? ' (注意：邮件发送失败，请检查 SMTP 配置)' : ''),
+        'message' => __("reg_pending_msg") . (!$mail_sent ? ' (Note: Email sending failed, please check SMTP config)' : ''),
         'debug_verify_link' => $verify_link // 仅供测试阶段查看，生产环境请移除
     ]);
 } else {

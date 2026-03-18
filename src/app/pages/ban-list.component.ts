@@ -127,13 +127,12 @@ interface BanRecord {
         <div class="bg-white/5 rounded-lg p-6 border border-white/10">
             <h3 class="text-[var(--text-main)] font-bold mb-2 flex items-center gap-2">
                 <span class="material-icons text-sm text-accent">info</span>
-                平台处罚说明
+                {{ 'banList.info.title' | t }}
             </h3>
             <p class="text-sm text-[var(--text-muted)] leading-relaxed">
-                CC对战平台致力于维护公平、公正的游戏环境。所有封号记录均经过人工审核或系统实时检测确认。
-                如果您认为处罚存在误判，请联系客服进行申诉。
+                {{ 'banList.info.desc' | t }}
                 <br>
-                <span class="text-red-400/80 mt-2 block italic">* 永久封禁通常针对严重外挂行为、多次违规或恶意破坏游戏平衡的行为。</span>
+                <span class="text-red-400/80 mt-2 block italic">{{ 'banList.info.warning' | t }}</span>
             </p>
         </div>
 

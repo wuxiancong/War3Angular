@@ -508,7 +508,8 @@ export class RegisterComponent implements OnDestroy {
         password, 
         email,
         slide_x,
-        captcha_token: this.captchaToken()
+        captcha_token: this.captchaToken(),
+        lang: this.i18n.locale()
       }, { withCredentials: true }).pipe(
           timeout(5000) // 5秒超时
       ).subscribe({

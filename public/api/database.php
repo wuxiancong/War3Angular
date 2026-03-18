@@ -126,6 +126,83 @@ class Database {
                 sent_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '发送时间',
                 INDEX idx_email_sent (email, sent_at)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+            // d. 天梯数据表 (ladder_stats)
+            $this->pdo->exec("CREATE TABLE IF NOT EXISTS ladder_stats (
+                username VARCHAR(32) PRIMARY KEY,
+                rank_level TINYINT DEFAULT 0 COMMENT '等级索引',
+                score INT DEFAULT 1000 COMMENT '天梯积分',
+                wins INT DEFAULT 0,
+                losses INT DEFAULT 0,
+                draws INT DEFAULT 0,
+                escapes INT DEFAULT 0 COMMENT '逃跑/秒退',
+                total_kills INT DEFAULT 0,
+                total_deaths INT DEFAULT 0,
+                total_assists INT DEFAULT 0,
+                total_gold INT DEFAULT 0,
+                mvp_count INT DEFAULT 0,
+                current_win_streak INT DEFAULT 0,
+                max_win_streak INT DEFAULT 0,
+                total_play_time_mins INT DEFAULT 0 COMMENT '游戏总时长',
+                FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE,
+                INDEX idx_score (score)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+            // e. 英雄汇总统计表 (player_hero_stats)
+            $this->pdo->exec("CREATE TABLE IF NOT EXISTS player_hero_stats (
+                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                username VARCHAR(32),
+                hero_name VARCHAR(64),
+                games_played INT DEFAULT 0,
+                wins INT DEFAULT 0,
+                total_kills INT DEFAULT 0,
+                total_deaths INT DEFAULT 0,
+                total_assists INT DEFAULT 0,
+                max_kills INT DEFAULT 0 COMMENT '该英雄单场最高击杀',
+                max_duration_secs INT DEFAULT 0 COMMENT '该英雄最长比赛时间',
+                UNIQUE KEY idx_user_hero (username, hero_name),
+                FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+            // f. 游戏模式汇总表 (player_mode_stats)
+            $this->pdo->exec("CREATE TABLE IF NOT EXISTS player_mode_stats (
+                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                username VARCHAR(32),
+                game_mode VARCHAR(32),
+                games_played INT DEFAULT 0,
+                wins INT DEFAULT 0,
+                UNIQUE KEY idx_user_mode (username, game_mode),
+                FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+            // g. 游戏比赛主表 (matches)
+            $this->pdo->exec("CREATE TABLE IF NOT EXISTS matches (
+                match_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                map_name VARCHAR(128),
+                game_mode VARCHAR(32) COMMENT '如: -ap, -rd, -cm',
+                winner_team TINYINT COMMENT '1: 近卫, 2: 天灾',
+                start_time DATETIME,
+                duration_seconds INT COMMENT '比赛时长',
+                match_type TINYINT COMMENT '1: 天梯积分赛, 2: 普通练习赛'
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+            // h. 比赛玩家关联表 (match_players) - Needed for recent matches query
+            $this->pdo->exec("CREATE TABLE IF NOT EXISTS match_players (
+                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                match_id BIGINT,
+                username VARCHAR(32),
+                team TINYINT COMMENT '1: 近卫, 2: 天灾',
+                hero_name VARCHAR(64),
+                kills INT DEFAULT 0,
+                deaths INT DEFAULT 0,
+                assists INT DEFAULT 0,
+                gold INT DEFAULT 0,
+                is_winner BOOLEAN,
+                FOREIGN KEY (match_id) REFERENCES matches(match_id) ON DELETE CASCADE,
+                FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE,
+                INDEX idx_user_match (username, match_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
         } catch (PDOException $e) {
             // 在实际生产环境中，不要把详细的数据库错误暴露给前端，记录到日志即可
             error_log("Database connection failed: " . $e->getMessage());

@@ -68,7 +68,7 @@ try {
         exit;
     }
 
-    $rankMap = ["-", "D", "C", "B", "A", "S", "SS", "SSS"];
+    $rankMap = ["D", "D", "C", "B", "A", "S", "SS", "SSS"]; // Index 0 and 1 are 'D'
     
     $wins = intval($ladder_row['wins'] ?? 0);
     $losses = intval($ladder_row['losses'] ?? 0);

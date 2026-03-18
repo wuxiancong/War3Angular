@@ -1,4 +1,6 @@
 <?php
+require_once 'i18n.php';
+
 /**
  * 邮件发送工具 (支持 PHP mail() 和 SMTP 双重保险)
  */
@@ -129,20 +131,27 @@ class Mailer {
     }
 
     public function getVerificationTemplate($username, $verify_link) {
+        $welcome = __('email_welcome');
+        $dear = __('email_dear');
+        $thanks = __('email_reg_thanks');
+        $activateBtn = __('email_activate_btn');
+        $linkHint = __('email_link_hint');
+        $expiryHint = __('email_expiry_hint');
+
         return "
         <div style='font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 10px; overflow: hidden;'>
             <div style='background-color: #4CAF50; color: white; padding: 20px; text-align: center;'>
-                <h1 style='margin: 0;'>欢迎加入！</h1>
+                <h1 style='margin: 0;'>{$welcome}</h1>
             </div>
             <div style='padding: 20px;'>
-                <p>亲爱的 <strong>{$username}</strong>，</p>
-                <p>感谢您注册我们的平台。为了保障您的账号安全，请点击下方按钮完成邮箱验证：</p>
+                <p>{$dear} <strong>{$username}</strong>，</p>
+                <p>{$thanks}</p>
                 <div style='text-align: center; margin: 30px 0;'>
-                    <a href='{$verify_link}' style='background-color: #4CAF50; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;'>立即激活账号</a>
+                    <a href='{$verify_link}' style='background-color: #4CAF50; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;'>{$activateBtn}</a>
                 </div>
-                <p style='color: #888; font-size: 12px;'>如果按钮无法点击，请复制以下链接到浏览器打开：</p>
+                <p style='color: #888; font-size: 12px;'>{$linkHint}</p>
                 <p style='word-break: break-all; font-size: 12px; color: #555;'>{$verify_link}</p>
-                <p style='color: #888; font-size: 12px;'>此链接 24 小时内有效。如果您未进行此操作，请忽略此邮件。</p>
+                <p style='color: #888; font-size: 12px;'>{$expiryHint}</p>
             </div>
         </div>";
     }

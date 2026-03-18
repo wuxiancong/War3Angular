@@ -40,14 +40,6 @@ interface GameRecord {
   change: number;
 }
 
-interface TopRecord {
-  title: string;
-  hero: string;
-  value: string;
-  label: string;
-  icon: string;
-}
-
 @Component({
   selector: 'app-stats',
   standalone: true,
@@ -75,11 +67,19 @@ interface TopRecord {
                     </h2>
                     
                     <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 flex-grow content-center">
-                        @for (stat of basicStats(); track stat.title) {
+                        @for (stat of basicStats(); track stat.key) {
                             <div class="group bg-[var(--primary)]/50 py-4 px-2 rounded-lg border border-[var(--border)] hover:border-accent/30 transition-all duration-300 text-center flex flex-col justify-center min-w-0">
                                 <div class="text-lg mb-1">{{ stat.icon }}</div>
-                                <div class="text-[9px] text-[var(--text-muted)] uppercase tracking-tight mb-1 truncate w-full" [title]="stat.title">{{ stat.title }}</div>
-                                <div class="text-sm sm:text-base font-black truncate w-full tabular-nums" [style.color]="stat.color" [title]="stat.value">{{ stat.value }}</div>
+                                <div class="text-[9px] text-[var(--text-muted)] uppercase tracking-tight mb-1 truncate w-full" [title]="'matches.' + stat.key | t">{{ 'matches.' + stat.key | t }}</div>
+                                <div class="text-sm sm:text-base font-black truncate w-full tabular-nums flex items-center justify-center gap-1" [style.color]="stat.color">
+                                    @if (stat.key === 'quality' || stat.key === 'verification') {
+                                        {{ 'matches.' + stat.value | t }}
+                                    } @else if (stat.key === 'onlineTime') {
+                                        {{ stat.value }}<span class="text-[10px] font-normal opacity-70">{{ 'matches.hoursUnit' | t }}</span>
+                                    } @else {
+                                        {{ stat.value }}
+                                    }
+                                </div>
                             </div>
                         }
                     </div>
@@ -89,7 +89,7 @@ interface TopRecord {
                 <div class="bg-[var(--card-bg)] backdrop-blur-md rounded-xl p-6 border border-[var(--border)] shadow-xl h-[260px] flex flex-col">
                     <h2 class="text-lg font-bold text-accent italic uppercase tracking-wider mb-4 flex items-center gap-2">
                         <span class="material-icons text-sm">trending_up</span>
-                        最近15场胜率趋势
+                        {{ 'matches.trend' | t }}
                     </h2>
                     <div #trendChart class="w-full flex-grow relative overflow-hidden">
                         <!-- D3 Chart will be rendered here -->
@@ -100,7 +100,7 @@ interface TopRecord {
                 <div class="bg-[var(--card-bg)] backdrop-blur-md rounded-xl p-6 border border-[var(--border)] shadow-xl h-auto lg:h-[380px] flex flex-col">
                     <h2 class="text-lg font-bold text-accent italic uppercase tracking-wider mb-6 flex items-center gap-2">
                         <span class="material-icons text-sm">stars</span>
-                        最佳胜率
+                        {{ 'matches.bestHeroes' | t }}
                     </h2>
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 flex-grow">
                         @for (hero of bestHeroes(); track hero.name; let i = $index) {
@@ -123,8 +123,8 @@ interface TopRecord {
                                          alt="{{hero.name}}" 
                                          class="w-full h-full object-cover relative z-10">
                                 </div>
-                                <h3 class="text-sm font-bold text-[var(--text-main)] mb-1">{{ hero.name }}</h3>
-                                <div class="text-[10px] text-[var(--text-muted)] mb-1">{{ hero.games }} 场</div>
+                                <h3 class="text-sm font-bold text-[var(--text-main)] mb-1">{{ 'heroNames.' + hero.name | t }}</h3>
+                                <div class="text-[10px] text-[var(--text-muted)] mb-1">{{ hero.games }} {{ 'matches.gamesUnit' | t }}</div>
                                 <div class="text-base font-black text-green-400 mb-1">{{ hero.winRate }}%</div>
                                 <div class="text-[9px] text-accent/80 font-mono uppercase tracking-widest">KDA: {{ hero.kda }}</div>
                             </div>
@@ -136,17 +136,17 @@ interface TopRecord {
                 <div class="bg-[var(--card-bg)] backdrop-blur-md rounded-xl p-6 border border-[var(--border)] shadow-xl h-auto lg:h-[480px] flex flex-col">
                     <h2 class="text-lg font-bold text-accent italic uppercase tracking-wider mb-6 flex items-center gap-2">
                         <span class="material-icons text-sm">history</span>
-                        最后五场游戏
+                        {{ 'matches.lastGames' | t }}
                     </h2>
                     <div class="flex-grow overflow-x-auto">
                         <table class="w-full text-left border-collapse">
                             <thead>
                                 <tr class="text-[10px] uppercase text-[var(--text-muted)] border-b border-white/5">
-                                    <th class="py-2 w-[30%]">英雄</th>
-                                    <th class="py-2 w-[15%]">模式</th>
-                                    <th class="py-2 w-[15%]">时长</th>
+                                    <th class="py-2 w-[30%]">{{ 'matches.hero' | t }}</th>
+                                    <th class="py-2 w-[15%]">{{ 'matches.mode' | t }}</th>
+                                    <th class="py-2 w-[15%]">{{ 'matches.duration' | t }}</th>
                                     <th class="py-2 w-[25%]">K / D / A</th>
-                                    <th class="py-2 w-[15%]">分数变动</th>
+                                    <th class="py-2 w-[15%]">{{ 'matches.change' | t }}</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-white/5">
@@ -162,7 +162,7 @@ interface TopRecord {
                                                          alt="{{game.hero}}" 
                                                          class="w-full h-full object-cover relative z-10">
                                                 </div>
-                                                <span class="font-bold text-[var(--text-main)]">{{ game.hero }}</span>
+                                                <span class="font-bold text-[var(--text-main)]">{{ 'heroNames.' + game.hero | t }}</span>
                                             </div>
                                         </td>
                                         <td class="py-3.5 text-[var(--text-muted)]">{{ game.mode }}</td>
@@ -185,7 +185,7 @@ interface TopRecord {
                 <div class="bg-[var(--card-bg)] backdrop-blur-md rounded-xl p-6 border border-[var(--border)] shadow-xl h-[560px] flex flex-col">
                     <h2 class="text-lg font-bold text-accent italic uppercase tracking-wider mb-6 flex items-center gap-2">
                         <span class="material-icons text-sm">pie_chart</span>
-                        模式分布图
+                        {{ 'matches.distribution' | t }}
                     </h2>
                     <div class="flex flex-col items-center flex-grow justify-center">
                         <div #pieChart class="w-full h-[200px] relative">
@@ -223,12 +223,12 @@ interface TopRecord {
                     <div class="flex items-center justify-between mb-6">
                         <h2 class="text-lg font-bold text-accent italic uppercase tracking-wider flex items-center gap-2">
                             <span class="material-icons text-sm">leaderboard</span>
-                            赛季排名 TOP 10
+                            {{ 'matches.topRankings' | t }}
                         </h2>
                         <select [value]="rankingType()" (change)="onRankingTypeChange($event)" 
                                 class="bg-[var(--secondary)] border border-[var(--border)] text-[var(--text-main)] text-xs rounded-lg px-2 py-1 outline-none focus:border-accent">
-                            <option value="solo">个人</option>
-                            <option value="team">战队</option>
+                            <option value="solo">{{ 'matches.solo' | t }}</option>
+                            <option value="team">{{ 'matches.team' | t }}</option>
                         </select>
                     </div>
                     
@@ -265,10 +265,10 @@ interface TopRecord {
                 <div class="bg-[var(--card-bg)] backdrop-blur-md rounded-xl p-6 border border-[var(--border)] shadow-xl h-auto lg:h-[480px] flex flex-col">
                     <h2 class="text-lg font-bold text-accent italic uppercase tracking-wider mb-6 flex items-center gap-2">
                         <span class="material-icons text-sm">emoji_events</span>
-                        最佳英雄
+                        {{ 'matches.bestHero' | t }}
                     </h2>
                     <div class="grid grid-cols-2 gap-2.5 flex-grow">
-                        @for (record of topRecords(); track record.title) {
+                        @for (record of topRecords(); track record.key) {
                             <div class="bg-[var(--secondary)] rounded-md border border-[var(--border)] flex items-center p-2.5 gap-3">
                                 <!-- 英雄头像占位 (圆形 + 首字) -->
                                 <div class="w-10 h-10 rounded-full bg-[var(--card-bg)] border border-accent/50 flex items-center justify-center relative shrink-0">
@@ -285,9 +285,9 @@ interface TopRecord {
                                 </div>
 
                                 <div class="flex flex-col justify-center min-w-0 flex-grow gap-0.5">
-                                    <div class="text-[10px] text-[var(--text-muted)]">{{ record.title }}</div>
-                                    <div class="text-[13px] font-bold text-[var(--text-main)] truncate w-full">{{ record.hero }}</div>
-                                    <div class="text-[11px] font-bold text-accent">{{ record.label }}: {{ record.value }}</div>
+                                    <div class="text-[10px] text-[var(--text-muted)]">{{ 'matches.' + record.key | t }}</div>
+                                    <div class="text-[13px] font-bold text-[var(--text-main)] truncate w-full">{{ 'heroNames.' + record.hero | t }}</div>
+                                    <div class="text-[11px] font-bold text-accent">{{ 'matches.' + record.labelKey | t }}: {{ record.value }}</div>
                                 </div>
                             </div>
                         }
@@ -309,28 +309,28 @@ export class StatsComponent {
   rankingType = signal<'solo' | 'team'>('solo');
 
   basicStats = signal([
-    { icon: '🏆', title: '全球排名', value: '#156', color: '#f59e0b' },
-    { icon: '⭐', title: '玩家分数', value: '2456', color: '#66fcf1' },
-    { icon: '📈', title: '胜率', value: '58.3%', color: '#10b981' },
-    { icon: '⚔️', title: 'K/D/A (3.42)', value: '342/156/278', color: '#c5c6c7' },
-    { icon: '💰', title: 'GPM', value: '150', color: '#45a29e' },
-    { icon: '👑', title: 'MVP次数', value: '42', color: '#fbbf24' },
-    { icon: '🎖️', title: '竞技等级', value: 'S+', color: '#45a29e' },
-    { icon: '🏃', title: '逃跑场次', value: '2', color: '#ef4444' },
-    { icon: '🎮', title: '游戏场次', value: '456', color: '#c5c6c7' },
-    { icon: '🔥', title: '最大连胜', value: '8', color: '#10b981' },
-    { icon: '⚡', title: '当前连胜', value: '3', color: '#10b981' },
-    { icon: '⏰', title: '累计在线', value: '172小时', color: '#45a29e' },
-    { icon: '🛡️', title: '玩家素质', value: '优秀', color: '#10b981' },
-    { icon: '🚫', title: '违规记录', value: '0', color: '#ef4444' },
-    { icon: '📢', title: '被举报数', value: '1', color: '#f59e0b' },
-    { icon: '✅', title: '玩家认证', value: '已认证', color: '#10b981' },
+    { icon: '🏆', key: 'rank', value: '#156', color: '#f59e0b' },
+    { icon: '⭐', key: 'score', value: '2456', color: '#66fcf1' },
+    { icon: '📈', key: 'winRate', value: '58.3%', color: '#10b981' },
+    { icon: '⚔️', key: 'kda', value: '342/156/278', color: '#c5c6c7' },
+    { icon: '💰', key: 'gpm', value: '150', color: '#45a29e' },
+    { icon: '👑', key: 'mvp', value: '42', color: '#fbbf24' },
+    { icon: '🎖️', key: 'level', value: 'S+', color: '#45a29e' },
+    { icon: '🏃', key: 'leaver', value: '2', color: '#ef4444' },
+    { icon: '🎮', key: 'totalGames', value: '456', color: '#c5c6c7' },
+    { icon: '🔥', key: 'maxWinStreak', value: '8', color: '#10b981' },
+    { icon: '⚡', key: 'currentWinStreak', value: '3', color: '#10b981' },
+    { icon: '⏰', key: 'onlineTime', value: '172', color: '#45a29e' },
+    { icon: '🛡️', key: 'quality', value: 'excellent', color: '#10b981' },
+    { icon: '🚫', key: 'violations', value: '0', color: '#ef4444' },
+    { icon: '📢', key: 'reports', value: '1', color: '#f59e0b' },
+    { icon: '✅', key: 'verification', value: 'verified', color: '#10b981' },
   ]);
 
   bestHeroes = signal<HeroStat[]>([
-    { name: '剑圣', games: 45, wins: 28, winRate: 62.2, kda: 4.5 },
-    { name: '恶魔猎手', games: 38, wins: 24, winRate: 63.2, kda: 5.2 },
-    { name: '死亡骑士', games: 42, wins: 25, winRate: 59.5, kda: 3.8 },
+    { name: 'juggernaut', games: 45, wins: 28, winRate: 62.2, kda: 4.5 },
+    { name: 'demonHunter', games: 38, wins: 24, winRate: 63.2, kda: 5.2 },
+    { name: 'deathKnight', games: 42, wins: 25, winRate: 59.5, kda: 3.8 },
   ]);
 
   modeStats = signal([
@@ -399,20 +399,20 @@ export class StatsComponent {
   });
 
   lastFiveGames = signal<GameRecord[]>([
-    { hero: "地穴刺客", mode: "xl, TB", duration: "28:45", kda: "7 / 3 / 21", change: 148 },
-    { hero: "隐形刺客", mode: "xl, TB", duration: "28:46", kda: "4 / 6 / 10", change: -41 },
-    { hero: "敌法师", mode: "xl, TB", duration: "43:12", kda: "9 / 2 / 4", change: 251 },
-    { hero: "潮汐猎人", mode: "xl, TB", duration: "39:17", kda: "4 / 4 / 19", change: 246 },
-    { hero: "幻影刺客", mode: "ar, TB", duration: "27:01", kda: "5 / 5 / 3", change: -28 }
+    { hero: "nerubianAssassin", mode: "xl, TB", duration: "28:45", kda: "7 / 3 / 21", change: 148 },
+    { hero: "riki", mode: "xl, TB", duration: "28:46", kda: "4 / 6 / 10", change: -41 },
+    { hero: "antiMage", mode: "xl, TB", duration: "43:12", kda: "9 / 2 / 4", change: 251 },
+    { hero: "tidehunter", mode: "xl, TB", duration: "39:17", kda: "4 / 4 / 19", change: 246 },
+    { hero: "phantomAssassin", mode: "ar, TB", duration: "27:01", kda: "5 / 5 / 3", change: -28 }
   ]);
 
-  topRecords = signal<TopRecord[]>([
-    { title: "最秀英雄", hero: "巫妖", value: "18.5", label: "酷炫因子", icon: "👑" },
-    { title: "最佳击杀", hero: "骷髅王", value: "22", label: "平均击杀", icon: "⚔️" },
-    { title: "最佳助攻", hero: "骷髅王", value: "31", label: "平均助攻", icon: "🤝" },
-    { title: "最长时间", hero: "骷髅王", value: "66:22", label: "游戏时长", icon: "⏰" },
-    { title: "最佳发育", hero: "幻影刺客", value: "436", label: "补刀数", icon: "💰" },
-    { title: "推塔最多", hero: "幻影刺客", value: "13", label: "反补建筑", icon: "🏰" }
+  topRecords = signal<{ key: string; hero: string; value: string; labelKey: string; icon: string; }[]>([
+    { key: "mostShowy", hero: "lich", value: "18.5", labelKey: "coolFactor", icon: "👑" },
+    { key: "bestKills", hero: "skeletonKing", value: "22", labelKey: "avgKills", icon: "⚔️" },
+    { key: "bestAssists", hero: "skeletonKing", value: "31", labelKey: "avgAssists", icon: "🤝" },
+    { key: "longestTime", hero: "skeletonKing", value: "66:22", labelKey: "gameDuration", icon: "⏰" },
+    { key: "bestDev", hero: "phantomAssassin", value: "436", labelKey: "lastHits", icon: "💰" },
+    { key: "mostTowers", hero: "phantomAssassin", value: "13", labelKey: "denies", icon: "🏰" }
   ]);
 
   recentGames = [1, 0, 1, 1, 0, 1, 0, 0, 1, 1, 1, 0, 1, 0, 1];
@@ -431,22 +431,22 @@ export class StatsComponent {
           if (res.success) {
             this.basicStats.update(stats => {
               const newStats = [...stats];
-              const timeIdx = newStats.findIndex(s => s.title === '累计在线');
+              const timeIdx = newStats.findIndex(s => s.key === 'onlineTime');
               if (timeIdx !== -1) {
-                newStats[timeIdx].value = Math.round(res.data.total_ingame_time / 60) + '小时';
+                newStats[timeIdx].value = Math.round(res.data.total_ingame_time / 60).toString();
               }
-              const securityIdx = newStats.findIndex(s => s.title === '玩家素质');
+              const securityIdx = newStats.findIndex(s => s.key === 'quality');
               if (securityIdx !== -1) {
-                newStats[securityIdx].value = res.data.cheat_records_count === 0 ? '优秀' : '有风险';
+                newStats[securityIdx].value = res.data.cheat_records_count === 0 ? 'excellent' : 'risky';
                 newStats[securityIdx].color = res.data.cheat_records_count === 0 ? '#10b981' : '#ef4444';
               }
-              const reportIdx = newStats.findIndex(s => s.title === '被举报数');
+              const reportIdx = newStats.findIndex(s => s.key === 'reports');
               if (reportIdx !== -1) {
                 newStats[reportIdx].value = res.data.report_records_count.toString();
               }
-              const verifyIdx = newStats.findIndex(s => s.title === '玩家认证');
+              const verifyIdx = newStats.findIndex(s => s.key === 'verification');
               if (verifyIdx !== -1) {
-                newStats[verifyIdx].value = res.data.is_phone_verified ? '已认证' : '未认证';
+                newStats[verifyIdx].value = res.data.is_phone_verified ? 'verified' : 'unverified';
                 newStats[verifyIdx].color = res.data.is_phone_verified ? '#10b981' : '#f59e0b';
               }
               return newStats;

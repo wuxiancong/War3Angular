@@ -232,11 +232,13 @@ export class ChatComponent {
       
       // Check for "All keys failed" first as it's the most specific
       if (msg.includes('All Gemini API keys failed') || msg.includes('All Gemini API keys have exhausted')) {
-        displayMsg = `抱歉，所有配置的 Gemini API 密钥均已失效或耗尽配额（共尝试了 ${this.aiService.getKeysCount()} 个密钥）。\n\n详细错误：${msg}`;
+        displayMsg = this.i18n.t('aiError.allKeysFailed')
+          .replace('{n}', this.aiService.getKeysCount().toString())
+          .replace('{msg}', msg);
       } else if (msg.includes('not configured')) {
         displayMsg = `${this.i18n.t('aiError.notConfigured')}\n${msg}`;
       } else if (msg.includes('API key not valid') || msg.includes('INVALID_ARGUMENT')) {
-        displayMsg = `AI密钥无效或格式错误，请检查配置。\n${msg}`;
+        displayMsg = this.i18n.t('aiError.invalidKey').replace('{msg}', msg);
       } else if (msg.includes('Insufficient Balance')) {
         displayMsg = this.i18n.t('aiError.insufficientBalance');
       } else if (msg.includes('429') || msg.includes('RESOURCE_EXHAUSTED') || msg.includes('quota')) {

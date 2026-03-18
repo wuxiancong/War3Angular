@@ -71,7 +71,7 @@ try {
     $rows = $stmt->fetchAll();
 
     $result = [];
-    $rankMap = ["-", "D", "C", "B", "A", "S", "SS", "SSS"];
+    $rankMap = ["D", "D", "C", "B", "A", "S", "SS", "SSS"]; // Index 0 and 1 are 'D'
 
     foreach ($rows as $row) {
         $totalGames = $row['wins'] + $row['losses'] + $row['draws'] + $row['escapes'];
@@ -100,7 +100,7 @@ try {
         if (!isset($result[$name])) {
             $result[$name] = [
                 "score" => "1000",
-                "rank_name" => "-",
+                "rank_name" => "D",
                 "kda" => "0.0",
                 "winRate" => "0%",
                 "escapeRate" => "0%"

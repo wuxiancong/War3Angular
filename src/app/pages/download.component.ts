@@ -56,7 +56,7 @@ type DownloadKey = 'main' | 'warcraft' | 'maps' | 'tools';
                         <span class="relative z-10 flex items-center justify-center gap-3">
                             @if (downloads().main.isDownloading) {
                                 <span class="material-icons animate-spin text-3xl">autorenew</span>
-                                <span>正在下载... {{ downloads().main.progress }}%</span>
+                                <span>{{ 'download.downloading' | t }} {{ downloads().main.progress }}%</span>
                             } @else {
                                 <span class="material-icons" [class.group-hover:animate-bounce]="isLoaded()">download</span>
                                 <span>{{ 'download.downloadBtn' | t }}</span>
@@ -78,7 +78,7 @@ type DownloadKey = 'main' | 'warcraft' | 'maps' | 'tools';
                     <span class="material-icons text-2xl">sports_esports</span>
                 </div>
                 <h3 class="text-xl font-bold text-[var(--text-main)] mb-2">{{ 'download.warcraft' | t }}</h3>
-                <p class="text-sm text-[var(--text-muted)] mb-4 h-10 line-clamp-2">纯净版本，无插件。CC对战平台必备。</p>
+                <p class="text-sm text-[var(--text-muted)] mb-4 h-10 line-clamp-2">{{ 'download.warcraftDesc' | t }}</p>
                 <button (click)="startDownload('warcraft')"
                         class="relative overflow-hidden w-full py-2 bg-[var(--secondary)] hover:brightness-110 text-[var(--text-main)] text-sm font-bold uppercase rounded border border-[var(--border)] transition-all flex items-center justify-center gap-2 group">
                     <div class="absolute inset-0 bg-accent/40 origin-left transition-all duration-200 ease-out"
@@ -87,9 +87,9 @@ type DownloadKey = 'main' | 'warcraft' | 'maps' | 'tools';
                     <span class="relative z-10 flex items-center justify-center gap-2">
                         @if (downloads().warcraft.isDownloading) {
                             <span class="material-icons animate-spin text-sm">autorenew</span>
-                            <span>下载中... {{ downloads().warcraft.progress }}%</span>
+                            <span>{{ 'download.downloading' | t }} {{ downloads().warcraft.progress }}%</span>
                         } @else {
-                            <span class="material-icons" [class.group-hover:animate-bounce]="isLoaded()">download</span> 立即下载 (1.2 GB)
+                            <span class="material-icons" [class.group-hover:animate-bounce]="isLoaded()">download</span> {{ 'download.downloadNow' | t }} (1.2 GB)
                         }
                     </span>
                 </button>
@@ -101,7 +101,7 @@ type DownloadKey = 'main' | 'warcraft' | 'maps' | 'tools';
                     <span class="material-icons text-2xl">map</span>
                 </div>
                 <h3 class="text-xl font-bold text-[var(--text-main)] mb-2">{{ 'download.maps' | t }}</h3>
-                <p class="text-sm text-[var(--text-muted)] mb-4 h-10 line-clamp-2">包含 6.83d, 6.88v, 7.00 及其他热门竞技地图。</p>
+                <p class="text-sm text-[var(--text-muted)] mb-4 h-10 line-clamp-2">{{ 'download.mapsDesc' | t }}</p>
                 <button (click)="startDownload('maps')"
                         class="relative overflow-hidden w-full py-2 bg-[var(--secondary)] hover:brightness-110 text-[var(--text-main)] text-sm font-bold uppercase rounded border border-[var(--border)] transition-all flex items-center justify-center gap-2 group">
                     <div class="absolute inset-0 bg-accent/40 origin-left transition-all duration-200 ease-out"
@@ -110,9 +110,9 @@ type DownloadKey = 'main' | 'warcraft' | 'maps' | 'tools';
                     <span class="relative z-10 flex items-center justify-center gap-2">
                         @if (downloads().maps.isDownloading) {
                             <span class="material-icons animate-spin text-sm">autorenew</span>
-                            <span>下载中... {{ downloads().maps.progress }}%</span>
+                            <span>{{ 'download.downloading' | t }} {{ downloads().maps.progress }}%</span>
                         } @else {
-                            <span class="material-icons" [class.group-hover:animate-bounce]="isLoaded()">download</span> 立即下载 (450 MB)
+                            <span class="material-icons" [class.group-hover:animate-bounce]="isLoaded()">download</span> {{ 'download.downloadNow' | t }} (450 MB)
                         }
                     </span>
                 </button>
@@ -124,7 +124,7 @@ type DownloadKey = 'main' | 'warcraft' | 'maps' | 'tools';
                     <span class="material-icons text-2xl">build</span>
                 </div>
                 <h3 class="text-xl font-bold text-[var(--text-main)] mb-2">{{ 'download.tools' | t }}</h3>
-                <p class="text-sm text-[var(--text-muted)] mb-4 h-10 line-clamp-2">改键工具（ War3Key）、版本切换器，录像分析器等辅助工具。</p>
+                <p class="text-sm text-[var(--text-muted)] mb-4 h-10 line-clamp-2">{{ 'download.toolsDesc' | t }}</p>
                 <button (click)="startDownload('tools')"
                         class="relative overflow-hidden w-full py-2 bg-[var(--secondary)] hover:brightness-110 text-[var(--text-main)] text-sm font-bold uppercase rounded border border-[var(--border)] transition-all flex items-center justify-center gap-2 group">
                     <div class="absolute inset-0 bg-accent/40 origin-left transition-all duration-200 ease-out"
@@ -133,9 +133,9 @@ type DownloadKey = 'main' | 'warcraft' | 'maps' | 'tools';
                     <span class="relative z-10 flex items-center justify-center gap-2">
                         @if (downloads().tools.isDownloading) {
                             <span class="material-icons animate-spin text-sm">autorenew</span>
-                            <span>下载中... {{ downloads().tools.progress }}%</span>
+                            <span>{{ 'download.downloading' | t }} {{ downloads().tools.progress }}%</span>
                         } @else {
-                            <span class="material-icons" [class.group-hover:animate-bounce]="isLoaded()">download</span> 立即下载 (15 MB)
+                            <span class="material-icons" [class.group-hover:animate-bounce]="isLoaded()">download</span> {{ 'download.downloadNow' | t }} (15 MB)
                         }
                     </span>
                 </button>
@@ -154,23 +154,23 @@ type DownloadKey = 'main' | 'warcraft' | 'maps' | 'tools';
                     <tbody class="divide-y divide-white/5 text-sm">
                         <tr>
                             <td class="py-4 font-bold text-[var(--text-muted)] w-1/4">{{ 'download.os' | t }}</td>
-                            <td class="py-4 text-[var(--text-main)]">Windows 7 / 8 / 10 / 11 (推荐 64位)</td>
+                            <td class="py-4 text-[var(--text-main)]">{{ 'download.osVal' | t }}</td>
                         </tr>
                         <tr>
                             <td class="py-4 font-bold text-[var(--text-muted)]">{{ 'download.cpu' | t }}</td>
-                            <td class="py-4 text-[var(--text-main)]">Intel Core i3 / AMD Ryzen 3 或更高</td>
+                            <td class="py-4 text-[var(--text-main)]">{{ 'download.cpuVal' | t }}</td>
                         </tr>
                         <tr>
                             <td class="py-4 font-bold text-[var(--text-muted)]">{{ 'download.ram' | t }}</td>
-                            <td class="py-4 text-[var(--text-main)]">4 GB 内存 (推荐 8 GB)</td>
+                            <td class="py-4 text-[var(--text-main)]">{{ 'download.ramVal' | t }}</td>
                         </tr>
                         <tr>
                             <td class="py-4 font-bold text-[var(--text-muted)]">{{ 'download.drivers' | t }}</td>
-                            <td class="py-4 text-[var(--text-main)]">兼容 DirectX 9.0c 的显卡</td>
+                            <td class="py-4 text-[var(--text-main)]">{{ 'download.driversVal' | t }}</td>
                         </tr>
                         <tr>
                             <td class="py-4 font-bold text-[var(--text-muted)]">{{ 'download.storage' | t }}</td>
-                            <td class="py-4 text-[var(--text-main)]">5 GB 可用空间</td>
+                            <td class="py-4 text-[var(--text-main)]">{{ 'download.storageVal' | t }}</td>
                         </tr>
                     </tbody>
                 </table>
