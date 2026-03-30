@@ -26,11 +26,18 @@ foreach ($forbidden_agents as $agent) {
 }
 
 // 3. Security Parameters Check
-$username  = $_REQUEST['username'] ?? '';
-$timestamp = intval($_REQUEST['t'] ?? 0);
-$signature = $_REQUEST['sign'] ?? '';
+$username  = $_GET['username'] ?? '';
+$timestamp = intval($_GET['t'] ?? 0);
+$signature = $_GET['sign'] ?? '';
 
-if (empty($username) || empty($signature) || $timestamp <= 0) {
+// Strict username validation (alphanumeric, underscores, hyphens, dots, 2-20 chars)
+if (!preg_match('/^[a-zA-Z0-9._-]{2,20}$/', $username)) {
+    http_response_code(400);
+    echo json_encode(['error' => 'Invalid username format']);
+    exit;
+}
+
+if (empty($signature) || $timestamp <= 0) {
     http_response_code(400);
     echo json_encode(['error' => 'Missing security parameters']);
     exit;

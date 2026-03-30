@@ -11,8 +11,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once 'database.php';
 
+// 1. Anti-Bot: Check User-Agent
+$ua = $_SERVER['HTTP_USER_AGENT'] ?? '';
+$forbidden_agents = ['curl', 'python', 'wget', 'go-http', 'postman', 'spider', 'bot', 'headless'];
+foreach ($forbidden_agents as $agent) {
+    if (stripos($ua, $agent) !== false) {
+        http_response_code(403);
+        echo json_encode(['error' => 'Access Denied: Bot detected']);
+        exit;
+    }
+}
+
 // In a real app, we would get the user ID from a session or JWT token
 $username = $_GET['username'] ?? '';
+
+// Strict username validation (alphanumeric, underscores, hyphens, dots, 2-20 chars)
+if (!preg_match('/^[a-zA-Z0-9._-]{2,20}$/', $username)) {
+    http_response_code(400);
+    echo json_encode(['success' => false, 'message' => 'Invalid username format']);
+    exit;
+}
 
 if (empty($username)) {
     echo json_encode(['success' => false, 'message' => 'Username required']);

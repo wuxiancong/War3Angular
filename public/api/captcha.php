@@ -8,6 +8,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
 }
 
+// 1. Anti-Bot: Check User-Agent
+$ua = $_SERVER['HTTP_USER_AGENT'] ?? '';
+$forbidden_agents = ['curl', 'python', 'wget', 'go-http', 'postman', 'spider', 'bot', 'headless'];
+foreach ($forbidden_agents as $agent) {
+    if (stripos($ua, $agent) !== false) {
+        http_response_code(403);
+        echo json_encode(['error' => 'Access Denied: Bot detected']);
+        exit;
+    }
+}
+
 // 图片源配置 (与 QML 相同)
 $sources = [
     "https://picsum.photos/400/200?random=",
@@ -18,6 +29,15 @@ $sources = [
 
 $randomId = mt_rand(1, 10000);
 $sourceUrl = $sources[array_rand($sources)] . $randomId;
+
+// SSRF Protection: Validate URL domain
+$allowed_domains = ['picsum.photos', 'loremflickr.com', 'placebear.com', 'img.paulzzh.com'];
+$parsed_url = parse_url($sourceUrl);
+if (!in_array($parsed_url['host'] ?? '', $allowed_domains)) {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'message' => 'Invalid image source domain']);
+    exit;
+}
 
 // 获取图片数据
 $ch = curl_init($sourceUrl);

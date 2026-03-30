@@ -26,9 +26,16 @@ foreach ($forbidden_agents as $agent) {
 }
 
 // 3. Security Parameters Check
-$usernamesStr = $_REQUEST['usernames'] ?? '';
-$timestamp    = intval($_REQUEST['t'] ?? 0);
-$signature    = $_REQUEST['sign'] ?? '';
+$usernamesStr = $_GET['usernames'] ?? '';
+$timestamp    = intval($_GET['t'] ?? 0);
+$signature    = $_GET['sign'] ?? '';
+
+// Basic sanitization: only allow alphanumeric, comma, underscore, hyphen, dot
+if (!preg_match('/^[a-zA-Z0-9._,-]+$/', $usernamesStr)) {
+    http_response_code(400);
+    echo json_encode(['error' => 'Invalid usernames format']);
+    exit;
+}
 
 if (empty($usernamesStr) || empty($signature) || $timestamp <= 0) {
     http_response_code(400);
