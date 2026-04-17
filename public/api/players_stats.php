@@ -30,8 +30,8 @@ $usernamesStr = $_GET['usernames'] ?? '';
 $timestamp    = intval($_GET['t'] ?? 0);
 $signature    = $_GET['sign'] ?? '';
 
-// Basic sanitization: only allow alphanumeric, comma, underscore, hyphen, dot
-if (!preg_match('/^[a-zA-Z0-9._,-]+$/', $usernamesStr)) {
+// Basic sanitization: allow alphanumeric, comma, underscore, hyphen, dot, brackets, parentheses
+if (!preg_match('/^[a-zA-Z0-9._\-\[\](),]+$/', $usernamesStr)) {
     http_response_code(400);
     echo json_encode(['error' => 'Invalid usernames format']);
     exit;

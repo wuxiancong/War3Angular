@@ -49,9 +49,9 @@ export const en: TranslationSchema = {
     auth: { login: "LOGIN", register: "JOIN", logout: "LOGOUT" },
     reg: { 
         title: "REGISTER", 
-        user: "Username", 
+        user: "Set Username (3-14 chars)", 
         email: "Email", 
-        pass: "Password", 
+        pass: "Password (min 8 chars)", 
         confirm: "Confirm Password", 
         submit: "REGISTER NOW", 
         back: "BACK TO LOGIN", 
@@ -66,7 +66,10 @@ export const en: TranslationSchema = {
         emailError: "Please enter a valid email address",
         passError: "Password too weak, please follow requirements",
         confirmError: "Passwords do not match",
-        userLength: "Username must be 3-14 characters"
+        userLength: "Username must be 3-14 characters",
+        userHint: "* Letters, digits, .-_[]() allowed, no only digits",
+        emailHint: "* Please enter a real email for activation",
+        passHint: "* Must include upper/lower case, digits and symbols"
     },
     login: {
         title: "LOGIN",

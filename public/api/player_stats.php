@@ -30,8 +30,8 @@ $username  = $_GET['username'] ?? '';
 $timestamp = intval($_GET['t'] ?? 0);
 $signature = $_GET['sign'] ?? '';
 
-// Strict username validation (alphanumeric, underscores, hyphens, dots, 2-20 chars)
-if (!preg_match('/^[a-zA-Z0-9._-]{2,20}$/', $username)) {
+// Strict username validation (alphanumeric, underscores, hyphens, dots, brackets, parentheses, 2-20 chars)
+if (!preg_match('/^[a-zA-Z0-9._\-\[\]()]{2,20}$/', $username)) {
     http_response_code(400);
     echo json_encode(['error' => 'Invalid username format']);
     exit;

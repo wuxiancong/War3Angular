@@ -49,9 +49,9 @@ export const zh_CN: TranslationSchema = {
     auth: { login: "登录", register: "注册", logout: "退出登录" },
     reg: { 
         title: "账号注册", 
-        user: "用户名", 
+        user: "设置用户名 (3-14位)", 
         email: "电子邮箱", 
-        pass: "密码", 
+        pass: "密码 (至少8位)", 
         confirm: "确认密码", 
         submit: "立即注册", 
         back: "已有账号？返回登录", 
@@ -66,7 +66,10 @@ export const zh_CN: TranslationSchema = {
         emailError: "请输入有效的电子邮箱地址",
         passError: "密码强度不足，请按要求输入",
         confirmError: "两次输入的密码不一致",
-        userLength: "用户名长度需在3-14位之间"
+        userLength: "用户名长度需在3-14位之间",
+        userHint: "* 支持字母、数字及 .-_[]()，禁止纯数字",
+        emailHint: "* 请输入真实邮箱用于激活",
+        passHint: "* 必须包含大小写字母、数字及特殊符号"
     },
     login: {
         title: "账号登录",

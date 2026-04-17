@@ -42,6 +42,7 @@ import { timeout } from 'rxjs/operators';
                                (focus)="focusedField.set('user')" (blur)="focusedField.set(null)"
                                class="bg-transparent w-full outline-none text-[var(--text-main)] text-sm">
                     </div>
+                    <p class="text-[10px] text-[var(--text-muted)] mt-1 ml-1 opacity-60">{{ 'reg.userHint' | t }}</p>
                 </div>
 
                 <!-- 邮箱 -->
@@ -60,6 +61,7 @@ import { timeout } from 'rxjs/operators';
                                (focus)="focusedField.set('email')" (blur)="focusedField.set(null)"
                                class="bg-transparent w-full outline-none text-[var(--text-main)] text-sm">
                     </div>
+                    <p class="text-[10px] text-[var(--text-muted)] mt-1 ml-1 opacity-60">{{ 'reg.emailHint' | t }}</p>
                 </div>
 
                 <!-- 密码 -->
@@ -88,6 +90,7 @@ import { timeout } from 'rxjs/operators';
                             </button>
                         }
                     </div>
+                    <p class="text-[10px] text-[var(--text-muted)] mt-1 ml-1 opacity-60">{{ 'reg.passHint' | t }}</p>
                 </div>
 
                 <!-- 确认密码 -->

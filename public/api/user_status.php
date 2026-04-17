@@ -25,8 +25,8 @@ foreach ($forbidden_agents as $agent) {
 // In a real app, we would get the user ID from a session or JWT token
 $username = $_GET['username'] ?? '';
 
-// Strict username validation (alphanumeric, underscores, hyphens, dots, 2-20 chars)
-if (!preg_match('/^[a-zA-Z0-9._-]{2,20}$/', $username)) {
+// Strict username validation (alphanumeric, underscores, hyphens, dots, brackets, parentheses, 2-20 chars)
+if (!preg_match('/^[a-zA-Z0-9._\-\[\]()]{2,20}$/', $username)) {
     http_response_code(400);
     echo json_encode(['success' => false, 'message' => 'Invalid username format']);
     exit;
