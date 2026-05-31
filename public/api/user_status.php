@@ -23,7 +23,7 @@ foreach ($forbidden_agents as $agent) {
 }
 
 // In a real app, we would get the user ID from a session or JWT token
-$username = $_GET['username'] ?? '';
+$username = $_GET['userName'] ?? $_GET['username'] ?? '';
 
 // Strict username validation (alphanumeric, underscores, hyphens, dots, brackets, parentheses, 2-20 chars)
 if (!preg_match('/^[a-zA-Z0-9._\-\[\]()]{2,20}$/', $username)) {

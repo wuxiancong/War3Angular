@@ -37,8 +37,8 @@ if (isset($data['lang'])) {
     // We might need to manually set it for the current request if I18n is already instantiated
 }
 
-$username = trim($data['username'] ?? '');
-$password = $data['password'] ?? '';
+$username = trim($data['userName'] ?? $data['username'] ?? '');
+$password = $data['passWord'] ?? $data['password'] ?? '';
 $email = trim($data['email'] ?? '');
 $phone = trim($data['phone'] ?? '');
 $salt = $data['salt'] ?? '';
@@ -47,8 +47,8 @@ $slide_x = isset($data['slide_x']) ? (int)$data['slide_x'] : null;
 $captcha_token = $data['captcha_token'] ?? '';
 
 $missing = [];
-if ($username === '') $missing[] = 'username';
-if ($password === '') $missing[] = 'password';
+if ($username === '') $missing[] = 'userName';
+if ($password === '') $missing[] = 'passWord';
 if ($email === '') $missing[] = 'email';
 if ($slide_x === null) $missing[] = 'slide_x';
 if ($captcha_token === '') $missing[] = 'captcha_token';

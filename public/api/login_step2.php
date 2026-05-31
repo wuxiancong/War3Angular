@@ -14,7 +14,7 @@ require_once 'database.php';
 $json = file_get_contents('php://input');
 $data = json_decode($json, true);
 
-$username = $data['username'] ?? '';
+$username = $data['userName'] ?? $data['username'] ?? '';
 $M1_hex = $data['M1'] ?? '';
 $web_token = $data['web_token'] ?? '';
 

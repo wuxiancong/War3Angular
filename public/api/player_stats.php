@@ -26,7 +26,7 @@ foreach ($forbidden_agents as $agent) {
 }
 
 // 3. Security Parameters Check
-$username  = $_GET['username'] ?? '';
+$username  = $_GET['userName'] ?? $_GET['username'] ?? '';
 $timestamp = intval($_GET['t'] ?? 0);
 $signature = $_GET['sign'] ?? '';
 

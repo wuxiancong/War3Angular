@@ -69,7 +69,8 @@ export const zh_CN: TranslationSchema = {
         userLength: "用户名长度需在3-14位之间",
         userHint: "* 支持字母、数字及 .-_[]()，禁止纯数字",
         emailHint: "* 请输入真实邮箱用于激活",
-        passHint: "* 必须包含大小写字母、数字及特殊符号"
+        passHint: "* 必须包含大小写字母、数字及特殊符号",
+        confirmHint: "* 请再次输入密码以确保一致"
     },
     login: {
         title: "账号登录",

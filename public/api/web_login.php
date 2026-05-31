@@ -14,8 +14,8 @@ require_once 'database.php';
 $json = file_get_contents('php://input');
 $data = json_decode($json, true);
 
-$username = $data['username'] ?? '';
-$password = $data['password'] ?? '';
+$username = $data['userName'] ?? $data['username'] ?? '';
+$password = $data['passWord'] ?? $data['password'] ?? '';
 $source = $data['source'] ?? 'web'; // 获取登录来源，默认为 web
 
 if (empty($username) || empty($password)) {

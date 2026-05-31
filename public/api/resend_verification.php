@@ -14,7 +14,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 require_once 'database.php';
 
 $data = json_decode(file_get_contents('php://input'), true);
-$username = trim($data['username'] ?? '');
+$username = trim($data['userName'] ?? $data['username'] ?? '');
 
 if (empty($username)) {
     echo json_encode(['success' => false, 'error_code' => 'ERR_EMPTY_USERNAME', 'message' => '用户名不能为空']);

@@ -229,8 +229,8 @@ export class LoginComponent {
     try {
       // 第一步：网页端验证 (Web Login)
       this.http.post<{ success: boolean; token?: string; message?: string; needs_verification?: boolean; error_code?: string }>('/api/web_login.php', {
-        username,
-        password,
+        userName: username,
+        passWord: password,
         source: this.loginSource()
       }).subscribe({
         next: (res) => {
@@ -292,7 +292,7 @@ export class LoginComponent {
       const A_hex = Array.from(A_bytes).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
 
       this.http.post<LoginStep1Response>('/api/login_step1.php', {
-        username: username,
+        userName: username,
         A: A_hex,
         web_token: this.webToken()
       }).subscribe({
@@ -332,7 +332,7 @@ export class LoginComponent {
   private sendSRPProof(username: string, M1_hex: string) {
     this.loginStep.set('srp2');
     this.http.post<LoginStep2Response>('/api/login_step2.php', {
-      username: username,
+      userName: username,
       M1: M1_hex,
       web_token: this.webToken()
     }).subscribe({
@@ -366,7 +366,7 @@ export class LoginComponent {
     if (!username) return;
 
     this.isLoading.set(true);
-    this.http.post<{ success: boolean; message: string; error_code?: string; debug_verify_link?: string }>('/api/resend_verification.php', { username })
+    this.http.post<{ success: boolean; message: string; error_code?: string; debug_verify_link?: string }>('/api/resend_verification.php', { userName: username })
       .subscribe({
         next: (res) => {
           this.isLoading.set(false);

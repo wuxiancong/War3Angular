@@ -69,7 +69,8 @@ export const en: TranslationSchema = {
         userLength: "Username must be 3-14 characters",
         userHint: "* Letters, digits, .-_[]() allowed, no only digits",
         emailHint: "* Please enter a real email for activation",
-        passHint: "* Must include upper/lower case, digits and symbols"
+        passHint: "* Must include upper/lower case, digits and symbols",
+        confirmHint: "* Please re-enter password to match"
     },
     login: {
         title: "LOGIN",

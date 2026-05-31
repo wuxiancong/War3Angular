@@ -20,10 +20,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 require_once 'database.php';
 
 // 支持 GET 或 POST (JSON) 获取 username
-$username = $_GET['username'] ?? '';
+$username = $_GET['userName'] ?? $_GET['username'] ?? '';
 if (empty($username)) {
     $data = json_decode(file_get_contents('php://input'), true);
-    $username = $data['username'] ?? '';
+    $username = $data['userName'] ?? $data['username'] ?? '';
 }
 
 $username = trim($username);

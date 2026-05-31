@@ -119,6 +119,7 @@ import { timeout } from 'rxjs/operators';
                             </button>
                         }
                     </div>
+                    <p class="text-[10px] text-[var(--text-muted)] mt-1 ml-1 opacity-60">{{ 'reg.confirmHint' | t }}</p>
                 </div>
 
                 <!-- 滑动拼图验证 -->
@@ -507,8 +508,8 @@ export class RegisterComponent implements OnDestroy {
       const apiUrl = '/api/register.php';
       
       this.http.post<{success: boolean, message: string, debug_verify_link?: string}>(apiUrl, { 
-        username, 
-        password, 
+        userName: username, 
+        passWord: password, 
         email,
         slide_x,
         captcha_token: this.captchaToken(),
