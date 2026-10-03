@@ -76,6 +76,8 @@ try {
     $pvpgn = new ClientManager(PVPGN_HOST, PVPGN_PORT);
     if ($pvpgn->register($tempUser['username'], $password)) {
         $pvpgnRegistered = true;
+        // 注册成功后，立即更新 PvPGN 数据库的 acct_email，避免魔兽争霸客户端登录时弹出邮箱验证/绑定窗口
+        $db->updatePvpgnEmail($tempUser['username'], $tempUser['acct_email']);
     } else {
         $errorMsg = $pvpgn->getLastError() ?? '未知错误';
         renderPage(__("email_verify_fail_title"), __("email_verify_pvpgn_fail") . " 详细信息: " . htmlspecialchars($errorMsg), false);

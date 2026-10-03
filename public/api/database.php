@@ -283,15 +283,19 @@ class Database {
             $existsInUsers = true;
         }
 
-        // 3. 检查 PvPGN 的 pvpgn_BNET 表 (使用 try-catch 防止表不存在时报错)
-        try {
-            $stmt2 = $this->pdo->prepare("SELECT COUNT(*) FROM pvpgn_BNET WHERE username = ?");
-            $stmt2->execute([$username]);
-            if ($stmt2->fetchColumn() > 0) {
-                $existsInPvpgn = true;
+        // 3. 检查 PvPGN 表 (兼容不同表名大小写以及用户名大小写)
+        $tables = ['pvpgn_BNET', 'BNET', 'pvpgn_bnet', 'bnet'];
+        foreach ($tables as $table) {
+            try {
+                $stmt2 = $this->pdo->prepare("SELECT COUNT(*) FROM `{$table}` WHERE LOWER(username) = LOWER(?) OR acct_username = ?");
+                $stmt2->execute([$username, $username]);
+                if ($stmt2->fetchColumn() > 0) {
+                    $existsInPvpgn = true;
+                    break;
+                }
+            } catch (PDOException $e) {
+                // 表不存在或查询失败，尝试下一个可能表名
             }
-        } catch (PDOException $e) {
-            // 表不存在或查询失败，忽略
         }
 
         return [
@@ -322,15 +326,18 @@ class Database {
             return true;
         }
 
-        // 3. 检查 pvpgn_BNET 表
-        try {
-            $stmtPvpgn = $this->pdo->prepare("SELECT COUNT(*) FROM pvpgn_BNET WHERE acct_email = ?");
-            $stmtPvpgn->execute([$email]);
-            if ($stmtPvpgn->fetchColumn() > 0) {
-                return true;
+        // 3. 检查 PvPGN 表 (兼容不同表名大小写)
+        $tables = ['pvpgn_BNET', 'BNET', 'pvpgn_bnet', 'bnet'];
+        foreach ($tables as $table) {
+            try {
+                $stmtPvpgn = $this->pdo->prepare("SELECT COUNT(*) FROM `{$table}` WHERE acct_email = ?");
+                $stmtPvpgn->execute([$email]);
+                if ($stmtPvpgn->fetchColumn() > 0) {
+                    return true;
+                }
+            } catch (PDOException $e) {
+                // 表不存在或查询失败，忽略
             }
-        } catch (PDOException $e) {
-            // 表不存在或查询失败，忽略
         }
 
         return false;
@@ -489,6 +496,138 @@ class Database {
     }
 
     /**
+     * 更新 PvPGN 数据库中的邮箱 (acct_email)
+     * 避免魔兽争霸客户端登录时弹出邮箱验证/绑定页面
+     */
+    public function updatePvpgnEmail($username, $email) {
+        if (empty($username) || empty($email)) {
+            return false;
+        }
+
+        $username = trim($username);
+        $email = trim($email);
+
+        // 兼容不同的 PvPGN 表名大小写 (Linux MySQL 区分大小写)
+        $tables = ['pvpgn_BNET', 'BNET', 'pvpgn_bnet', 'bnet'];
+        $updated = false;
+
+        foreach ($tables as $table) {
+            try {
+                // PvPGN 中 username 通常以小写存储，acct_username 为原始大小写
+                $stmt = $this->pdo->prepare("UPDATE `{$table}` SET acct_email = ? WHERE LOWER(username) = LOWER(?) OR acct_username = ?");
+                $stmt->execute([$email, $username, $username]);
+                if ($stmt->rowCount() > 0) {
+                    error_log("[PvPGN] Successfully updated acct_email to '{$email}' for '{$username}' in table {$table}");
+                    $updated = true;
+                    break;
+                }
+            } catch (PDOException $e) {
+                // 表可能不存在，继续尝试下一个表名
+                continue;
+            }
+        }
+
+        return $updated;
+    }
+
+    /**
+     * 设置/更新用户的邮箱
+     * 同时更新 users 表、pvpgn_BNET 表以及 temp_users 表
+     * 
+     * @param string $username 用户名
+     * @param string $email 目标邮箱
+     * @param bool $checkDuplicate 是否检查邮箱被其他用户占用 (默认 true)
+     * @return array [success => bool, message => string, users_updated => bool, pvpgn_updated => bool]
+     */
+    public function setUserEmail($username, $email, $checkDuplicate = true) {
+        $username = trim($username);
+        $email = trim($email);
+
+        if (empty($username)) {
+            return ['success' => false, 'message' => '用户名不能为空'];
+        }
+
+        if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return ['success' => false, 'message' => '邮箱格式不正确'];
+        }
+
+        // 1. 如果需要查重，检查该邮箱是否被其他用户占用
+        if ($checkDuplicate) {
+            // 检查 users 表中是否有其他用户占用此邮箱
+            $stmtUser = $this->pdo->prepare("SELECT username FROM users WHERE acct_email = ? AND LOWER(username) != LOWER(?) LIMIT 1");
+            $stmtUser->execute([$email, $username]);
+            $existingUser = $stmtUser->fetchColumn();
+            if ($existingUser) {
+                return ['success' => false, 'message' => "该邮箱已被用户 '{$existingUser}' 绑定"];
+            }
+
+            // 检查 pvpgn 表中是否有其他用户占用此邮箱
+            $tables = ['pvpgn_BNET', 'BNET', 'pvpgn_bnet', 'bnet'];
+            foreach ($tables as $table) {
+                try {
+                    $stmtPv = $this->pdo->prepare("SELECT username FROM `{$table}` WHERE acct_email = ? AND LOWER(username) != LOWER(?) LIMIT 1");
+                    $stmtPv->execute([$email, $username]);
+                    $existingPv = $stmtPv->fetchColumn();
+                    if ($existingPv) {
+                        return ['success' => false, 'message' => "该邮箱已被魔兽账号 '{$existingPv}' 绑定"];
+                    }
+                } catch (PDOException $e) {
+                    // 表不存在则跳过
+                }
+            }
+        }
+
+        $usersUpdated = false;
+        $pvpgnUpdated = false;
+
+        // 2. 更新 users 表
+        try {
+            $stmtUpdate = $this->pdo->prepare("UPDATE users SET acct_email = ?, is_email_verified = 1 WHERE LOWER(username) = LOWER(?)");
+            $stmtUpdate->execute([$email, $username]);
+            if ($stmtUpdate->rowCount() > 0) {
+                $usersUpdated = true;
+            }
+        } catch (PDOException $e) {
+            error_log("setUserEmail error updating users: " . $e->getMessage());
+        }
+
+        // 3. 更新 PvPGN 表 (通过 updatePvpgnEmail)
+        $pvpgnUpdated = $this->updatePvpgnEmail($username, $email);
+
+        // 4. 更新 temp_users 表（如果存在）
+        try {
+            $stmtTemp = $this->pdo->prepare("UPDATE temp_users SET acct_email = ? WHERE LOWER(username) = LOWER(?)");
+            $stmtTemp->execute([$email, $username]);
+        } catch (PDOException $e) {
+            // ignore
+        }
+
+        // 5. 如果 users 表没找到该用户，但 PvPGN 表存在该用户，则执行自动同步
+        if (!$usersUpdated && $pvpgnUpdated) {
+            $this->syncFromPvpgn($username, $email);
+            $usersUpdated = true;
+        }
+
+        if ($usersUpdated || $pvpgnUpdated) {
+            return [
+                'success' => true,
+                'message' => '邮箱更新成功',
+                'users_updated' => $usersUpdated,
+                'pvpgn_updated' => $pvpgnUpdated,
+                'email' => $email,
+                'username' => $username
+            ];
+        } else {
+            return [
+                'success' => false,
+                'message' => '未找到对应的用户账号，请确认用户名是否正确',
+                'users_updated' => false,
+                'pvpgn_updated' => false
+            ];
+        }
+    }
+
+    /**
      * 从 pvpgn_BNET 同步数据到 users 表
      */
     public function syncFromPvpgn($username, $providedEmail = null) {
@@ -501,13 +640,33 @@ class Database {
                 $currentEmail = $stmtEmail->fetchColumn();
             }
 
-            // 1. 从 pvpgn_BNET 获取数据
-            $stmt = $this->pdo->prepare("SELECT * FROM pvpgn_BNET WHERE username = ?");
-            $stmt->execute([$username]);
-            $pvpgnData = $stmt->fetch();
+            // 1. 如果有邮箱，先同步更新到 PvPGN 表的 acct_email，避免魔兽客户端弹窗
+            if (!empty($currentEmail)) {
+                $this->updatePvpgnEmail($username, $currentEmail);
+            }
+
+            // 2. 从 pvpgn_BNET (或兼容表) 获取数据，同时匹配 LOWER(username) 与 acct_username
+            $tables = ['pvpgn_BNET', 'BNET', 'pvpgn_bnet', 'bnet'];
+            $pvpgnData = null;
+            $matchedTable = 'pvpgn_BNET';
+
+            foreach ($tables as $table) {
+                try {
+                    $stmt = $this->pdo->prepare("SELECT * FROM `{$table}` WHERE LOWER(username) = LOWER(?) OR acct_username = ? LIMIT 1");
+                    $stmt->execute([$username, $username]);
+                    $row = $stmt->fetch();
+                    if ($row) {
+                        $pvpgnData = $row;
+                        $matchedTable = $table;
+                        break;
+                    }
+                } catch (PDOException $e) {
+                    continue;
+                }
+            }
 
             if (!$pvpgnData) {
-                error_log("Sync from PvPGN failed: User $username not found in pvpgn_BNET");
+                error_log("Sync from PvPGN failed: User $username not found in PvPGN tables");
                 return false;
             }
 
@@ -519,13 +678,13 @@ class Database {
                 'has_salt' => !empty($pvpgnData['acct_salt'])
             ]));
 
-            // 如果 PvPGN 中没有邮箱，但我们有，则反向同步给 PvPGN
+            // 如果 PvPGN 中没有邮箱，但我们有，则补充更新给 PvPGN
             if (empty($pvpgnData['acct_email']) && !empty($currentEmail)) {
                 try {
-                    $stmtUpdatePvpgn = $this->pdo->prepare("UPDATE pvpgn_BNET SET acct_email = ? WHERE username = ?");
-                    $stmtUpdatePvpgn->execute([$currentEmail, $username]);
+                    $stmtUpdatePvpgn = $this->pdo->prepare("UPDATE `{$matchedTable}` SET acct_email = ? WHERE LOWER(username) = LOWER(?) OR acct_username = ?");
+                    $stmtUpdatePvpgn->execute([$currentEmail, $username, $username]);
                     $pvpgnData['acct_email'] = $currentEmail;
-                    error_log("Reverse synced email $currentEmail to PvPGN for $username");
+                    error_log("Reverse synced email $currentEmail to PvPGN table {$matchedTable} for $username");
                 } catch (PDOException $e) {
                     error_log("Reverse sync email failed: " . $e->getMessage());
                 }
