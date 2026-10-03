@@ -339,7 +339,7 @@ export class LoginComponent {
       next: (res) => {
         this.isLoading.set(false);
         if (res.success) {
-          alert('战网验证成功！登录完成');
+          alert('验证成功！登录完成');
           if (res.token) {
             localStorage.setItem('bnet_auth_token', res.token);
           }

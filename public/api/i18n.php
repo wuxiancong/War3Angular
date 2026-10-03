@@ -94,7 +94,16 @@ class I18n {
                 'temp_email_verify_success_title' => '激活成功！',
                 'temp_email_verify_success_msg' => '临时通知邮箱已成功激活绑定！现在您可以接收游戏对局战报与系统推送。',
                 'temp_email_verify_fail_title' => '激活失败',
-                'temp_email_verify_btn_done' => '完成并返回客户端'
+                'temp_email_verify_btn_done' => '完成并返回客户端',
+                'temp_email_subject' => '请激活您的临时通知邮箱',
+                'temp_email_mail_header' => '临时通知邮箱激活',
+                'temp_email_mail_greeting' => '尊敬的玩家',
+                'temp_email_mail_intro' => '您已将本邮箱（<strong>%s</strong>）设置为您的临时通知邮箱，用于接收游戏战报、对局通知及系统提醒。',
+                'temp_email_mail_resend_intro' => '您重新申请了激活临时通知邮箱（<strong>%s</strong>）。',
+                'temp_email_mail_action' => '为确保能顺利接收到通知，请点击下方按钮激活此临时邮箱：',
+                'temp_email_mail_btn' => '点击激活临时邮箱',
+                'temp_email_mail_link_hint' => '如果上方按钮无法点击，请复制以下链接到浏览器打开：',
+                'temp_email_mail_expiry_hint' => '提示：此激活链接有效期为 24 小时。若非您本人操作，请忽略此邮件。'
             ],
             'en' => [
                 'email_verify_title' => 'Email Verification',
@@ -134,7 +143,16 @@ class I18n {
                 'temp_email_verify_success_title' => 'Activation Successful!',
                 'temp_email_verify_success_msg' => 'Your temporary notification email has been verified! You will now receive game battle reports and notifications.',
                 'temp_email_verify_fail_title' => 'Activation Failed',
-                'temp_email_verify_btn_done' => 'Done & Return to Client'
+                'temp_email_verify_btn_done' => 'Done & Return to Client',
+                'temp_email_subject' => 'Please activate your temporary notification email',
+                'temp_email_mail_header' => 'Temporary Email Activation',
+                'temp_email_mail_greeting' => 'Dear player',
+                'temp_email_mail_intro' => 'You have set this email address (<strong>%s</strong>) as your temporary notification email to receive match reports, battle alerts, and system notices.',
+                'temp_email_mail_resend_intro' => 'You requested to resend the activation for your temporary notification email (<strong>%s</strong>).',
+                'temp_email_mail_action' => 'To ensure you receive notifications smoothly, please click the button below to activate this email:',
+                'temp_email_mail_btn' => 'Click to Activate Temporary Email',
+                'temp_email_mail_link_hint' => 'If the button above does not work, please copy and paste the following link into your browser:',
+                'temp_email_mail_expiry_hint' => 'Notice: This activation link is valid for 24 hours. If you did not make this request, please ignore this email.'
             ],
             'zh_TW' => [
                 'email_verify_title' => '電子郵箱驗證',
@@ -173,7 +191,16 @@ class I18n {
                 'temp_email_verify_success_title' => '啟用成功！',
                 'temp_email_verify_success_msg' => '臨時通知信箱已成功啟用綁定！現在您可以接收遊戲對局戰報與系統推播。',
                 'temp_email_verify_fail_title' => '啟用失敗',
-                'temp_email_verify_btn_done' => '完成並返回用戶端'
+                'temp_email_verify_btn_done' => '完成並返回用戶端',
+                'temp_email_subject' => '請啟用您的臨時通知信箱',
+                'temp_email_mail_header' => '臨時通知信箱啟用',
+                'temp_email_mail_greeting' => '尊敬的玩家',
+                'temp_email_mail_intro' => '您已將本信箱（<strong>%s</strong>）設定為您的臨時通知信箱，用於接收遊戲戰報、對局通知及系統提醒。',
+                'temp_email_mail_resend_intro' => '您重新申請了啟用臨時通知信箱（<strong>%s</strong>）。',
+                'temp_email_mail_action' => '為確保能順利接收到通知，請點擊下方按鈕啟用此臨時信箱：',
+                'temp_email_mail_btn' => '點擊啟用臨時信箱',
+                'temp_email_mail_link_hint' => '如果上方按鈕無法點擊，請複製以下連結到瀏覽器開啟：',
+                'temp_email_mail_expiry_hint' => '提示：此啟用連結有效期為 24 小時。若非您本人操作，請忽略此郵件。'
             ],
             'ru' => [
                 'email_verify_title' => 'Верификация электронной почты',
@@ -196,7 +223,32 @@ class I18n {
                 'email_link_hint' => 'Если кнопка не нажимается, скопируйте следующую ссылку в браузер:',
                 'email_expiry_hint' => 'Эта ссылка действительна в течение 24 часов. Если вы не совершали это действие, проигнорируйте это письмо.',
                 'email_subject' => 'Добро пожаловать! Пожалуйста, подтвердите свою электронную почту',
-                'reg_pending_msg' => 'Запрос на регистрацию отправлен! Пожалуйста, проверьте свою электронную почту для верификации перед входом в систему.'
+                'reg_pending_msg' => 'Запрос на регистрацию отправлен! Пожалуйста, проверьте свою электронную почту для верификации перед входом в систему.',
+                'err_empty_username' => 'Имя пользователя не может быть пустым',
+                'err_empty_email' => 'Электронная почта не может быть пустой',
+                'err_invalid_email' => 'Пожалуйста, введите корректный адрес электронной почты',
+                'err_user_not_found' => 'Учетная запись не найдена',
+                'err_rate_limit' => 'Письма отправляются слишком часто. Подождите 60 секунд перед следующей попыткой.',
+                'err_no_temp_email' => 'Вы еще не настроили временный email для уведомлений.',
+                'err_already_verified' => 'Этот временный email уже активирован.',
+                'temp_email_saved_and_sent' => 'Временный email сохранен! Письмо с подтверждением отправлено. Пожалуйста, проверьте ваш почтовый ящик.',
+                'temp_email_saved_delay' => 'Временный email сохранен. Отправка письма задержана, вы можете повторить отправку из клиента.',
+                'temp_email_resend_success' => 'Письмо с подтверждением отправлено повторно.',
+                'temp_email_fetch_success' => 'Данные временного email успешно получены',
+                'temp_email_verify_title' => 'Активация временного email',
+                'temp_email_verify_success_title' => 'Активация успешна!',
+                'temp_email_verify_success_msg' => 'Временный email успешно активирован! Теперь вы можете получать отчеты об играх.',
+                'temp_email_verify_fail_title' => 'Ошибка активации',
+                'temp_email_verify_btn_done' => 'Готово и вернуться в клиент',
+                'temp_email_subject' => 'Пожалуйста, активируйте временный email для уведомлений',
+                'temp_email_mail_header' => 'Активация временного email',
+                'temp_email_mail_greeting' => 'Уважаемый игрок',
+                'temp_email_mail_intro' => 'Вы указали данный email (<strong>%s</strong>) в качестве временного адреса для получения боевых отчетов и системных уведомлений.',
+                'temp_email_mail_resend_intro' => 'Вы повторно запросили активацию временного email для уведомлений (<strong>%s</strong>).',
+                'temp_email_mail_action' => 'Чтобы гарантированно получать уведомления, нажмите кнопку ниже для активации этого адреса:',
+                'temp_email_mail_btn' => 'Активировать временный email',
+                'temp_email_mail_link_hint' => 'Если кнопка выше не работает, скопируйте следующую ссылку в адресную строку браузера:',
+                'temp_email_mail_expiry_hint' => 'Внимание: ссылка действительна в течение 24 часов. Если вы не запрашивали это действие, проигнорируйте данное письмо.'
             ],
             // ... Adding more languages would be similar. 
             // For brevity in this tool call, I'll include the most common ones and a fallback mechanism.

@@ -90,24 +90,8 @@ try {
     $verifyLink = "{$scheme}://{$host}/api/verify_temp_email.php?token={$token}";
 
     $mailer = new Mailer();
-    $subject = "【CC对战平台】请激活您的临时通知邮箱";
-    $body = "
-    <div style='font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 10px; overflow: hidden; background: #ffffff;'>
-        <div style='background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); color: white; padding: 25px; text-align: center;'>
-            <h2 style='margin: 0; font-size: 22px;'>📬 CC 对战平台 - 临时邮箱激活</h2>
-        </div>
-        <div style='padding: 30px; color: #333; line-height: 1.6;'>
-            <p style='font-size: 16px;'>尊敬的玩家 <strong>" . htmlspecialchars($username) . "</strong>，您好：</p>
-            <p>您重新申请了激活临时通知邮箱（<strong>" . htmlspecialchars($email) . "</strong>）。</p>
-            <p>请点击下方按钮激活此临时邮箱：</p>
-            <div style='text-align: center; margin: 35px 0;'>
-                <a href='{$verifyLink}' style='background-color: #007bff; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px; display: inline-block;'>点击激活临时邮箱</a>
-            </div>
-            <p style='color: #888; font-size: 13px;'>如果上方按钮无法点击，请复制以下链接到浏览器打开：</p>
-            <p style='word-break: break-all; font-size: 13px; color: #007bff; background: #f8f9fa; padding: 10px; border-radius: 4px;'>{$verifyLink}</p>
-            <p style='color: #999; font-size: 12px; margin-top: 30px;'>提示：此激活链接有效期为 24 小时。若非您本人操作，请忽略此邮件。</p>
-        </div>
-    </div>";
+    $subject = __('temp_email_subject');
+    $body = $mailer->getTempEmailTemplate($username, $email, $verifyLink, true);
 
     $mailSent = $mailer->send($email, $subject, $body);
     if ($mailSent) {

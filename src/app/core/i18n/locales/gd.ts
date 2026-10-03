@@ -77,7 +77,7 @@ export const gd: TranslationSchema = {
         submit: "LOG A-STEACH",
         userError: "Cleachdaiche no post-d neo-dhligheach",
         webAuthFail: "Dh'fhàillig an logadh a-steach, thoir sùil air na teisteanasan",
-        bnetAuthFail: "Dh'fhàillig dearbhadh Battle.net"
+        bnetAuthFail: "Account authentication failed"
     },
     hero: {
         mainTitle: "ÀRD-ÙRLAR CC",

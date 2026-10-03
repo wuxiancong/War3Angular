@@ -44,6 +44,6 @@ if (!$user) {
 
 echo json_encode([
     'success' => true,
-    'token' => bin2hex(random_bytes(16)), // 战网 Token
-    'message' => '战网验证成功'
+    'token' => bin2hex(random_bytes(16)), // Auth Token
+    'message' => '验证成功'
 ]);

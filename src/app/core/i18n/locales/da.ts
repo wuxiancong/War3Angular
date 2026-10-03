@@ -77,7 +77,7 @@ export const da: TranslationSchema = {
         submit: "LOG IND",
         userError: "Ugyldig bruger eller e-mail",
         webAuthFail: "Logind mislykkedes, tjek venligst legitimationsoplysninger",
-        bnetAuthFail: "Battle.net-godkendelse mislykkedes"
+        bnetAuthFail: "Account authentication failed"
     },
     hero: {
         mainTitle: "CC PLATFORM",

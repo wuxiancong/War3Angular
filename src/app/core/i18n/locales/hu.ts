@@ -77,7 +77,7 @@ export const hu: TranslationSchema = {
         submit: "BELÉPÉS",
         userError: "Érvénytelen felhasználó vagy e-mail",
         webAuthFail: "Bejelentkezés sikertelen, kérjük, ellenőrizze a hitelesítő adatokat",
-        bnetAuthFail: "Battle.net hitelesítés sikertelen"
+        bnetAuthFail: "Account authentication failed"
     },
     hero: {
         mainTitle: "CC PLATFORM",

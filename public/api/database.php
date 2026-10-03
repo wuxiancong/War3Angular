@@ -23,7 +23,7 @@ class Database {
             );
             $this->pdo->exec("CREATE TABLE IF NOT EXISTS users (
                 -- --- [第一部分：PvPGN 原生字段 (28个)] ---
-                uid int NOT NULL AUTO_INCREMENT COMMENT '战网唯一ID',
+                uid int NOT NULL AUTO_INCREMENT COMMENT '平台唯一ID',
                 acct_username varchar(32) DEFAULT NULL,
                 username varchar(32) NOT NULL PRIMARY KEY COMMENT '平台登录名',
                 acct_userid int DEFAULT NULL,
@@ -108,8 +108,8 @@ class Database {
                 tellphone_number VARCHAR(20) DEFAULT NULL COMMENT '绑定手机号',
                 web_password_hash VARCHAR(255) NOT NULL COMMENT '网页端登录密码Hash',
                 encrypted_password VARCHAR(255) NOT NULL COMMENT '加密的明文密码用于PvPGN注册',
-                acct_salt VARCHAR(128) DEFAULT NULL COMMENT '战网密码盐值',
-                acct_verifier VARCHAR(128) DEFAULT NULL COMMENT '战网密码验证器',
+                acct_salt VARCHAR(128) DEFAULT NULL COMMENT '密码盐值',
+                acct_verifier VARCHAR(128) DEFAULT NULL COMMENT '密码验证器',
                 email_verify_token VARCHAR(64) NOT NULL COMMENT '邮箱验证Token',
                 email_verify_expires DATETIME NOT NULL COMMENT '邮箱验证链接过期时间',
                 register_ip VARCHAR(45) DEFAULT '' COMMENT '初始注册IP (支持IPv6)',
@@ -583,7 +583,7 @@ class Database {
                     $stmtPv->execute([$email, $username]);
                     $existingPv = $stmtPv->fetchColumn();
                     if ($existingPv) {
-                        return ['success' => false, 'message' => "该邮箱已被魔兽账号 '{$existingPv}' 绑定"];
+                        return ['success' => false, 'message' => "该邮箱已被账号 '{$existingPv}' 绑定"];
                     }
                 } catch (PDOException $e) {
                     // 表不存在则跳过

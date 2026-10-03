@@ -155,4 +155,35 @@ class Mailer {
             </div>
         </div>";
     }
+
+    public function getTempEmailTemplate($username, $email, $verify_link, $isResend = false) {
+        $header = __('temp_email_mail_header');
+        $greeting = __('temp_email_mail_greeting');
+        $intro = $isResend 
+            ? sprintf(__('temp_email_mail_resend_intro'), htmlspecialchars($email))
+            : sprintf(__('temp_email_mail_intro'), htmlspecialchars($email));
+        $action = __('temp_email_mail_action');
+        $btn = __('temp_email_mail_btn');
+        $linkHint = __('temp_email_mail_link_hint');
+        $expiryHint = __('temp_email_mail_expiry_hint');
+        $safeUsername = htmlspecialchars($username);
+
+        return "
+        <div style='font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 10px; overflow: hidden; background: #ffffff;'>
+            <div style='background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); color: white; padding: 25px; text-align: center;'>
+                <h2 style='margin: 0; font-size: 22px;'>📬 {$header}</h2>
+            </div>
+            <div style='padding: 30px; color: #333; line-height: 1.6;'>
+                <p style='font-size: 16px;'>{$greeting} <strong>{$safeUsername}</strong>，您好：</p>
+                <p>{$intro}</p>
+                <p>{$action}</p>
+                <div style='text-align: center; margin: 35px 0;'>
+                    <a href='{$verify_link}' style='background-color: #007bff; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px; display: inline-block;'>{$btn}</a>
+                </div>
+                <p style='color: #888; font-size: 13px;'>{$linkHint}</p>
+                <p style='word-break: break-all; font-size: 13px; color: #007bff; background: #f8f9fa; padding: 10px; border-radius: 4px;'>{$verify_link}</p>
+                <p style='color: #999; font-size: 12px; margin-top: 30px;'>{$expiryHint}</p>
+            </div>
+        </div>";
+    }
 }

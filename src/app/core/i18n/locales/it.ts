@@ -77,7 +77,7 @@ export const it: TranslationSchema = {
         submit: "ACCEDI",
         userError: "Utente o e-mail non valida",
         webAuthFail: "Accesso fallito, controlla le credenziali",
-        bnetAuthFail: "Autenticazione Battle.net fallita"
+        bnetAuthFail: "Autenticazione account fallita"
     },
     hero: {
         mainTitle: "PIATTAFORMA CC",

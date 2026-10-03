@@ -77,7 +77,7 @@ export const uk: TranslationSchema = {
         submit: "УВІЙТИ",
         userError: "Невірний користувач або e-mail",
         webAuthFail: "Помилка входу, перевірте дані",
-        bnetAuthFail: "Помилка автентифікації Battle.net"
+        bnetAuthFail: "Account authentication failed"
     },
     hero: {
         mainTitle: "ПЛАТФОРМА CC",

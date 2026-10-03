@@ -77,7 +77,7 @@ export const ca: TranslationSchema = {
         submit: "ENTRAR",
         userError: "Usuari o correu no vàlid",
         webAuthFail: "Inici de sessió fallit, revisa les credencials",
-        bnetAuthFail: "Autenticació Battle.net fallida"
+        bnetAuthFail: "Account authentication failed"
     },
     hero: {
         mainTitle: "PLATAFORMA CC",

@@ -77,7 +77,7 @@ export const ko: TranslationSchema = {
         submit: "로그인",
         userError: "사용자 이름 또는 이메일이 잘못되었습니다",
         webAuthFail: "로그인 실패, 정보를 확인하세요",
-        bnetAuthFail: "Battle.net 인증 실패"
+        bnetAuthFail: "계정 인증 실패"
     },
     hero: {
         mainTitle: "CC 플랫폼",

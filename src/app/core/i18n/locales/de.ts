@@ -77,7 +77,7 @@ export const de: TranslationSchema = {
         submit: "ANMELDEN",
         userError: "Ungültiger Benutzername oder E-Mail",
         webAuthFail: "Login fehlgeschlagen, bitte Zugangsdaten prüfen",
-        bnetAuthFail: "Battle.net-Authentifizierung fehlgeschlagen"
+        bnetAuthFail: "Konto-Authentifizierung fehlgeschlagen"
     },
     hero: {
         mainTitle: "CC-PLATTFORM",

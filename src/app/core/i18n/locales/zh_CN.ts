@@ -81,7 +81,7 @@ export const zh_CN: TranslationSchema = {
         submit: "登录",
         userError: "请输入正确的用户名或邮箱",
         webAuthFail: "登录验证失败，请检查账号密码",
-        bnetAuthFail: "战网验证失败"
+        bnetAuthFail: "账号验证失败"
     },
     hero: {
         mainTitle: "CC对战平台",

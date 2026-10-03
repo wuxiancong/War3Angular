@@ -77,7 +77,7 @@ export const bg: TranslationSchema = {
         submit: "ВХОД",
         userError: "Невалиден потребител или имейл",
         webAuthFail: "Входът е неуспешен, моля проверете данните",
-        bnetAuthFail: "Battle.net удостоверяването е неуспешно"
+        bnetAuthFail: "Account authentication failed"
     },
     hero: {
         mainTitle: "CC ПЛАТФОРМА",

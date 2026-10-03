@@ -81,7 +81,7 @@ export const en: TranslationSchema = {
         submit: "LOGIN",
         userError: "Invalid username or email",
         webAuthFail: "Login failed, please check credentials",
-        bnetAuthFail: "Battle.net auth failed"
+        bnetAuthFail: "Account authentication failed"
     },
     hero: {
         mainTitle: "CC PLATFORM",

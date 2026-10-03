@@ -77,7 +77,7 @@ export const sk: TranslationSchema = {
         submit: "PRIHLÁSIŤ SA",
         userError: "Neplatný užívateľ alebo e-mail",
         webAuthFail: "Prihlásenie zlyhalo, skontrolujte prihlasovacie údaje",
-        bnetAuthFail: "Overenie Battle.net zlyhalo"
+        bnetAuthFail: "Account authentication failed"
     },
     hero: {
         mainTitle: "CC PLATFORMA",

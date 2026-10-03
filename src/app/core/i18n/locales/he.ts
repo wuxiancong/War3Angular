@@ -77,7 +77,7 @@ export const he: TranslationSchema = {
         submit: "התחבר",
         userError: "משתמש או אימייל לא תקינים",
         webAuthFail: "ההתחברות נכשלה, אנא בדוק את הפרטים",
-        bnetAuthFail: "אימות Battle.net נכשל"
+        bnetAuthFail: "Account authentication failed"
     },
     hero: {
         mainTitle: "פלטפורמת CC",

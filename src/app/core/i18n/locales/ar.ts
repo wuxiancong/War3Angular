@@ -77,7 +77,7 @@ export const ar: TranslationSchema = {
         submit: "دخول",
         userError: "مستخدم أو بريد غير صالح",
         webAuthFail: "فشل الدخول، يرجى التحقق من البيانات",
-        bnetAuthFail: "فشل مصادقة Battle.net"
+        bnetAuthFail: "Account authentication failed"
     },
     hero: {
         mainTitle: "منصة CC",

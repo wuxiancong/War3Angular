@@ -77,7 +77,7 @@ export const ja: TranslationSchema = {
         submit: "ログイン",
         userError: "ユーザー名またはメールが正しくありません",
         webAuthFail: "ログインに失敗しました。認証情報を確認してください",
-        bnetAuthFail: "Battle.net認証に失敗しました"
+        bnetAuthFail: "アカウント認証に失敗しました"
     },
     hero: {
         mainTitle: "CCプラットフォーム",

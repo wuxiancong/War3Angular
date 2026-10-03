@@ -77,7 +77,7 @@ export const tr: TranslationSchema = {
         submit: "GİRİŞ YAP",
         userError: "Geçersiz kullanıcı veya e-posta",
         webAuthFail: "Giriş başarısız, lütfen bilgileri kontrol edin",
-        bnetAuthFail: "Battle.net kimlik doğrulaması başarısız oldu"
+        bnetAuthFail: "Account authentication failed"
     },
     hero: {
         mainTitle: "CC PLATFORMU",

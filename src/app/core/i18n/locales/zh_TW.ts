@@ -77,7 +77,7 @@ export const zh_TW: TranslationSchema = {
         submit: "登錄",
         userError: "請輸入正確的用戶名或郵箱",
         webAuthFail: "登錄驗證失敗，請檢查帳號密碼",
-        bnetAuthFail: "戰網驗證失敗"
+        bnetAuthFail: "帳號驗證失敗"
     },
     hero: {
         mainTitle: "CC對戰平台",

@@ -77,7 +77,7 @@ export const fr: TranslationSchema = {
         submit: "CONNEXION",
         userError: "Utilisateur ou e-mail invalide",
         webAuthFail: "Échec de la connexion, veuillez vérifier les identifiants",
-        bnetAuthFail: "Échec de l'authentification Battle.net"
+        bnetAuthFail: "Échec de l'authentification du compte"
     },
     hero: {
         mainTitle: "PLATEFORME CC",

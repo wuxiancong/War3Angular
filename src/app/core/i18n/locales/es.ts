@@ -77,7 +77,7 @@ export const es: TranslationSchema = {
         submit: "INICIAR SESIÓN",
         userError: "Usuario o email inválido",
         webAuthFail: "Error al iniciar sesión, compruebe las credenciales",
-        bnetAuthFail: "Error de autenticación de Battle.net"
+        bnetAuthFail: "Error de autenticación de cuenta"
     },
     hero: {
         mainTitle: "PLATAFORMA CC",

@@ -77,7 +77,7 @@ export const fi: TranslationSchema = {
         submit: "KIRJAUDU",
         userError: "Virheellinen käyttäjä tai sähköposti",
         webAuthFail: "Kirjautuminen epäonnistui, tarkista tiedot",
-        bnetAuthFail: "Battle.net-tunnistautuminen epäonnistui"
+        bnetAuthFail: "Account authentication failed"
     },
     hero: {
         mainTitle: "CC-ALUSTA",

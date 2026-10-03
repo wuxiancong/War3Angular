@@ -77,7 +77,7 @@ export const lv: TranslationSchema = {
         submit: "PIETEIKTIES",
         userError: "Nederīgs lietotājs vai e-pasts",
         webAuthFail: "Pieteikšanās neizdevās, lūdzu, pārbaudiet akreditācijas datus",
-        bnetAuthFail: "Battle.net autentifikācija neizdevās"
+        bnetAuthFail: "Account authentication failed"
     },
     hero: {
         mainTitle: "CC PLATFORMA",
