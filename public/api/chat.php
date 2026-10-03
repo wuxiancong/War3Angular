@@ -89,6 +89,11 @@ if ($rawGeminiKeys) {
     }
 }
 
+$HTTP_PROXY = getenv('HTTP_PROXY') ?: (getenv('ALL_PROXY') ?: '');
+if (!$HTTP_PROXY && defined('HTTP_PROXY')) {
+    $HTTP_PROXY = constant('HTTP_PROXY');
+}
+
 try {
     if ($model === 'deepseek') {
         if (empty($DEEPSEEK_API_KEY)) {
@@ -109,6 +114,7 @@ try {
         curl_setopt($ch, CURLOPT_URL, $url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 8);
         curl_setopt($ch, CURLOPT_TIMEOUT, 30);
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
         curl_setopt($ch, CURLOPT_HTTPHEADER, [
@@ -146,9 +152,10 @@ try {
 
         $geminiSuccess = false;
         $lastGeminiError = '';
+        $maxAttempts = min(count($geminiKeys), 3); // 最多尝试前3个Key，避免因网络阻断循环14次导致 504 网关超时
 
-        // 支持多 Key 自动轮询容错
-        foreach ($geminiKeys as $currentKey) {
+        for ($i = 0; $i < $maxAttempts; $i++) {
+            $currentKey = $geminiKeys[$i];
             $url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=' . urlencode($currentKey);
             $data = [
                 'contents' => [
@@ -160,17 +167,31 @@ try {
             curl_setopt($ch, CURLOPT_URL, $url);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
             curl_setopt($ch, CURLOPT_POST, true);
-            curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 4); // 连接超时 4 秒，防止服务器卡死
+            curl_setopt($ch, CURLOPT_TIMEOUT, 12);        // 总超时 12 秒
             curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            if (!empty($HTTP_PROXY)) {
+                curl_setopt($ch, CURLOPT_PROXY, $HTTP_PROXY);
+            }
             curl_setopt($ch, CURLOPT_HTTPHEADER, [
                 'Content-Type: application/json'
             ]);
             curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
 
             $result = curl_exec($ch);
-            $curlErr = curl_errno($ch) ? curl_error($ch) : '';
+            $curlErrNo = curl_errno($ch);
+            $curlErr = $curlErrNo ? curl_error($ch) : '';
             $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
             curl_close($ch);
+
+            // 如果是网络连接超时或无法连接到 Google 官方服务器，说明国内主机无法直连 Google
+            if ($curlErrNo === 7 || $curlErrNo === 28) {
+                if (empty($HTTP_PROXY)) {
+                    throw new Exception("服务器连接 Google Gemini 失败（国内服务器无法直连 googleapis.com）。请在 api/config.php 中配置 HTTP_PROXY 代理，或使用 DeepSeek 模型。");
+                }
+                $lastGeminiError = "代理连接超时 ($curlErr)";
+                continue;
+            }
 
             if (!empty($curlErr)) {
                 $lastGeminiError = "cURL 错误: " . $curlErr;
