@@ -150,7 +150,13 @@ try {
 
         $geminiSuccess = false;
         $lastGeminiError = '';
-        $modelsToTry = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+        $modelsToTry = [
+            'gemini-2.0-flash',
+            'gemini-1.5-flash',
+            'gemini-1.5-pro',
+            'gemini-2.0-flash-lite',
+            'gemini-2.5-flash'
+        ];
 
         // 遍历所有可用 Key
         foreach ($geminiKeys as $currentKey) {
@@ -201,11 +207,15 @@ try {
                 $responseObj = json_decode($result, true);
                 if ($httpCode >= 400) {
                     $lastGeminiError = isset($responseObj['error']['message']) ? $responseObj['error']['message'] : ("HTTP " . $httpCode . ": " . $result);
-                    // 如果是模型不存在，尝试该 Key 的下一个模型版本；如果是 Key 无效，跳出换下一个 Key
-                    if (strpos($lastGeminiError, 'not found') !== false) {
-                        continue;
+                    
+                    // 如果是 Key 本身无效/权限被封，直接跳到下一个 Key
+                    $lowerErr = strtolower($lastGeminiError);
+                    if (strpos($lowerErr, 'api key not valid') !== false || strpos($lowerErr, 'api_key_invalid') !== false || strpos($lowerErr, 'permission_denied') !== false) {
+                        break; // 换下一个 Key
                     }
-                    break;
+
+                    // 否则说明是模型版本不兼容或该模型已下线，继续尝试当前 Key 的下一个模型版本
+                    continue;
                 }
 
                 if (isset($responseObj['candidates'][0]['content']['parts'][0]['text'])) {
