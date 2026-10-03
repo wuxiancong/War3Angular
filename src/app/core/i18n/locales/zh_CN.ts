@@ -215,6 +215,23 @@ export const zh_CN: TranslationSchema = {
         }
     },
     report: {
+        title: "违规举报",
+        submitTitle: "提交玩家举报",
+        target: "违规玩家",
+        matchId: "比赛编号 (选填)",
+        reason: "违规原因",
+        desc: "违规详细描述",
+        replay: "上传录像 (.w3g)",
+        replayHint: "点击或拖拽上传录像文件 (最大 10MB)",
+        replayError: "录像文件大小不能超过 10MB",
+        submit: "提交举报",
+        history: "我的举报历史",
+        date: "举报日期",
+        status: "处理状态",
+        pending: "审核中",
+        processed: "已处理",
+        rejected: "已驳回",
+        noReports: "暂无举报记录",
         types: {
             mh: "全图外挂 (MapHack)",
             abuse: "言语辱骂",
@@ -222,6 +239,18 @@ export const zh_CN: TranslationSchema = {
             afk: "挂机/消极比赛",
             other: "其他违规行为"
         }
+    },
+    reportList: {
+        title: "违规举报公示",
+        subtitle: "公示玩家提交并审核中的违规举报信息，共同维护游戏环境公平",
+        table: {
+            player: "被举报玩家",
+            reason: "举报原因",
+            date: "举报日期",
+            reporter: "举报人",
+            status: "处理状态"
+        },
+        noResults: "未找到相关举报公示记录"
     },
     chat: {
         aiMode: "AI 智能助手",

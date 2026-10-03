@@ -215,6 +215,23 @@ export const en: TranslationSchema = {
         }
     },
     report: {
+        title: "Player Report",
+        submitTitle: "Submit Player Report",
+        target: "Offending Player",
+        matchId: "Match ID (Optional)",
+        reason: "Violation Reason",
+        desc: "Detailed Description",
+        replay: "Upload Replay (.w3g)",
+        replayHint: "Click or drag replay file here (Max 10MB)",
+        replayError: "Replay file size cannot exceed 10MB",
+        submit: "Submit Report",
+        history: "My Report History",
+        date: "Date",
+        status: "Status",
+        pending: "Pending",
+        processed: "Processed",
+        rejected: "Rejected",
+        noReports: "No reports found",
         types: {
             mh: "MapHack",
             abuse: "Verbal Abuse",
@@ -222,6 +239,18 @@ export const en: TranslationSchema = {
             afk: "AFK / Passive Play",
             other: "Other Violations"
         }
+    },
+    reportList: {
+        title: "Report Public Notice",
+        subtitle: "Public display of submitted player reports to promote fair play",
+        table: {
+            player: "Reported Player",
+            reason: "Reason",
+            date: "Date",
+            reporter: "Reporter",
+            status: "Status"
+        },
+        noResults: "No report records found"
     },
     chat: {
         aiMode: "AI Assistant",

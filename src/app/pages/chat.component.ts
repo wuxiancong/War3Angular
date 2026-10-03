@@ -196,26 +196,7 @@ export class ChatComponent {
       const systemInstruction = this.i18n.t('chat.systemInstruction');
       const prompt = `${systemInstruction}\n\n玩家提问：${userText}`;
       
-      let text = '';
-      if (this.selectedModel() === 'gemini') {
-        text = await this.aiService.generateGeminiResponse(prompt);
-      } else {
-        const response = await fetch('/api/chat.php', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            model: this.selectedModel(),
-            prompt: prompt
-          })
-        });
-
-        if (!response.ok) {
-          throw new Error('API request failed');
-        }
-
-        const data = await response.json();
-        text = data.reply || this.i18n.t('chat.geminiError');
-      }
+      const text = await this.aiService.generateAIResponse(this.selectedModel(), prompt);
 
       const agentMsg: Message = {
         id: Date.now(),

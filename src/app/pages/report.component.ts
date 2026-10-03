@@ -162,7 +162,7 @@ interface Report {
                             }
                             @if (reports().length === 0) {
                                 <tr>
-                                    <td colspan="5" class="p-8 text-center text-[var(--text-muted)] italic">No reports found.</td>
+                                    <td colspan="5" class="p-8 text-center text-[var(--text-muted)] italic">{{ 'report.noReports' | t }}</td>
                                 </tr>
                             }
                         </tbody>

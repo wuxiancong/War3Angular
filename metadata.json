@@ -1,5 +1,8 @@
 {
   "name": "CC Battle Platform",
   "description": "A perfect Angular port of the CC Battle Platform UI.",
+  "promptCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ],
   "requestFramePermissions": []
 }

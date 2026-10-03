@@ -211,6 +211,23 @@ export const zh_TW: TranslationSchema = {
         }
     },
     report: {
+        title: "違規舉報",
+        submitTitle: "提交玩家舉報",
+        target: "違規玩家",
+        matchId: "比賽編號 (選填)",
+        reason: "違規原因",
+        desc: "違規詳細描述",
+        replay: "上傳錄像 (.w3g)",
+        replayHint: "點擊或拖曳上傳錄像文件 (最大 10MB)",
+        replayError: "錄像文件大小不能超過 10MB",
+        submit: "提交舉報",
+        history: "我的舉報歷史",
+        date: "舉報日期",
+        status: "處理狀態",
+        pending: "審核中",
+        processed: "已處理",
+        rejected: "已駁回",
+        noReports: "暫無舉報記錄",
         types: {
             mh: "全圖外掛 (MapHack)",
             abuse: "言語辱罵",
@@ -218,6 +235,18 @@ export const zh_TW: TranslationSchema = {
             afk: "掛機/消極比賽",
             other: "其他違規行為"
         }
+    },
+    reportList: {
+        title: "違規舉報公示",
+        subtitle: "公示玩家提交並審核中的違規舉報資訊，共同維護遊戲環境公平",
+        table: {
+            player: "被舉報玩家",
+            reason: "舉報原因",
+            date: "舉報日期",
+            reporter: "舉報人",
+            status: "處理狀態"
+        },
+        noResults: "未找到相關舉報公示記錄"
     },
     chat: {
         aiMode: "AI 智能助手",
