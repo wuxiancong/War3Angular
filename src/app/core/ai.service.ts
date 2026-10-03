@@ -13,7 +13,7 @@ export class AIService {
   }
 
   async generateAIResponse(model: 'gemini' | 'deepseek', prompt: string): Promise<string> {
-    const response = await fetch('/api/chat', {
+    const response = await fetch('/api/chat.php', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'

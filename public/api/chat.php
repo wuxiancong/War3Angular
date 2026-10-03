@@ -1,7 +1,7 @@
 <?php
 // /api/chat.php
 
-// 允许跨域（如果前端和后端在同一个域名下，这几行可以省略）
+// 允许跨域请求
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
@@ -13,34 +13,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
-// ==========================================
-// 你的 API Keys (从你的 .env.example 中读取的默认值)
-// ==========================================
-$DEEPSEEK_API_KEY = getenv('DEEPSEEK_API_KEY') ?: 'sk-8d40d91525994e4c8996abbbbeeb7687';
-$GEMINI_API_KEY = getenv('GEMINI_API_KEY') ?: 'AIzaSyCh9mFFlpHs7kODSoly31-geZ0s2HvwwBU';
-
 // 获取前端传过来的 JSON 数据
 $inputJSON = file_get_contents('php://input');
 $input = json_decode($inputJSON, true);
 
-if (!$input || !isset($input['prompt'])) {
+if (!$input || (!isset($input['prompt']) && !isset($input['message']))) {
     http_response_code(400);
-    echo json_encode(['error' => 'Invalid request']);
+    echo json_encode(['error' => 'Missing prompt parameter']);
     exit;
 }
 
-$model = isset($input['model']) ? $input['model'] : 'deepseek';
-$prompt = $input['prompt'];
+$model = isset($input['model']) ? strtolower(trim($input['model'])) : 'deepseek';
+$prompt = isset($input['prompt']) ? $input['prompt'] : $input['message'];
 $reply = '';
 
-try {
-    $ch = curl_init();
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_POST, true);
-    // 如果你的 PHP 服务器有 SSL 证书验证问题，可以取消注释下面这行（不推荐在生产环境使用）
-    // curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+// ==========================================
+// 获取 API Keys (优先从环境变量，其次从 config.php 或默认配置)
+// ==========================================
+$DEEPSEEK_API_KEY = getenv('DEEPSEEK_API_KEY');
+if (!$DEEPSEEK_API_KEY && defined('DEEPSEEK_API_KEY')) {
+    $DEEPSEEK_API_KEY = DEEPSEEK_API_KEY;
+}
 
+$rawGeminiKeys = getenv('GEMINI_API_KEYS') ?: (getenv('GEMINI_API_KEY') ?: '');
+$geminiKeys = [];
+if ($rawGeminiKeys) {
+    $split = explode(',', $rawGeminiKeys);
+    foreach ($split as $k) {
+        $clean = trim($k, " \t\n\r\0\x0B\"'");
+        if (!empty($clean)) {
+            $geminiKeys[] = $clean;
+        }
+    }
+}
+
+try {
     if ($model === 'deepseek') {
+        if (empty($DEEPSEEK_API_KEY)) {
+            throw new Exception("DEEPSEEK_API_KEY 未配置，请在服务器环境变量中设置 DEEPSEEK_API_KEY");
+        }
+
         // 请求 DeepSeek API
         $url = 'https://api.deepseek.com/chat/completions';
         $data = [
@@ -51,65 +63,112 @@ try {
             'temperature' => 0.7
         ];
 
+        $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
         curl_setopt($ch, CURLOPT_HTTPHEADER, [
             'Content-Type: application/json',
             'Authorization: Bearer ' . $DEEPSEEK_API_KEY
         ]);
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
 
-    } else if ($model === 'gemini') {
-        // 请求 Gemini API
-        $url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent?key=' . $GEMINI_API_KEY;
-        $data = [
-            'contents' => [
-                ['parts' => [['text' => $prompt]]]
-            ]
-        ];
+        $result = curl_exec($ch);
+        if (curl_errno($ch)) {
+            $curlErr = curl_error($ch);
+            curl_close($ch);
+            throw new Exception("DeepSeek 网络连接失败: " . $curlErr);
+        }
 
-        curl_setopt($ch, CURLOPT_URL, $url);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, [
-            'Content-Type: application/json'
-        ]);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
-    } else {
-        throw new Exception("Unknown model selected");
-    }
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
 
-    $result = curl_exec($ch);
-    
-    if (curl_errno($ch)) {
-        throw new Exception("cURL Error: " . curl_error($ch));
-    }
-    
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
-    
-    $responseObj = json_decode($result, true);
-    
-    if ($httpCode >= 400) {
-        $errorMsg = isset($responseObj['error']['message']) ? $responseObj['error']['message'] : $result;
-        throw new Exception("API Error ($httpCode): " . $errorMsg);
-    }
+        $responseObj = json_decode($result, true);
+        if ($httpCode >= 400) {
+            $errorMsg = isset($responseObj['error']['message']) ? $responseObj['error']['message'] : $result;
+            throw new Exception("DeepSeek API 错误 ($httpCode): " . $errorMsg);
+        }
 
-    if ($model === 'deepseek') {
         if (isset($responseObj['choices'][0]['message']['content'])) {
             $reply = $responseObj['choices'][0]['message']['content'];
         } else {
-            throw new Exception("DeepSeek API Invalid Response: " . $result);
+            throw new Exception("DeepSeek 返回格式异常: " . $result);
         }
+
     } else if ($model === 'gemini') {
-        if (isset($responseObj['candidates'][0]['content']['parts'][0]['text'])) {
-            $reply = $responseObj['candidates'][0]['content']['parts'][0]['text'];
-        } else {
-            throw new Exception("Gemini API Invalid Response: " . $result);
+        if (empty($geminiKeys)) {
+            throw new Exception("GEMINI_API_KEY 未配置，请在服务器环境变量中设置 GEMINI_API_KEY");
         }
+
+        $geminiSuccess = false;
+        $lastGeminiError = '';
+
+        // 支持多 Key 自动轮询容错
+        foreach ($geminiKeys as $currentKey) {
+            $url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=' . urlencode($currentKey);
+            $data = [
+                'contents' => [
+                    ['parts' => [['text' => $prompt]]]
+                ]
+            ];
+
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'Content-Type: application/json'
+            ]);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+
+            $result = curl_exec($ch);
+            $curlErr = curl_errno($ch) ? curl_error($ch) : '';
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+
+            if (!empty($curlErr)) {
+                $lastGeminiError = "cURL 错误: " . $curlErr;
+                continue;
+            }
+
+            $responseObj = json_decode($result, true);
+            if ($httpCode >= 400) {
+                $lastGeminiError = isset($responseObj['error']['message']) ? $responseObj['error']['message'] : ("HTTP " . $httpCode);
+                continue;
+            }
+
+            if (isset($responseObj['candidates'][0]['content']['parts'][0]['text'])) {
+                $reply = $responseObj['candidates'][0]['content']['parts'][0]['text'];
+                $geminiSuccess = true;
+                break;
+            } else {
+                $lastGeminiError = "Gemini 返回格式异常: " . $result;
+            }
+        }
+
+        if (!$geminiSuccess) {
+            throw new Exception("Gemini 请求失败: " . $lastGeminiError);
+        }
+
+    } else {
+        throw new Exception("不支持的模型类型: " . htmlspecialchars($model));
     }
 
-    // 将结果返回给前端
-    echo json_encode(['reply' => $reply]);
+    echo json_encode([
+        'success' => true,
+        'reply' => $reply,
+        'text' => $reply
+    ]);
 
 } catch (Exception $e) {
     http_response_code(500);
-    echo json_encode(['error' => $e->getMessage()]);
+    echo json_encode([
+        'success' => false,
+        'error' => $e->getMessage()
+    ]);
 }
+
