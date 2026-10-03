@@ -70,20 +70,18 @@ if (!$DEEPSEEK_API_KEY && defined('DEEPSEEK_API_KEY')) {
     $DEEPSEEK_API_KEY = constant('DEEPSEEK_API_KEY');
 }
 
-$rawGeminiKeys = getenv('GEMINI_API_KEYS') ?: (getenv('GEMINI_API_KEY') ?: '');
-if (!$rawGeminiKeys && defined('GEMINI_API_KEYS')) {
-    $rawGeminiKeys = constant('GEMINI_API_KEYS');
-}
-if (!$rawGeminiKeys && defined('GEMINI_API_KEY')) {
-    $rawGeminiKeys = constant('GEMINI_API_KEY');
-}
+$allGeminiSources = [];
+if (getenv('GEMINI_API_KEY')) $allGeminiSources[] = getenv('GEMINI_API_KEY');
+if (getenv('GEMINI_API_KEYS')) $allGeminiSources[] = getenv('GEMINI_API_KEYS');
+if (defined('GEMINI_API_KEY') && constant('GEMINI_API_KEY')) $allGeminiSources[] = constant('GEMINI_API_KEY');
+if (defined('GEMINI_API_KEYS') && constant('GEMINI_API_KEYS')) $allGeminiSources[] = constant('GEMINI_API_KEYS');
 
 $geminiKeys = [];
-if ($rawGeminiKeys) {
-    $split = explode(',', $rawGeminiKeys);
-    foreach ($split as $k) {
-        $clean = trim($k, " \t\n\r\0\x0B\"'");
-        if (!empty($clean)) {
+foreach ($allGeminiSources as $src) {
+    $parts = explode(',', $src);
+    foreach ($parts as $p) {
+        $clean = trim($p, " \t\n\r\0\x0B\"'\\");
+        if (!empty($clean) && !in_array($clean, $geminiKeys)) {
             $geminiKeys[] = $clean;
         }
     }
@@ -152,64 +150,71 @@ try {
 
         $geminiSuccess = false;
         $lastGeminiError = '';
-        $maxAttempts = min(count($geminiKeys), 3); // 最多尝试前3个Key，避免因网络阻断循环14次导致 504 网关超时
+        $modelsToTry = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
 
-        for ($i = 0; $i < $maxAttempts; $i++) {
-            $currentKey = $geminiKeys[$i];
-            $url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=' . urlencode($currentKey);
-            $data = [
-                'contents' => [
-                    ['parts' => [['text' => $prompt]]]
-                ]
-            ];
+        // 遍历所有可用 Key
+        foreach ($geminiKeys as $currentKey) {
+            foreach ($modelsToTry as $geminiModelName) {
+                $url = 'https://generativelanguage.googleapis.com/v1beta/models/' . $geminiModelName . ':generateContent?key=' . urlencode($currentKey);
+                $data = [
+                    'contents' => [
+                        ['parts' => [['text' => $prompt]]]
+                    ]
+                ];
 
-            $ch = curl_init();
-            curl_setopt($ch, CURLOPT_URL, $url);
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_POST, true);
-            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 4); // 连接超时 4 秒，防止服务器卡死
-            curl_setopt($ch, CURLOPT_TIMEOUT, 12);        // 总超时 12 秒
-            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-            if (!empty($HTTP_PROXY)) {
-                curl_setopt($ch, CURLOPT_PROXY, $HTTP_PROXY);
-            }
-            curl_setopt($ch, CURLOPT_HTTPHEADER, [
-                'Content-Type: application/json'
-            ]);
-            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
-
-            $result = curl_exec($ch);
-            $curlErrNo = curl_errno($ch);
-            $curlErr = $curlErrNo ? curl_error($ch) : '';
-            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            curl_close($ch);
-
-            // 如果是网络连接超时或无法连接到 Google 官方服务器，说明国内主机无法直连 Google
-            if ($curlErrNo === 7 || $curlErrNo === 28) {
-                if (empty($HTTP_PROXY)) {
-                    throw new Exception("服务器连接 Google Gemini 失败（国内服务器无法直连 googleapis.com）。请在 api/config.php 中配置 HTTP_PROXY 代理，或使用 DeepSeek 模型。");
+                $ch = curl_init();
+                curl_setopt($ch, CURLOPT_URL, $url);
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_POST, true);
+                curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
+                curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+                if (!empty($HTTP_PROXY)) {
+                    curl_setopt($ch, CURLOPT_PROXY, $HTTP_PROXY);
                 }
-                $lastGeminiError = "代理连接超时 ($curlErr)";
-                continue;
-            }
+                curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                    'Content-Type: application/json',
+                    'x-goog-api-key: ' . $currentKey
+                ]);
+                curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
 
-            if (!empty($curlErr)) {
-                $lastGeminiError = "cURL 错误: " . $curlErr;
-                continue;
-            }
+                $result = curl_exec($ch);
+                $curlErrNo = curl_errno($ch);
+                $curlErr = $curlErrNo ? curl_error($ch) : '';
+                $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                curl_close($ch);
 
-            $responseObj = json_decode($result, true);
-            if ($httpCode >= 400) {
-                $lastGeminiError = isset($responseObj['error']['message']) ? $responseObj['error']['message'] : ("HTTP " . $httpCode);
-                continue;
-            }
+                // 如果是网络连接超时或无法连接到 Google 官方服务器
+                if ($curlErrNo === 7 || $curlErrNo === 28) {
+                    if (empty($HTTP_PROXY)) {
+                        throw new Exception("服务器连接 Google Gemini 失败（国内服务器无法直连 googleapis.com）。请在 api/config.php 中配置 HTTP_PROXY 代理，或使用 DeepSeek 模型。");
+                    }
+                    $lastGeminiError = "代理连接超时 ($curlErr)";
+                    break; // 此 Key 网络不通，尝试下一个 Key
+                }
 
-            if (isset($responseObj['candidates'][0]['content']['parts'][0]['text'])) {
-                $reply = $responseObj['candidates'][0]['content']['parts'][0]['text'];
-                $geminiSuccess = true;
-                break;
-            } else {
-                $lastGeminiError = "Gemini 返回格式异常: " . $result;
+                if (!empty($curlErr)) {
+                    $lastGeminiError = "cURL 错误: " . $curlErr;
+                    break;
+                }
+
+                $responseObj = json_decode($result, true);
+                if ($httpCode >= 400) {
+                    $lastGeminiError = isset($responseObj['error']['message']) ? $responseObj['error']['message'] : ("HTTP " . $httpCode . ": " . $result);
+                    // 如果是模型不存在，尝试该 Key 的下一个模型版本；如果是 Key 无效，跳出换下一个 Key
+                    if (strpos($lastGeminiError, 'not found') !== false) {
+                        continue;
+                    }
+                    break;
+                }
+
+                if (isset($responseObj['candidates'][0]['content']['parts'][0]['text'])) {
+                    $reply = $responseObj['candidates'][0]['content']['parts'][0]['text'];
+                    $geminiSuccess = true;
+                    break 2; // 成功获取回复，退出两层循环
+                } else {
+                    $lastGeminiError = "Gemini 返回格式异常: " . $result;
+                }
             }
         }
 
