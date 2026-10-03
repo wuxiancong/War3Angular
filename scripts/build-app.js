@@ -1,4 +1,7 @@
 const { execSync } = require('child_process');
+const fs = require('fs');
+const path = require('path');
+
 try {
   require('dotenv').config();
 } catch (e) {
@@ -24,7 +27,35 @@ const cmd = `${baseCmd} --define=GEMINI_API_KEY="'${apiKey}'" --define=GEMINI_AP
 try {
   console.log(`Executing: ${isDev ? 'ng serve' : 'ng build'}`);
   execSync(cmd, { stdio: 'inherit' });
+
+  // 构建成功后，自动将 .env 复制到 dist 目录中
+  if (!isDev) {
+    const envSources = [
+      path.join(__dirname, '../.env'),
+      path.join(__dirname, '../.env.example')
+    ];
+    
+    let activeEnvFile = envSources.find(f => fs.existsSync(f));
+
+    if (activeEnvFile) {
+      const targetDirs = [
+        path.join(__dirname, '../dist/app'),
+        path.join(__dirname, '../dist/app/browser'),
+        path.join(__dirname, '../dist/app/browser/api'),
+        path.join(__dirname, '../dist/app/server')
+      ];
+
+      targetDirs.forEach(dir => {
+        if (fs.existsSync(dir)) {
+          const targetFile = path.join(dir, '.env');
+          fs.copyFileSync(activeEnvFile, targetFile);
+          console.log(`✓ Copied .env to ${targetFile}`);
+        }
+      });
+    }
+  }
 } catch (error) {
   console.error('Build failed:', error.message);
   process.exit(1);
 }
+

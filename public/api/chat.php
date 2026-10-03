@@ -13,6 +13,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
+// ============================================================
+// 1. 自动载入 config.php (如果存在)
+// ============================================================
+if (file_exists(__DIR__ . '/config.php')) {
+    require_once __DIR__ . '/config.php';
+}
+
+// ============================================================
+// 2. 自动载入 .env 文件 (解决 PHP-FPM 无法获取系统环境变量的问题)
+// ============================================================
+function loadEnvFile($path) {
+    if (!file_exists($path)) return;
+    $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    foreach ($lines as $line) {
+        $line = trim($line);
+        if (empty($line) || $line[0] === '#') continue;
+        if (strpos($line, '=') !== false) {
+            list($name, $value) = explode('=', $line, 2);
+            $name = trim($name);
+            $value = trim($value, " \t\n\r\0\x0B\"'");
+            if (!getenv($name)) {
+                putenv("$name=$value");
+                $_ENV[$name] = $value;
+                $_SERVER[$name] = $value;
+            }
+        }
+    }
+}
+
+// 尝试从当前目录及上级目录载入 .env
+loadEnvFile(__DIR__ . '/.env');
+loadEnvFile(__DIR__ . '/../.env');
+loadEnvFile(__DIR__ . '/../../.env');
+loadEnvFile(dirname(__DIR__, 2) . '/.env');
+
 // 获取前端传过来的 JSON 数据
 $inputJSON = file_get_contents('php://input');
 $input = json_decode($inputJSON, true);
@@ -28,14 +63,21 @@ $prompt = isset($input['prompt']) ? $input['prompt'] : $input['message'];
 $reply = '';
 
 // ==========================================
-// 获取 API Keys (优先从环境变量，其次从 config.php 或默认配置)
+// 3. 读取 API Keys
 // ==========================================
 $DEEPSEEK_API_KEY = getenv('DEEPSEEK_API_KEY');
 if (!$DEEPSEEK_API_KEY && defined('DEEPSEEK_API_KEY')) {
-    $DEEPSEEK_API_KEY = DEEPSEEK_API_KEY;
+    $DEEPSEEK_API_KEY = constant('DEEPSEEK_API_KEY');
 }
 
 $rawGeminiKeys = getenv('GEMINI_API_KEYS') ?: (getenv('GEMINI_API_KEY') ?: '');
+if (!$rawGeminiKeys && defined('GEMINI_API_KEYS')) {
+    $rawGeminiKeys = constant('GEMINI_API_KEYS');
+}
+if (!$rawGeminiKeys && defined('GEMINI_API_KEY')) {
+    $rawGeminiKeys = constant('GEMINI_API_KEY');
+}
+
 $geminiKeys = [];
 if ($rawGeminiKeys) {
     $split = explode(',', $rawGeminiKeys);
@@ -50,7 +92,7 @@ if ($rawGeminiKeys) {
 try {
     if ($model === 'deepseek') {
         if (empty($DEEPSEEK_API_KEY)) {
-            throw new Exception("DEEPSEEK_API_KEY 未配置，请在服务器环境变量中设置 DEEPSEEK_API_KEY");
+            throw new Exception("DEEPSEEK_API_KEY 未配置，请在 api/config.php 或 .env 中填入 DEEPSEEK_API_KEY");
         }
 
         // 请求 DeepSeek API
@@ -99,7 +141,7 @@ try {
 
     } else if ($model === 'gemini') {
         if (empty($geminiKeys)) {
-            throw new Exception("GEMINI_API_KEY 未配置，请在服务器环境变量中设置 GEMINI_API_KEY");
+            throw new Exception("GEMINI_API_KEY 未配置，请在 api/config.php 或 .env 中填入 GEMINI_API_KEY");
         }
 
         $geminiSuccess = false;
