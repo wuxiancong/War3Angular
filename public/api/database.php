@@ -203,6 +203,20 @@ class Database {
                 INDEX idx_user_match (username, match_id)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
+            // 自动检查并为 users 表增加临时邮箱字段 (如果不存在)
+            try {
+                $cols = $this->pdo->query("SHOW COLUMNS FROM users LIKE 'temp_email'")->fetchAll();
+                if (empty($cols)) {
+                    $this->pdo->exec("ALTER TABLE users 
+                        ADD COLUMN temp_email VARCHAR(128) DEFAULT NULL COMMENT '临时通知邮箱',
+                        ADD COLUMN is_temp_email_verified TINYINT(1) DEFAULT 0 COMMENT '临时邮箱是否已激活',
+                        ADD COLUMN temp_email_token VARCHAR(64) DEFAULT NULL COMMENT '临时邮箱激活Token',
+                        ADD COLUMN temp_email_expires DATETIME DEFAULT NULL COMMENT '临时邮箱激活Token过期时间'");
+                }
+            } catch (Exception $e) {
+                // 表结构已存在或临时异常，忽略
+            }
+
         } catch (PDOException $e) {
             // 在实际生产环境中，不要把详细的数据库错误暴露给前端，记录到日志即可
             error_log("Database connection failed: " . $e->getMessage());
@@ -793,5 +807,112 @@ class Database {
     public function updateSessionA($username, $A) {
         $stmt = $this->pdo->prepare("UPDATE users SET last_A = ? WHERE username = ?");
         return $stmt->execute([$A, $username]);
+    }
+
+    /**
+     * 通过用户名获取临时通知邮箱信息
+     */
+    public function getTempEmail($username) {
+        $username = trim($username);
+        $stmt = $this->pdo->prepare("SELECT username, acct_email, temp_email, is_temp_email_verified, temp_email_expires FROM users WHERE LOWER(username) = LOWER(?)");
+        $stmt->execute([$username]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$row) {
+            // 如果 users 表没找到，尝试从 PvPGN 同步一次
+            $this->syncFromPvpgn($username);
+            $stmt->execute([$username]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        }
+
+        if (!$row) {
+            return null;
+        }
+
+        return [
+            'username' => $row['username'],
+            'registered_email' => $row['acct_email'] ?? '',
+            'temp_email' => $row['temp_email'] ?? '',
+            'is_temp_email_verified' => (int)($row['is_temp_email_verified'] ?? 0) === 1,
+            'is_expired' => !empty($row['temp_email_expires']) && (strtotime($row['temp_email_expires']) < time())
+        ];
+    }
+
+    /**
+     * 设置/更新用户的临时通知邮箱 (允许重复，不作唯一性排他查重)
+     * 生成验证 Token 并记录过期时间
+     */
+    public function setTempEmail($username, $email) {
+        $username = trim($username);
+        $email = trim($email);
+
+        if (empty($username)) {
+            return ['success' => false, 'message' => '用户名不能为空'];
+        }
+
+        if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return ['success' => false, 'message' => '临时邮箱格式不正确'];
+        }
+
+        // 确保 users 表中存在该用户
+        $stmtCheck = $this->pdo->prepare("SELECT COUNT(*) FROM users WHERE LOWER(username) = LOWER(?)");
+        $stmtCheck->execute([$username]);
+        if ($stmtCheck->fetchColumn() == 0) {
+            $this->syncFromPvpgn($username);
+        }
+
+        // 生成 64 位随机 Token 与 24 小时过期时间
+        $token = bin2hex(random_bytes(32));
+        $expires = date('Y-m-d H:i:s', time() + 86400);
+
+        try {
+            $stmt = $this->pdo->prepare("UPDATE users SET 
+                temp_email = ?, 
+                is_temp_email_verified = 0, 
+                temp_email_token = ?, 
+                temp_email_expires = ? 
+                WHERE LOWER(username) = LOWER(?)");
+            $stmt->execute([$email, $token, $expires, $username]);
+
+            return [
+                'success' => true,
+                'username' => $username,
+                'temp_email' => $email,
+                'token' => $token,
+                'expires' => $expires,
+                'message' => '临时邮箱更新成功'
+            ];
+        } catch (PDOException $e) {
+            error_log("setTempEmail database error: " . $e->getMessage());
+            return ['success' => false, 'message' => '数据库更新失败: ' . $e->getMessage()];
+        }
+    }
+
+    /**
+     * 根据 Token 验证并激活临时邮箱
+     */
+    public function verifyTempEmailToken($token) {
+        $stmt = $this->pdo->prepare("SELECT username, temp_email, temp_email_expires, is_temp_email_verified FROM users WHERE temp_email_token = ?");
+        $stmt->execute([$token]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$user) {
+            return ['success' => false, 'message' => '无效或已失效的验证链接'];
+        }
+
+        if (!empty($user['temp_email_expires']) && strtotime($user['temp_email_expires']) < time()) {
+            return ['success' => false, 'message' => '激活链接已过期，请在客户端重新申请发送激活邮件'];
+        }
+
+        // 标记为已激活
+        $updateStmt = $this->pdo->prepare("UPDATE users SET is_temp_email_verified = 1, temp_email_token = NULL, temp_email_expires = NULL WHERE temp_email_token = ?");
+        $updateStmt->execute([$token]);
+
+        return [
+            'success' => true,
+            'username' => $user['username'],
+            'temp_email' => $user['temp_email'],
+            'message' => '临时邮箱激活成功'
+        ];
     }
 }

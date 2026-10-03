@@ -28,6 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 require_once 'database.php';
+require_once 'i18n.php';
 
 // 1. 获取请求参数 (兼容 JSON、POST Form、GET)
 $inputJson = file_get_contents('php://input');
@@ -70,9 +71,18 @@ $password = $bodyData['password']
     ?? $_GET['password'] 
     ?? null;
 
-// 可选：是否查重 (默认 true)
-$checkDuplicateParam = $bodyData['check_duplicate'] ?? $_POST['check_duplicate'] ?? $_GET['check_duplicate'] ?? '1';
-$checkDuplicate = !($checkDuplicateParam === '0' || $checkDuplicateParam === 'false' || $checkDuplicateParam === false);
+// 可选：设置类型 (registered: 注册核心邮箱, temp: 临时通知邮箱，默认为 temp)
+$type = $bodyData['type'] ?? $_POST['type'] ?? $_GET['type'] ?? 'temp';
+
+// 是否查重：由于临时邮箱允许重复绑定，默认不查重 (check_duplicate 默认为 0/false)
+$checkDuplicateParam = $bodyData['check_duplicate'] ?? $_POST['check_duplicate'] ?? $_GET['check_duplicate'] ?? '0';
+$checkDuplicate = ($checkDuplicateParam === '1' || $checkDuplicateParam === 'true' || $checkDuplicateParam === true);
+
+// 如果明确是临时邮箱，直接走 set_temp_email 逻辑
+if ($type === 'temp') {
+    require_once __DIR__ . '/set_temp_email.php';
+    exit;
+}
 
 $username = trim($username);
 $email = trim($email);
@@ -83,7 +93,7 @@ if (empty($username)) {
     echo json_encode([
         'success' => false,
         'error_code' => 'ERR_EMPTY_USERNAME',
-        'message' => '用户名不能为空'
+        'message' => __('err_empty_username')
     ], JSON_UNESCAPED_UNICODE);
     exit;
 }
@@ -93,7 +103,7 @@ if (empty($email)) {
     echo json_encode([
         'success' => false,
         'error_code' => 'ERR_EMPTY_EMAIL',
-        'message' => '邮箱不能为空'
+        'message' => __('err_empty_email')
     ], JSON_UNESCAPED_UNICODE);
     exit;
 }
@@ -103,7 +113,7 @@ if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
     echo json_encode([
         'success' => false,
         'error_code' => 'ERR_INVALID_EMAIL_FORMAT',
-        'message' => '邮箱格式不正确'
+        'message' => __('err_invalid_email')
     ], JSON_UNESCAPED_UNICODE);
     exit;
 }
