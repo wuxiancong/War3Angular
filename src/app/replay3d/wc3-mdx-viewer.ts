@@ -36,6 +36,31 @@ export interface Wc3MdxViewerOptions {
   syncOverrides?: Partial<SceneSyncConfig> | null;
 }
 
+// --- AI 修改开始 [FIRST-LOAD-WEBGL]：进程级补丁，保证主场景/肖像创建上下文属性一致且可合成 ---
+let webglContextPatched = false;
+function ensureWebglContextPatch(): void {
+  if (webglContextPatched || typeof HTMLCanvasElement === 'undefined') return;
+  webglContextPatched = true;
+  const canvasProto = HTMLCanvasElement.prototype as any;
+  const origGetContext = canvasProto.getContext;
+  canvasProto.getContext = function getContextPreserved(
+    this: HTMLCanvasElement,
+    type: string,
+    attrs?: WebGLContextAttributes
+  ) {
+    if (type === 'webgl' || type === 'experimental-webgl') {
+      attrs = {
+        ...(attrs || {}),
+        alpha: false,
+        premultipliedAlpha: false,
+        preserveDrawingBuffer: true,
+      };
+    }
+    return origGetContext.call(this, type, attrs);
+  };
+}
+// --- AI 修改结束 [FIRST-LOAD-WEBGL]：进程级补丁，保证主场景/肖像创建上下文属性一致且可合成 ---
+
 // --- AI 删除开始 [CAMERA-PERSPECTIVE]：删除仅支持平移的 DragMode，原因：新增右键拖拽旋转/俯仰视角支持 ---
 // type DragMode = 'pan' | null;
 // --- AI 删除结束 [CAMERA-PERSPECTIVE] ---
@@ -123,7 +148,7 @@ export class Wc3MdxViewer {
   ) {
     const { canvas } = options;
     this.wc3Base = (options.wc3BaseUrl || '/assets/wc3/').replace(/\/?$/, '/');
-    // Pointer events go to the visible layer (WebGL canvas is not interactive).
+    // 输入目标优先用 viewLayer；首屏修复后传 canvas 自身，避免透明盖层抢事件/合成黑屏。
     this.inputEl = options.viewLayer || canvas;
 
     const pathSolver = (src: unknown) => this.resolveWc3Path(src);
@@ -193,16 +218,38 @@ export class Wc3MdxViewer {
       this.distance = Math.max(minD, Math.min(maxD, this.distance));
       this.updateCamera();
     };
+    // --- AI 修改开始 [FIRST-LOAD-WEBGL]：按 CSS 盒×DPR 同步缓冲；尺寸未变则跳过，避免无谓重置 drawing buffer ---
     this.onResize = () => {
       const rect = this.inputEl.getBoundingClientRect();
-      const w = Math.max(640, Math.floor(rect.width) || canvas.width);
-      const h = Math.max(360, Math.floor(rect.height) || canvas.height);
+      const cssW = Math.max(1, Math.floor(rect.width || canvas.clientWidth || 0));
+      const cssH = Math.max(1, Math.floor(rect.height || canvas.clientHeight || 0));
+      if (cssW < 2 || cssH < 2) return;
+      const dpr = Math.min(2, typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1);
+      const w = Math.max(64, Math.floor(cssW * dpr));
+      const h = Math.max(64, Math.floor(cssH * dpr));
       if (canvas.width !== w || canvas.height !== h) {
         canvas.width = w;
         canvas.height = h;
       }
       this.updateCamera();
     };
+    // --- AI 修改结束 [FIRST-LOAD-WEBGL]：按 CSS 盒×DPR 同步缓冲；尺寸未变则跳过，避免无谓重置 drawing buffer ---
+    canvas.addEventListener(
+      'webglcontextlost',
+      (e) => {
+        e.preventDefault();
+        console.warn('[wc3] webglcontextlost');
+      },
+      false
+    );
+    canvas.addEventListener(
+      'webglcontextrestored',
+      () => {
+        console.warn('[wc3] webglcontextrestored — sync viewport');
+        this.onResize();
+      },
+      false
+    );
     this.onKeyDown = (e) => {
       const k = e.key.toLowerCase();
       if (['w', 'a', 's', 'd'].includes(k)) {
@@ -239,25 +286,9 @@ export class Wc3MdxViewer {
     (Wc3MdxViewer as any)._handlers = libs.handlers;
     // --- AI 修改结束 [PORTRAIT-3D]：保存 ModelViewer 与 handlers 供 3D 英雄肖像画布复用 ---
 
-    // Cursor/Electron WebGL often clears the drawing buffer before compositing;
-    // force preserveDrawingBuffer so the canvas is actually visible on screen.
-    const canvasProto = HTMLCanvasElement.prototype as any;
-    const origGetContext = canvasProto.getContext;
-    canvasProto.getContext = function getContextPreserved(
-      this: HTMLCanvasElement,
-      type: string,
-      attrs?: WebGLContextAttributes
-    ) {
-      if (type === 'webgl' || type === 'experimental-webgl') {
-        attrs = { ...(attrs || {}), alpha: false, preserveDrawingBuffer: true };
-      }
-      return origGetContext.call(this, type, attrs);
-    };
-    try {
-      return new Wc3MdxViewer(options, libs.War3MapViewer);
-    } finally {
-      canvasProto.getContext = origGetContext;
-    }
+    // Cursor/Electron：持久补丁，避免构造期外延迟创建上下文时丢失 preserveDrawingBuffer。
+    ensureWebglContextPatch();
+    return new Wc3MdxViewer(options, libs.War3MapViewer);
   }
 
   async load(): Promise<void> {
@@ -679,24 +710,9 @@ export class Wc3MdxViewer {
     const handlers = (Wc3MdxViewer as any)._handlers;
     if (!ModelViewer || !handlers || !canvas) return;
     try {
-      const canvasProto = HTMLCanvasElement.prototype as any;
-      const origGetContext = canvasProto.getContext;
-      canvasProto.getContext = function getContextPortrait(
-        this: HTMLCanvasElement,
-        type: string,
-        attrs?: WebGLContextAttributes
-      ) {
-        if (type === 'webgl' || type === 'experimental-webgl') {
-          attrs = { ...(attrs || {}), alpha: false, preserveDrawingBuffer: true };
-        }
-        return origGetContext.call(this, type, attrs);
-      };
-      let pv: any;
-      try {
-        pv = new ModelViewer(canvas);
-      } finally {
-        canvasProto.getContext = origGetContext;
-      }
+      ensureWebglContextPatch();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const pv: any = new ModelViewer(canvas);
       const solver = (src: unknown) => this.resolvePortraitPath(src);
       pv.addHandler(handlers.mdx, solver, false);
       pv.addHandler(handlers.blp);
@@ -932,6 +948,11 @@ export class Wc3MdxViewer {
     this.setCameraMode(this.cameraMode === 'free' ? 'hero' : this.cameraMode);
   }
 
+  /** 对外暴露：首屏布局稳定后或容器尺寸变化时强制同步 WebGL 视口。 */
+  forceResize(): void {
+    this.onResize();
+  }
+
   dispose(): void {
     this.disposed = true;
     this.sim?.dispose();
@@ -949,6 +970,21 @@ export class Wc3MdxViewer {
     window.removeEventListener('keyup', this.onKeyUp);
     try {
       this.viewer.map?.die?.();
+    } catch {
+      /* ignore */
+    }
+    // 主动丢弃 GL，配合组件侧换新 canvas，避免属性不匹配导致 getContext 返回 null
+    try {
+      const gl = this.viewer?.gl as WebGLRenderingContext | undefined;
+      const ext = gl?.getExtension?.('WEBGL_lose_context') as { loseContext: () => void } | null;
+      ext?.loseContext();
+    } catch {
+      /* ignore */
+    }
+    try {
+      this.portraitViewer?.gl
+        ?.getExtension?.('WEBGL_lose_context')
+        ?.loseContext?.();
     } catch {
       /* ignore */
     }

@@ -101,7 +101,7 @@ export interface CommandCardSlot {
         pointer-events: none;
         z-index: 0;
       }
-      // --- AI 修改开始 [WC3-TOP-MENU-TEXTURE]：采用魔兽争霸3原生 upper-btn-normal.png / highlight / pushed 贴图与严丝合缝对齐 ---
+      /* --- AI 修改开始 [WC3-TOP-MENU-TEXTURE] --- */
       .wc3-top-menu-btn {
         pointer-events: auto;
         display: flex;
@@ -127,8 +127,8 @@ export interface CommandCardSlot {
         background-image: url('/assets/wc3/ui/upper-btn-pushed.png');
         color: #ffffff;
       }
-      // --- AI 修改结束 [WC3-TOP-MENU-TEXTURE]：采用魔兽争霸3原生 upper-btn-normal.png / highlight / pushed 贴图与严丝合缝对齐 ---
-      // --- AI 修改开始 [COMBAT-GOLD-OVERLAY]：魔兽原生风格头顶血条与飘金跳字样式 ---
+      /* --- AI 修改结束 [WC3-TOP-MENU-TEXTURE] --- */
+      /* --- AI 修改开始 [COMBAT-GOLD-OVERLAY] --- */
       .wc3-overhead-hp {
         position: absolute;
         transform: translate(-50%, -100%);
@@ -149,7 +149,7 @@ export interface CommandCardSlot {
         text-shadow: 0 1px 2px #000, 0 0 4px #000;
         white-space: nowrap;
       }
-      // --- AI 修改结束 [COMBAT-GOLD-OVERLAY] ---
+      /* --- AI 修改结束 [COMBAT-GOLD-OVERLAY] --- */
       .wc3-res-box {
         position: absolute;
         top: 2px;
@@ -172,7 +172,9 @@ export interface CommandCardSlot {
         right: 0;
         bottom: 0;
         width: 100%;
-        aspect-ratio: 1600 / 342;
+        /* --- AI 修改开始 [CONSOLE-HEIGHT]：略降控制台高度（约 7%），避免遮挡过多 3D 视口 --- */
+        aspect-ratio: 1600 / 318;
+        /* --- AI 修改结束 [CONSOLE-HEIGHT] --- */
         background: url('/assets/wc3/ui/console-assembled.png') center / 100% 100% no-repeat;
         z-index: 20;
         pointer-events: none;
@@ -542,7 +544,12 @@ export interface CommandCardSlot {
       </div>
 
       <div class="flex flex-col lg:flex-row flex-grow min-h-0">
-        <div class="relative flex-grow min-h-[580px] lg:min-h-0 bg-[#05080c] overflow-hidden">
+        <!-- --- AI 删除开始 [FIRST-LOAD-WEBGL]：删除 lg:min-h-0，原因：首屏 flex 尚未算出高度时视口塌成 0，WebGL 在 0 尺寸下初始化后黑屏且无法交互 --- -->
+        <!-- <div class="relative flex-grow min-h-[580px] lg:min-h-0 bg-[#05080c] overflow-hidden"> -->
+        <!-- --- AI 删除结束 [FIRST-LOAD-WEBGL] --- -->
+        <!-- --- AI 修改开始 [FIRST-LOAD-WEBGL]：始终保留最小高度，避免首次加载 WebGL 视口为 0 --- -->
+        <div class="relative flex-grow min-h-[580px] bg-[#05080c] overflow-hidden">
+        <!-- --- AI 修改结束 [FIRST-LOAD-WEBGL] --- -->
           <!-- --- AI 修改开始 [WC3-TOPBAR-AUTHENTIC]：还原魔兽争霸3左上四联菜单按钮（地图信息F9/菜单F10/盟友F11/聊天F12）、中央时间分秒及右侧四格资源框 --- -->
           <div class="wc3-topbar">
             <div class="wc3-topbar-bg"></div>
@@ -609,10 +616,14 @@ export interface CommandCardSlot {
 
           <!-- 3D WebGL 全屏视口（底部控制台与顶部栏直接叠在视口上，消除控制台上方黑条） -->
           <div class="absolute inset-0">
-            <canvas #glCanvas width="1280" height="720"
-                    class="absolute inset-0 w-full h-full block z-0 pointer-events-none"></canvas>
+            <!-- --- AI 修改开始 [FIRST-LOAD-WEBGL]：无固有 width/height，避免首屏按 1280×720 建 GL 后再被 flex 拉扯丢上下文；epoch 用于重载时换新画布 --- -->
+            @if (glSurfaceEpoch() > 0) {
+              <canvas #glCanvas
+                      class="absolute inset-0 w-full h-full block z-[1] pointer-events-auto bg-[#05080c]"></canvas>
+            }
             <div #viewLayer
-                 class="absolute inset-0 z-[1] pointer-events-auto bg-transparent"></div>
+                 class="absolute inset-0 z-0 pointer-events-none bg-transparent"></div>
+            <!-- --- AI 修改结束 [FIRST-LOAD-WEBGL] --- -->
 
             <!-- --- AI 修改开始 [COMBAT-GOLD-OVERLAY]：3D 战场实时头顶血条（血条开关默认开启）与击杀/拾取飘金动画 --- -->
             @if (showHealthBars()) {
@@ -1284,7 +1295,11 @@ export class Replay3dComponent implements OnDestroy {
   private mdx?: Wc3MdxViewer;
   private seqPoll = 0;
   private disposed = false;
+  private bootGen = 0;
+  private viewportRo?: ResizeObserver;
   private readonly minimapSize = 176;
+  /** 递增以销毁并重建 WebGL 画布，避免旧上下文残留导致 getContext 返回 null。 */
+  readonly glSurfaceEpoch = signal(1);
 
   constructor() {
     afterNextRender(() => {
@@ -1298,6 +1313,9 @@ export class Replay3dComponent implements OnDestroy {
 
   ngOnDestroy(): void {
     this.disposed = true;
+    this.bootGen++;
+    this.viewportRo?.disconnect();
+    this.viewportRo = undefined;
     if (typeof cancelAnimationFrame !== 'undefined') {
       cancelAnimationFrame(this.seqPoll);
     }
@@ -1331,9 +1349,28 @@ export class Replay3dComponent implements OnDestroy {
   reload(): void {
     this.error.set('');
     this.loading.set(true);
+    void this.remountAndBoot();
+  }
+
+  /** 销毁 viewer + 换新 canvas，再启动，保证 WebGL 上下文可重新创建。 */
+  private async remountAndBoot(): Promise<void> {
+    this.bootGen++;
+    this.viewportRo?.disconnect();
+    this.viewportRo = undefined;
+    if (typeof cancelAnimationFrame !== 'undefined') {
+      cancelAnimationFrame(this.seqPoll);
+    }
+    this.seqPoll = 0;
     this.mdx?.dispose();
     this.mdx = undefined;
-    void this.boot();
+    // 先卸下旧画布，释放/丢弃失效的 WebGL 上下文
+    this.glSurfaceEpoch.set(0);
+    await new Promise<void>((r) => requestAnimationFrame(() => r()));
+    if (this.disposed) return;
+    this.glSurfaceEpoch.update((n) => n + 1);
+    await new Promise<void>((r) => requestAnimationFrame(() => r()));
+    if (this.disposed) return;
+    await this.boot();
   }
 
   playSequence(idOrName: number | string): void {
@@ -1403,12 +1440,22 @@ export class Replay3dComponent implements OnDestroy {
       this.heroAtk.set('48-50');
       this.heroArmor.set(4.2);
       this.heroMoveSpeed.set(310);
-      this.skillSlots.set([
-        { slot: 0, code: 'A001', name: '窒息之刃', hotkey: 'D', level: 1, maxLevel: 4, icon: '/assets/wc3/ui/icons/BTNHeroWarden.png' },
-        { slot: 1, code: 'A002', name: '幻影突袭', hotkey: 'B', level: 1, maxLevel: 4, icon: '/assets/wc3/ui/icons/BTNBlink.png' },
-        { slot: 2, code: 'A003', name: '模糊', hotkey: 'R', level: 1, maxLevel: 4, icon: '/assets/wc3/ui/icons/BTNBlur.png' },
-        { slot: 3, code: 'A004', name: '恩赐解脱', hotkey: 'C', level: 1, maxLevel: 3, icon: '/assets/wc3/ui/icons/BTNCrit.png' },
+      // --- AI 修改开始 [PA-COMMAND-SLOTS]：修复回退后 skillSlots 不存在的编译错误，改为更新 commandSlots ---
+      this.commandSlots.set([
+        { id: 'move', hotkey: 'M', name: '移动', level: 0, icon: '/assets/dota/cmdIcons/BTNMove.png' },
+        { id: 'stop', hotkey: 'S', name: '停止', level: 0, icon: '/assets/dota/cmdIcons/BTNStop.png' },
+        { id: 'hold', hotkey: 'H', name: '保持原位', level: 0, icon: '/assets/dota/cmdIcons/BTNHoldPosition.png' },
+        { id: 'attack', hotkey: 'A', name: '攻击', level: 0, icon: '/assets/dota/cmdIcons/BTNAttack.png' },
+        { id: 'patrol', hotkey: 'P', name: '巡逻', level: 0, icon: '/assets/dota/cmdIcons/BTNPatrol.png' },
+        { id: 'empty1', hotkey: '', name: '', level: 0, icon: '' },
+        { id: 'statup', hotkey: 'U', name: '属性附加', level: 0, icon: '/assets/dota/cmdIcons/BTNStatUp.png' },
+        { id: 'learn', hotkey: 'O', name: '学习技能', level: 1, icon: '/assets/dota/cmdIcons/BTNSkillz.png' },
+        { id: 'A001', hotkey: 'D', name: '窒息之刃', level: 1, maxLevel: 4, icon: '/assets/wc3/ui/icons/BTNHeroWarden.png' },
+        { id: 'A002', hotkey: 'B', name: '幻影突袭', level: 1, maxLevel: 4, icon: '/assets/wc3/ui/icons/BTNBlink.png' },
+        { id: 'A003', hotkey: 'R', name: '模糊', level: 1, maxLevel: 4, icon: '/assets/wc3/ui/icons/BTNBlur.png' },
+        { id: 'A004', hotkey: 'C', name: '恩赐解脱', level: 1, maxLevel: 3, icon: '/assets/wc3/ui/icons/BTNCrit.png' },
       ]);
+      // --- AI 修改结束 [PA-COMMAND-SLOTS] ---
     } else if (key === 'blademaster') {
       void this.mdx.switchHeroModel('/assets/models/blademaster/HeroBladeMaster.mdxbin', '/assets/models/blademaster/').then(() => {
         this.sequences.set(this.mdx?.sequences || []);
@@ -1735,7 +1782,90 @@ export class Replay3dComponent implements OnDestroy {
     }
   }
 
+  /** 等待画布 CSS 宽高非零且连续多帧稳定，避免按固有尺寸建 GL 后再被 flex 改尺寸丢上下文。 */
+  private waitForStableCanvasLayout(
+    canvas: HTMLCanvasElement,
+    timeoutMs = 12000
+  ): Promise<DOMRect> {
+    const read = () => canvas.getBoundingClientRect();
+    const ready = (r: DOMRect) => r.width >= 64 && r.height >= 64;
+    const waitGen = this.bootGen;
+    const needStable = 3;
+    return new Promise((resolve) => {
+      let finished = false;
+      let stableCount = 0;
+      let lastW = -1;
+      let lastH = -1;
+      const ro = new ResizeObserver(() => sample());
+      const cleanup = () => {
+        ro.disconnect();
+        if (this.viewportRo === ro) this.viewportRo = undefined;
+        clearTimeout(timer);
+      };
+      const finish = (rect: DOMRect) => {
+        if (finished) return;
+        finished = true;
+        cleanup();
+        resolve(rect);
+      };
+      const sample = () => {
+        if (waitGen !== this.bootGen) {
+          finish(read());
+          return;
+        }
+        const r = read();
+        if (!ready(r)) {
+          stableCount = 0;
+          lastW = -1;
+          lastH = -1;
+          return;
+        }
+        const w = Math.round(r.width);
+        const h = Math.round(r.height);
+        if (w === lastW && h === lastH) {
+          stableCount++;
+        } else {
+          stableCount = 1;
+          lastW = w;
+          lastH = h;
+        }
+        if (stableCount >= needStable) finish(r);
+      };
+      this.viewportRo?.disconnect();
+      this.viewportRo = ro;
+      ro.observe(canvas);
+      const parent = canvas.parentElement;
+      if (parent) ro.observe(parent);
+      const timer = setTimeout(() => finish(read()), timeoutMs);
+      // 连续 rAF 采样，不依赖仅 ResizeObserver（尺寸不变时也可能从未触发）
+      const tick = () => {
+        if (finished || waitGen !== this.bootGen) return;
+        sample();
+        if (!finished) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    });
+  }
+
+  private attachViewportResizeWatch(canvas: HTMLCanvasElement, gen: number): void {
+    this.viewportRo?.disconnect();
+    this.viewportRo = new ResizeObserver(() => {
+      if (this.disposed || gen !== this.bootGen) return;
+      this.mdx?.forceResize();
+    });
+    this.viewportRo.observe(canvas);
+    const parent = canvas.parentElement;
+    if (parent) this.viewportRo.observe(parent);
+  }
+
   private async boot(): Promise<void> {
+    // --- AI 修改开始 [FIRST-LOAD-WEBGL]：布局尺寸稳定后再创建 WebGL；bootGen 丢弃过期启动 ---
+    const gen = ++this.bootGen;
+    // 等 Angular 把 @if 画布挂上
+    for (let i = 0; i < 30 && !this.glCanvas()?.nativeElement; i++) {
+      await new Promise<void>((r) => requestAnimationFrame(() => r()));
+      if (this.disposed || gen !== this.bootGen) return;
+    }
     const canvas = this.glCanvas()?.nativeElement;
     if (!canvas) {
       this.error.set('视口未就绪');
@@ -1747,23 +1877,44 @@ export class Replay3dComponent implements OnDestroy {
     void this.loadReplayData();
 
     try {
+      await this.waitForStableCanvasLayout(canvas);
+      if (this.disposed || gen !== this.bootGen) return;
+
       const rect = canvas.getBoundingClientRect();
-      canvas.width = Math.max(640, Math.floor(rect.width) || 1280);
-      canvas.height = Math.max(360, Math.floor(rect.height) || 720);
+      const cssW = Math.max(1, Math.floor(rect.width));
+      const cssH = Math.max(1, Math.floor(rect.height));
+      if (cssW < 64 || cssH < 64) {
+        throw new Error(`视口尺寸无效 (${cssW}×${cssH})，请重试`);
+      }
+      const dpr = Math.min(2, typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1);
+      // 建上下文前一次性对齐缓冲尺寸；之后同尺寸 forceResize 为 no-op，避免无谓重置 GL
+      canvas.width = Math.max(64, Math.floor(cssW * dpr));
+      canvas.height = Math.max(64, Math.floor(cssH * dpr));
 
       const mdx = await Wc3MdxViewer.create({
         canvas,
-        viewLayer: this.viewLayer()?.nativeElement,
+        viewLayer: canvas,
         modelUrl: '/assets/models/blademaster/HeroBladeMaster.mdxbin',
         assetBaseUrl: '/assets/models/blademaster/',
         teamColor: 0,
         initialSequence: 'Stand',
         syncOverrides: this.syncOverridesFromQuery() as any,
       });
+      if (this.disposed || gen !== this.bootGen) {
+        mdx.dispose();
+        return;
+      }
       this.mdx = mdx;
+      this.attachViewportResizeWatch(canvas, gen);
       try {
         await mdx.load();
       } finally {
+        if (this.disposed || gen !== this.bootGen) {
+          mdx.dispose();
+          if (this.mdx === mdx) this.mdx = undefined;
+          return;
+        }
+        mdx.forceResize();
         this.modelName.set('HeroBladeMaster');
         this.sequences.set(mdx.sequences || []);
         this.buildingCount.set(mdx.buildings?.length || 0);
@@ -1772,20 +1923,18 @@ export class Replay3dComponent implements OnDestroy {
         this.simUnits.set(mdx.simUnitCount || 0);
         this.applyReplayFrame(this.currentMs());
         this.syncActiveSequence();
-        // --- AI 修改开始 [PORTRAIT-3D]：初始化底部控制台 3D 动态英雄对白肖像渲染 ---
         const pCanvas = this.portraitCanvas()?.nativeElement;
         if (pCanvas) {
           void mdx.attachPortraitCanvas(pCanvas);
         }
-        // --- AI 修改结束 [PORTRAIT-3D]：初始化底部控制台 3D 动态英雄对白肖像渲染 ---
+        requestAnimationFrame(() => {
+          if (!this.disposed && gen === this.bootGen) this.mdx?.forceResize();
+        });
         this.pollSequence();
         this.loading.set(false);
       }
-      if (this.disposed) {
-        mdx.dispose();
-        return;
-      }
     } catch (e) {
+      if (gen !== this.bootGen) return;
       console.error(e);
       const msg =
         e instanceof Error
@@ -1796,6 +1945,7 @@ export class Replay3dComponent implements OnDestroy {
       this.error.set(msg || '未知错误');
       this.loading.set(false);
     }
+    // --- AI 修改结束 [FIRST-LOAD-WEBGL]：布局尺寸稳定后再创建 WebGL；bootGen 丢弃过期启动 ---
   }
 
   private syncActiveSequence(): void {

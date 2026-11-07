@@ -5,17 +5,21 @@ import {
   writeResponseToNodeResponse,
 } from '@angular/ssr/node';
 import express from 'express';
-import {join} from 'node:path';
+import { join } from 'node:path';
 // --- AI 修改开始 [REPLAY-API]：引入文件系统与 zlib 解压缩模块用于解析 War3Bot 玩家录像数据 ---
 import * as fs from 'node:fs';
 import * as zlib from 'node:zlib';
 // --- AI 修改结束 [REPLAY-API]：引入文件系统与 zlib 解压缩模块用于解析 War3Bot 玩家录像数据 ---
-import {GoogleGenAI} from '@google/genai';
+import { GoogleGenAI } from '@google/genai';
 
 const browserDistFolder = join(import.meta.dirname, '../browser');
 
 const app = express();
-const angularApp = new AngularNodeAppEngine();
+// --- AI 修改开始 [SSR-ALLOWED-HOSTS]：配置 SSR 允许的主机名白名单，避免 localhost 与 127.0.0.1 访问被判定为 SSRF 拦截并报 400 错误 ---
+const angularApp = new AngularNodeAppEngine({
+  allowedHosts: ['localhost', '127.0.0.1', '0.0.0.0'],
+});
+// --- AI 修改结束 [SSR-ALLOWED-HOSTS] ---
 
 app.use(express.json());
 
