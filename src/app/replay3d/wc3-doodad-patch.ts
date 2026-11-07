@@ -177,30 +177,24 @@ export function patchWar3MapViewerMap(deps: DoodadPatchDeps): void {
     this.anyReady = true;
   };
 
-  // --- AI 修改开始 [CLIFF-SAFE]：限制悬崖层级差在 0..2（A..C）内、斜坡格按平滑地面渲染，并启用地面与悬崖法线光照 ---
-  War3MapViewerMap.prototype.isCliff = function isCliffWithRampSupport(
+  // --- AI 修改开始 [CLIFF-SAFE]：限制悬崖层级差在 0..2（A..C）内，并确保悬崖边缘裙边与地面亮度和贴图严丝合缝消除方块感 ---
+  War3MapViewerMap.prototype.isCliff = function isCliffSafe(
     this: any,
     column: number,
     row: number
   ): boolean {
+    if (column < 1 || column > this.columns - 1 || row < 1 || row > this.rows - 1) {
+      return false;
+    }
     const corners = this.corners;
     if (!corners?.[row]?.[column] || !corners?.[row + 1]?.[column + 1]) return false;
-    const c00 = corners[row][column];
-    const c10 = corners[row][column + 1];
-    const c01 = corners[row + 1][column];
-    const c11 = corners[row + 1][column + 1];
-    const l00 = c00.layerHeight;
-    const l10 = c10.layerHeight;
-    const l01 = c01.layerHeight;
-    const l11 = c11.layerHeight;
-    if (l00 === l10 && l00 === l01 && l00 === l11) return false;
-    const rampCount =
-      (c00.ramp ? 1 : 0) + (c10.ramp ? 1 : 0) + (c01.ramp ? 1 : 0) + (c11.ramp ? 1 : 0);
-    if (rampCount >= 2) return false;
-    const minL = Math.min(l00, l10, l01, l11);
-    const maxL = Math.max(l00, l10, l01, l11);
-    if (maxL - minL > 2) return false;
-    return true;
+    const bottomLeft = corners[row][column].layerHeight;
+    const bottomRight = corners[row][column + 1].layerHeight;
+    const topLeft = corners[row + 1][column].layerHeight;
+    const topRight = corners[row + 1][column + 1].layerHeight;
+    return (
+      bottomLeft !== bottomRight || bottomLeft !== topLeft || bottomLeft !== topRight
+    );
   };
 
   War3MapViewerMap.prototype.cliffFileName = function cliffFileNameSafe(
@@ -230,7 +224,21 @@ export function patchWar3MapViewerMap(deps: DoodadPatchDeps): void {
     if (!this.cliffTilesets[clamped]) return 0;
     return origCliffGroundIndex.call(this, clamped);
   };
-  // --- AI 修改结束 [CLIFF-SAFE]：限制悬崖层级差在 0..2（A..C）内、斜坡格按平滑地面渲染，并启用地面与悬崖法线光照 ---
+
+  // --- AI 修改开始 [CORNER-TEXTURE-NATURAL]：地表网格直接采用地图原生绘制的草皮/泥土贴图，彻底避免因相邻悬崖判定强制覆盖为城镇石砖方块 ---
+  War3MapViewerMap.prototype.cornerTexture = function cornerTextureNatural(
+    this: any,
+    column: number,
+    row: number
+  ): number {
+    const corners = this.corners;
+    const corner = corners?.[row]?.[column];
+    if (!corner) return 0;
+    if (corner.blight) return this.blightTextureIndex;
+    return corner.groundTexture;
+  };
+  // --- AI 修改结束 [CORNER-TEXTURE-NATURAL]：地表网格直接采用地图原生绘制的草皮/泥土贴图，彻底避免因相邻悬崖判定强制覆盖为城镇石砖方块 ---
+  // --- AI 修改结束 [CLIFF-SAFE]：限制悬崖层级差在 0..2（A..C）内，并确保悬崖边缘裙边与地面亮度和贴图严丝合缝消除方块感 ---
 
   /**
    * Cliff MDX loads can hang / reject (missing geoset, path case). Without
@@ -240,7 +248,7 @@ export function patchWar3MapViewerMap(deps: DoodadPatchDeps): void {
   const origLoadTerrain = War3MapViewerMap.prototype.loadTerrainCliffsAndWater;
   War3MapViewerMap.prototype.loadTerrainCliffsAndWater =
     async function loadTerrainCliffsAndWaterSafe(this: any) {
-      // --- AI 修改开始 [TERRAIN-LIGHTING]：为地形与悬崖着色器开启魔兽3斜向日照阴影，凸显高低地势与河谷落差 ---
+      // --- AI 修改开始 [TERRAIN-LIGHTING]：仅对悬崖垂直岩壁应用法线明暗阴影，保持悬崖水平裙边与相邻地面 1.0 等亮无缝衔接，彻底消除岩石周围方块色差 ---
       try {
         const viewer = this.viewer;
         if (viewer?.webgl && !viewer.__wc3LitShadersApplied) {
@@ -258,8 +266,6 @@ export function patchWar3MapViewerMap(deps: DoodadPatchDeps): void {
             attribute vec4 a_variations;
             varying vec4 v_tilesets;
             varying vec2 v_uv[4];
-            varying vec3 v_normal;
-            varying float v_height;
             vec2 getCell(float variation) {
               if (variation < 16.0) return vec2(mod(variation, 4.0), floor(variation / 4.0));
               variation -= 16.0;
@@ -283,18 +289,10 @@ export function patchWar3MapViewerMap(deps: DoodadPatchDeps): void {
                 vec2 corner = vec2(mod(a_InstanceID, u_size.x), floor(a_InstanceID / u_size.x));
                 vec2 base = corner + a_position;
                 float height = texture2D(u_heightMap, base / u_size).a;
-                float hL = texture2D(u_heightMap, vec2(base - vec2(1.0, 0.0)) / u_size).a;
-                float hR = texture2D(u_heightMap, vec2(base + vec2(1.0, 0.0)) / u_size).a;
-                float hD = texture2D(u_heightMap, vec2(base - vec2(0.0, 1.0)) / u_size).a;
-                float hU = texture2D(u_heightMap, vec2(base + vec2(0.0, 1.0)) / u_size).a;
-                v_normal = normalize(vec3((hL - hR) * 1.8, (hD - hU) * 1.8, 1.35));
-                v_height = height;
                 gl_Position = u_VP * vec4(base * 128.0 + u_offset, height * 128.0, 1.0);
               } else {
                 v_tilesets = vec4(0.0);
                 v_uv[0] = vec2(0.0); v_uv[1] = vec2(0.0); v_uv[2] = vec2(0.0); v_uv[3] = vec2(0.0);
-                v_normal = vec3(0.0, 0.0, 1.0);
-                v_height = 6.0;
                 gl_Position = vec4(0.0);
               }
             }
@@ -304,9 +302,6 @@ export function patchWar3MapViewerMap(deps: DoodadPatchDeps): void {
             uniform sampler2D u_tilesets[15];
             varying vec4 v_tilesets;
             varying vec2 v_uv[4];
-            varying vec3 v_normal;
-            varying float v_height;
-            const vec3 lightDir = normalize(vec3(-0.45, -0.45, 0.77));
             vec4 sampleTile(float tileset, vec2 uv) {
               int i = int(tileset - 0.6);
               if (i == 0) return texture2D(u_tilesets[0], uv);
@@ -335,10 +330,7 @@ export function patchWar3MapViewerMap(deps: DoodadPatchDeps): void {
               if (v_tilesets[1] > 0.5) color = blend(color, v_tilesets[1], v_uv[1]);
               if (v_tilesets[2] > 0.5) color = blend(color, v_tilesets[2], v_uv[2]);
               if (v_tilesets[3] > 0.5) color = blend(color, v_tilesets[3], v_uv[3]);
-              float ndotl = clamp(dot(normalize(v_normal), lightDir), 0.0, 1.0);
-              float elevBoost = clamp((v_height - 6.0) * 0.045, -0.08, 0.14);
-              float shade = clamp(0.56 + ndotl * 0.46 + elevBoost, 0.48, 1.15);
-              gl_FragColor = vec4(color.rgb * shade, 1.0);
+              gl_FragColor = vec4(color.rgb, 1.0);
             }
           `;
           const cliffVert = `
@@ -388,8 +380,11 @@ export function patchWar3MapViewerMap(deps: DoodadPatchDeps): void {
             }
             void main() {
               vec4 color = sampleCliff(v_texture, v_uv);
-              float ndotl = clamp(dot(normalize(v_normal), lightDir), 0.0, 1.0);
-              float shade = clamp(0.52 + ndotl * 0.52, 0.45, 1.12);
+              vec3 n = normalize(v_normal);
+              float ndotl = clamp(dot(n, lightDir), 0.0, 1.0);
+              float rockShade = clamp(0.68 + ndotl * 0.38, 0.62, 1.06);
+              float skirtWeight = smoothstep(0.72, 0.94, abs(n.z));
+              float shade = mix(rockShade, 1.0, skirtWeight);
               gl_FragColor = vec4(color.rgb * shade, color.a);
             }
           `;
@@ -401,7 +396,7 @@ export function patchWar3MapViewerMap(deps: DoodadPatchDeps): void {
       } catch (e) {
         console.warn('[wc3] lit terrain shader init skipped', e);
       }
-      // --- AI 修改结束 [TERRAIN-LIGHTING]：为地形与悬崖着色器开启魔兽3斜向日照阴影，凸显高低地势与河谷落差 ---
+      // --- AI 修改结束 [TERRAIN-LIGHTING]：仅对悬崖垂直岩壁应用法线明暗阴影，保持悬崖水平裙边与相邻地面 1.0 等亮无缝衔接，彻底消除岩石周围方块色差 ---
       try {
         await Promise.race([
           origLoadTerrain.call(this),

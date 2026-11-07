@@ -195,12 +195,20 @@ const HERO_MODEL_MAP: Record<string, { modelUrl: string; assetBaseUrl: string; c
     classTitle: '玛吉纳 · 近战敏捷',
     primary: 'agi',
   },
+  // --- AI 修改开始 [HERO-PA-MORTRED]：将幻影刺客（茉崔蒂 Ewrd/Ewar）精准映射至提取的守望者 HeroWarden 模型与肖像 ---
   Ewar: {
-    modelUrl: '/assets/models/blademaster/HeroBladeMaster.mdxbin',
-    assetBaseUrl: '/assets/models/blademaster/',
+    modelUrl: '/assets/models/warden/HeroWarden.mdxbin',
+    assetBaseUrl: '/assets/models/warden/',
     classTitle: '茉崔蒂 · 近战敏捷',
     primary: 'agi',
   },
+  Ewrd: {
+    modelUrl: '/assets/models/warden/HeroWarden.mdxbin',
+    assetBaseUrl: '/assets/models/warden/',
+    classTitle: '茉崔蒂 · 近战敏捷',
+    primary: 'agi',
+  },
+  // --- AI 修改结束 [HERO-PA-MORTRED]：将幻影刺客（茉崔蒂 Ewrd/Ewar）精准映射至提取的守望者 HeroWarden 模型与肖像 ---
   Otch: {
     modelUrl: '/assets/wc3/Units/Orc/HeroTaurenChieftain/HeroTaurenChieftain.mdxbin',
     assetBaseUrl: '/assets/wc3/',

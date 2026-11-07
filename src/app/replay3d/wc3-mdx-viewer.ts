@@ -800,6 +800,37 @@ export class Wc3MdxViewer {
     return this.sim.runes.filter((r) => r.alive);
   }
 
+  // --- AI 修改开始 [COMBAT-GOLD-SIM]：将世界坐标 (x,y,z) 投影至 WebGL 视口屏幕百分比并提供战斗实体与飘金数据接口 ---
+  projectWorldToScreen(x: number, y: number, z: number): { sx: number; sy: number } | null {
+    const scene = this.scene || this.viewer?.map?.worldScene;
+    const vp = scene?.camera?.viewProjectionMatrix;
+    if (!vp) return null;
+    const clipW = vp[3] * x + vp[7] * y + vp[11] * z + vp[15];
+    if (clipW <= 10) return null;
+    const clipX = vp[0] * x + vp[4] * y + vp[8] * z + vp[12];
+    const clipY = vp[1] * x + vp[5] * y + vp[9] * z + vp[13];
+    const ndcX = clipX / clipW;
+    const ndcY = clipY / clipW;
+    if (ndcX < -1.15 || ndcX > 1.15 || ndcY < -1.15 || ndcY > 1.15) return null;
+    return {
+      sx: (ndcX * 0.5 + 0.5) * 100,
+      sy: (1.0 - (ndcY * 0.5 + 0.5)) * 100,
+    };
+  }
+
+  getSimHealthEntities() {
+    return this.sim?.getHealthEntities() || [];
+  }
+
+  getSimFloatingTexts() {
+    return this.sim?.getFloatingTexts() || [];
+  }
+
+  getSimGoldTotal() {
+    return this.sim?.getGoldTotal() ?? 603;
+  }
+  // --- AI 修改结束 [COMBAT-GOLD-SIM]：将世界坐标 (x,y,z) 投影至 WebGL 视口屏幕百分比并提供战斗实体与飘金数据接口 ---
+
   setSimSpeed(speed: number): void {
     this.simSpeed = Math.max(0, speed);
   }

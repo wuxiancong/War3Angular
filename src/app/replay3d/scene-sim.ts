@@ -114,6 +114,31 @@ export interface SimUnit {
   // --- AI 修改结束 [SCENE-SIM]：新增兵线与野怪生命值、攻击力及动画序列索引，支持小兵交战与打野刷新 ---
 }
 
+// --- AI 修改开始 [COMBAT-GOLD-SIM]：飘金数字与战斗血条实体接口定义 ---
+export interface SimFloatingText {
+  id: number;
+  text: string;
+  x: number;
+  y: number;
+  z: number;
+  color: string;
+  createdAtMs: number;
+  durationMs: number;
+}
+
+export interface SimHealthEntity {
+  id: string;
+  name: string;
+  team: 0 | 1 | -1;
+  kind: 'hero' | 'creep' | 'neutral' | 'tower';
+  x: number;
+  y: number;
+  z: number;
+  hp: number;
+  maxHp: number;
+}
+// --- AI 修改结束 [COMBAT-GOLD-SIM]：飘金数字与战斗血条实体接口定义 ---
+
 export type HeightSampler = (x: number, y: number) => number;
 export type ModelSpawner = (opts: {
   path: string;
@@ -251,6 +276,16 @@ export class DotaSceneSim {
   private neutralModelPath = 'Units\\NightElf\\Wisp\\Wisp.mdx';
   private heroWalkSeq = -1;
   private heroStandSeq = -1;
+  // --- AI 修改开始 [COMBAT-GOLD-SIM]：英雄战斗属性、金钱统计与飘金粒子池 ---
+  private heroAttackSeq = -1;
+  heroHp = 680;
+  heroMaxHp = 680;
+  heroDps = 82;
+  heroTeam: 0 | 1 = 0;
+  goldTotal = 603;
+  floatingTexts: SimFloatingText[] = [];
+  private floatingSerial = 0;
+  // --- AI 修改结束 [COMBAT-GOLD-SIM]：英雄战斗属性、金钱统计与飘金粒子池 ---
 
   constructor(
     cfg: SceneSyncConfig,
@@ -263,6 +298,9 @@ export class DotaSceneSim {
     this.cfg = cfg;
     this.heroWalkSeq = resolveHeroSeq('Walk');
     this.heroStandSeq = resolveHeroSeq('Stand');
+    // --- AI 修改开始 [COMBAT-GOLD-SIM]：解析英雄 Attack 攻击动作序列索引 ---
+    this.heroAttackSeq = resolveHeroSeq('Attack');
+    // --- AI 修改结束 [COMBAT-GOLD-SIM]：解析英雄 Attack 攻击动作序列索引 ---
     this.nextWaveAt = cfg.startCreepsAtMs;
     this.nextNeutralAt = cfg.startNeutralsAtMs;
     // --- AI 修改开始 [RUNE-SIM]：0:00 开局首次刷符，之后每 120000ms（2分钟）刷新 ---
@@ -336,12 +374,18 @@ export class DotaSceneSim {
     if (!this.cfg.enabled) return;
     this.clockMs += dtMs;
     this.tickHero(dtMs / 1000);
+    // --- AI 修改开始 [COMBAT-GOLD-SIM]：每帧驱动英雄与敌方单位战斗及飘金粒子更新 ---
+    this.tickHeroCombat(dtMs / 1000);
+    // --- AI 修改结束 [COMBAT-GOLD-SIM]：每帧驱动英雄与敌方单位战斗及飘金粒子更新 ---
     // --- AI 修改开始 [TOWER-COMBAT]：每帧更新防御塔索敌攻击逻辑 ---
     this.tickTowers(dtMs / 1000);
     // --- AI 修改结束 [TOWER-COMBAT]：每帧更新防御塔索敌攻击逻辑 ---
     this.tickUnits(dtMs / 1000);
     // --- AI 修改开始 [RUNE-SIM]：每帧更新河道神符自转与英雄拾取判定，并按时触发自动出兵、自动刷野、自动刷符 ---
     this.tickRunes(dtMs / 1000);
+    // --- AI 修改开始 [COMBAT-GOLD-SIM]：更新飘金粒子上浮与淡出生命周期 ---
+    this.tickFloatingTexts(dtMs);
+    // --- AI 修改结束 [COMBAT-GOLD-SIM]：更新飘金粒子上浮与淡出生命周期 ---
 
     if (this.clockMs >= this.nextWaveAt) {
       this.nextWaveAt = this.clockMs + (this.cfg.creepWaveIntervalMs || 30000);
@@ -411,6 +455,57 @@ export class DotaSceneSim {
       if (this.heroStandSeq >= 0) this.heroInstance.setSequence(this.heroStandSeq);
     }
   }
+
+  // --- AI 修改开始 [COMBAT-GOLD-SIM]：实现英雄与敌方小兵/野怪之间的双向普攻伤害与受击扣血 ---
+  private tickHeroCombat(dt: number): void {
+    const heroPos = this.getHeroPosition();
+    if (!heroPos || !this.heroInstance) return;
+
+    // 寻找 260 码内的敌方小兵或野怪作为攻击目标
+    let targetEnemy: SimUnit | null = null;
+    let minDist = 260;
+    for (const u of this.units) {
+      if (!u.alive || u.team === this.heroTeam) continue;
+      const d = dist2(heroPos.x, heroPos.y, u.x, u.y);
+      if (d < minDist) {
+        minDist = d;
+        targetEnemy = u;
+      }
+    }
+
+    if (targetEnemy) {
+      if (!this.heroTarget) {
+        const ang = Math.atan2(targetEnemy.y - heroPos.y, targetEnemy.x - heroPos.x);
+        this.heroInstance.setRotation?.([0, 0, Math.sin(ang / 2), Math.cos(ang / 2)]);
+        if (
+          this.heroAttackSeq >= 0 &&
+          (this.heroInstance.sequence !== this.heroAttackSeq || this.heroInstance.sequenceEnded)
+        ) {
+          this.heroInstance.setSequence?.(this.heroAttackSeq);
+        }
+      }
+      targetEnemy.hp -= this.heroDps * dt;
+      this.heroHp = Math.max(90, this.heroHp - targetEnemy.dps * 0.45 * dt);
+
+      if (targetEnemy.hp <= 0) {
+        targetEnemy.alive = false;
+        try {
+          targetEnemy.instance?.detach?.();
+          targetEnemy.instance?.setScene?.(null);
+        } catch {
+          /* ignore */
+        }
+        const bounty = targetEnemy.kind === 'neutral' ? 52 : Math.floor(Math.random() * 11) + 38;
+        this.goldTotal += bounty;
+        this.addFloatingText('+' + bounty, targetEnemy.x, targetEnemy.y, targetEnemy.z + 55, '#fbbf24');
+      }
+    } else {
+      if (this.heroHp < this.heroMaxHp) {
+        this.heroHp = Math.min(this.heroMaxHp, this.heroHp + 5.5 * dt);
+      }
+    }
+  }
+  // --- AI 修改结束 [COMBAT-GOLD-SIM]：实现英雄与敌方小兵/野怪之间的双向普攻伤害与受击扣血 ---
 
   // --- AI 修改开始 [TOWER-COMBAT]：防御塔自动攻击射程（700码）内的敌方小兵与英雄 ---
   private tickTowers(dt: number): void {
@@ -513,6 +608,13 @@ export class DotaSceneSim {
             } catch {
               /* ignore */
             }
+            // --- AI 修改开始 [COMBAT-GOLD-SIM]：兵线小兵阵亡时头顶跳出所得金币，并为近卫累加金钱 ---
+            const bounty = Math.floor(Math.random() * 11) + 38;
+            if (u.team === 0) {
+              this.goldTotal += bounty;
+            }
+            this.addFloatingText('+' + bounty, targetEnemy.x, targetEnemy.y, targetEnemy.z + 45, '#fbbf24');
+            // --- AI 修改结束 [COMBAT-GOLD-SIM]：兵线小兵阵亡时头顶跳出所得金币，并为近卫累加金钱 ---
           }
           continue;
         }
@@ -567,6 +669,11 @@ export class DotaSceneSim {
             } catch {
               /* ignore */
             }
+            // --- AI 修改开始 [COMBAT-GOLD-SIM]：击杀野怪掉落赏金并头顶跳字 ---
+            const bounty = 68;
+            this.goldTotal += bounty;
+            this.addFloatingText('+' + bounty, u.x, u.y, u.z + 55, '#fbbf24');
+            // --- AI 修改结束 [COMBAT-GOLD-SIM] ---
           }
           continue;
         } else if (u.inCombat) {
@@ -948,6 +1055,14 @@ export class DotaSceneSim {
       if (heroPos && dist2(r.x, r.y, heroPos.x, heroPos.y) <= 240) {
         r.alive = false;
         this.lastRunePickupMsg = `拾取 ${r.spotName}：${r.nameCn}`;
+        // --- AI 修改开始 [COMBAT-GOLD-SIM]：拾取赏金神符累加 250 金钱并在头顶弹出金色 +250 ---
+        if (r.kind === 'bounty') {
+          this.goldTotal += 250;
+          this.addFloatingText('+250', r.x, r.y, r.z + 55, '#fbbf24');
+        } else {
+          this.addFloatingText(r.nameCn, r.x, r.y, r.z + 55, r.colorHex);
+        }
+        // --- AI 修改结束 [COMBAT-GOLD-SIM] ---
         try {
           r.instance?.detach?.();
           r.instance?.setScene?.(null);
@@ -959,4 +1074,92 @@ export class DotaSceneSim {
     this.runes = this.runes.filter((r) => r.alive);
   }
   // --- AI 修改结束 [RUNE-SIM]：实现 DotA 6.83d 河道双神符自动刷新（war3map.j function CBO 规则）与拾取逻辑 ---
+
+  // --- AI 修改开始 [COMBAT-GOLD-SIM]：飘金粒子池管理、金钱总数统计与实时血条实体查询 ---
+  addFloatingText(
+    text: string,
+    x: number,
+    y: number,
+    z: number,
+    color = '#fbbf24',
+    durationMs = 1500
+  ): void {
+    this.floatingSerial += 1;
+    this.floatingTexts.push({
+      id: this.floatingSerial,
+      text,
+      x,
+      y,
+      z,
+      color,
+      createdAtMs: this.clockMs,
+      durationMs,
+    });
+  }
+
+  private tickFloatingTexts(dtMs: number): void {
+    const dt = dtMs / 1000;
+    for (const ft of this.floatingTexts) {
+      ft.z += 40 * dt;
+    }
+    this.floatingTexts = this.floatingTexts.filter(
+      (ft) => this.clockMs - ft.createdAtMs < ft.durationMs
+    );
+  }
+
+  getFloatingTexts(): SimFloatingText[] {
+    return this.floatingTexts;
+  }
+
+  getGoldTotal(): number {
+    return Math.floor(this.goldTotal);
+  }
+
+  getHealthEntities(): SimHealthEntity[] {
+    const list: SimHealthEntity[] = [];
+    const heroPos = this.getHeroPosition();
+    if (heroPos) {
+      list.push({
+        id: 'hero_main',
+        name: '英雄',
+        team: this.heroTeam,
+        kind: 'hero',
+        x: heroPos.x,
+        y: heroPos.y,
+        z: heroPos.z + 78,
+        hp: Math.max(0, this.heroHp),
+        maxHp: this.heroMaxHp,
+      });
+    }
+    for (const u of this.units) {
+      if (!u.alive) continue;
+      list.push({
+        id: u.id,
+        name: u.kind === 'creep' ? (u.team === 0 ? '近卫小兵' : '天灾小兵') : '中立野怪',
+        team: u.team,
+        kind: u.kind,
+        x: u.x,
+        y: u.y,
+        z: u.z + (u.kind === 'neutral' ? 62 : 46),
+        hp: Math.max(0, u.hp),
+        maxHp: u.maxHp,
+      });
+    }
+    for (const t of this.towers) {
+      if (!t.alive) continue;
+      list.push({
+        id: t.id,
+        name: t.name,
+        team: t.team,
+        kind: 'tower',
+        x: t.x,
+        y: t.y,
+        z: this.sampleHeight(t.x, t.y) + 195,
+        hp: Math.max(0, t.hp),
+        maxHp: t.maxHp,
+      });
+    }
+    return list;
+  }
+  // --- AI 修改结束 [COMBAT-GOLD-SIM]：飘金粒子池管理、金钱总数统计与实时血条实体查询 ---
 }
