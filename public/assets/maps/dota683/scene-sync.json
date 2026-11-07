@@ -1,62 +1,281 @@
 {
-  "enabled": false,
+  "enabled": true,
   "heroMoveSpeed": 320,
   "creepWaveIntervalMs": 30000,
   "creepWaveSize": 4,
-  "creepMoveSpeed": 270,
+  "creepMoveSpeed": 325,
   "neutralRefreshMs": 60000,
+  "runeRefreshMs": 120000,
   "startCreepsAtMs": 0,
   "startNeutralsAtMs": 30000,
   "lanes": [
     {
-      "id": "mid",
-      "radiantSpawn": [-4704, -4384],
-      "direSpawn": [4384, 4288],
+      "id": "top",
+      "radiantSpawn": [
+        -6160,
+        -4064
+      ],
+      "direSpawn": [
+        2528,
+        5504
+      ],
       "waypoints": [
-        [-4704, -4384],
-        [-3200, -3000],
-        [-1600, -1500],
-        [0, 0],
-        [1600, 1500],
-        [3200, 3000],
-        [4384, 4288]
+        [
+          -6160,
+          -4064
+        ],
+        [
+          -6112,
+          -1248
+        ],
+        [
+          -6112,
+          1568
+        ],
+        [
+          -6005,
+          5459
+        ],
+        [
+          -4704,
+          5920
+        ],
+        [
+          32,
+          5920
+        ],
+        [
+          2976,
+          5792
+        ],
+        [
+          4902,
+          4537
+        ]
       ]
     },
     {
-      "id": "top",
-      "radiantSpawn": [-6144, -3904],
-      "direSpawn": [3904, 6016],
+      "id": "mid",
+      "radiantSpawn": [
+        -4752,
+        -5344
+      ],
+      "direSpawn": [
+        3744,
+        3728
+      ],
       "waypoints": [
-        [-6144, -3904],
-        [-6200, -1800],
-        [-4500, 500],
-        [-2000, 2800],
-        [500, 5000],
-        [3904, 6016]
+        [
+          -4752,
+          -5344
+        ],
+        [
+          -3488,
+          -3296
+        ],
+        [
+          -1504,
+          -1824
+        ],
+        [
+          -562,
+          -652
+        ],
+        [
+          1056,
+          -96
+        ],
+        [
+          2528,
+          1824
+        ],
+        [
+          3936,
+          3488
+        ],
+        [
+          4902,
+          4537
+        ]
       ]
     },
     {
       "id": "bot",
-      "radiantSpawn": [-3904, -6144],
-      "direSpawn": [6016, 3904],
+      "radiantSpawn": [
+        -3536,
+        -6784
+      ],
+      "direSpawn": [
+        6288,
+        3264
+      ],
       "waypoints": [
-        [-3904, -6144],
-        [-1800, -6200],
-        [500, -4500],
-        [2800, -2000],
-        [5000, 500],
-        [6016, 3904]
+        [
+          -3536,
+          -6784
+        ],
+        [
+          -544,
+          -6688
+        ],
+        [
+          4960,
+          -6752
+        ],
+        [
+          5902,
+          -6199
+        ],
+        [
+          6240,
+          -2080
+        ],
+        [
+          6304,
+          -96
+        ],
+        [
+          6368,
+          2528
+        ],
+        [
+          4902,
+          4537
+        ]
       ]
     }
   ],
   "neutralCamps": [
-    { "id": "r_easy_mid", "x": -3136, "y": -256, "count": 3, "scale": 0.85 },
-    { "id": "r_hard_mid", "x": -2496, "y": 1024, "count": 4, "scale": 1.0 },
-    { "id": "r_ancients", "x": -3584, "y": 2880, "count": 3, "scale": 1.15 },
-    { "id": "d_easy_mid", "x": 3008, "y": 128, "count": 3, "scale": 0.85 },
-    { "id": "d_hard_mid", "x": 2432, "y": -1152, "count": 4, "scale": 1.0 },
-    { "id": "d_ancients", "x": 3456, "y": -3008, "count": 3, "scale": 1.15 },
-    { "id": "r_forest_bot", "x": -1024, "y": -3904, "count": 3, "scale": 0.9 },
-    { "id": "d_forest_top", "x": 960, "y": 3712, "count": 3, "scale": 0.9 }
+    {
+      "id": "rad_small",
+      "name": "近卫小野点",
+      "x": 2960,
+      "y": -5008,
+      "tier": "small",
+      "count": 3,
+      "scale": 0.9
+    },
+    {
+      "id": "rad_med_1",
+      "name": "近卫中野点(东)",
+      "x": 1584,
+      "y": -3984,
+      "tier": "medium",
+      "count": 3,
+      "scale": 0.95
+    },
+    {
+      "id": "rad_med_2",
+      "name": "近卫中野点(西)",
+      "x": -1056,
+      "y": -4592,
+      "tier": "medium",
+      "count": 3,
+      "scale": 0.95
+    },
+    {
+      "id": "rad_large_1",
+      "name": "近卫大野点(东)",
+      "x": 3072,
+      "y": -3712,
+      "tier": "large",
+      "count": 2,
+      "scale": 1.05
+    },
+    {
+      "id": "rad_large_2",
+      "name": "近卫大野点(中)",
+      "x": -416,
+      "y": -3584,
+      "tier": "large",
+      "count": 2,
+      "scale": 1.05
+    },
+    {
+      "id": "rad_ancient",
+      "name": "近卫远古野",
+      "x": -3216,
+      "y": -256,
+      "tier": "ancient",
+      "count": 3,
+      "scale": 1.2
+    },
+    {
+      "id": "dire_small",
+      "name": "天灾小野点",
+      "x": -3088,
+      "y": 4256,
+      "tier": "small",
+      "count": 3,
+      "scale": 0.9
+    },
+    {
+      "id": "dire_med_1",
+      "name": "天灾中野点(西)",
+      "x": -1648,
+      "y": 2352,
+      "tier": "medium",
+      "count": 3,
+      "scale": 0.95
+    },
+    {
+      "id": "dire_med_2",
+      "name": "天灾中野点(中)",
+      "x": -288,
+      "y": 3456,
+      "tier": "medium",
+      "count": 3,
+      "scale": 0.95
+    },
+    {
+      "id": "dire_large_1",
+      "name": "天灾大野点(西)",
+      "x": -4512,
+      "y": 3408,
+      "tier": "large",
+      "count": 2,
+      "scale": 1.05
+    },
+    {
+      "id": "dire_large_2",
+      "name": "天灾大野点(东)",
+      "x": 1232,
+      "y": 3040,
+      "tier": "large",
+      "count": 2,
+      "scale": 1.05
+    },
+    {
+      "id": "dire_ancient",
+      "name": "天灾远古野",
+      "x": 4640,
+      "y": -976,
+      "tier": "ancient",
+      "count": 3,
+      "scale": 1.2
+    },
+    {
+      "id": "roshan",
+      "name": "肉山巢穴 (Roshan)",
+      "x": 4176,
+      "y": -2288,
+      "tier": "roshan",
+      "count": 1,
+      "scale": 1.55
+    }
+  ],
+  "runeSpots": [
+    {
+      "id": "rune_top",
+      "name": "上河道神符点",
+      "x": -2352,
+      "y": 1648
+    },
+    {
+      "id": "rune_bot",
+      "name": "下河道神符点",
+      "x": 3008,
+      "y": -2832
+    }
   ]
 }

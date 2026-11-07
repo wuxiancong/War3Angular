@@ -13,6 +13,7 @@ import {
   applySyncOverrides,
   loadSceneSyncConfig,
   type SceneSyncConfig,
+  type SimRune,
 } from './scene-sim';
 
 export interface Wc3SequenceInfo {
@@ -35,7 +36,12 @@ export interface Wc3MdxViewerOptions {
   syncOverrides?: Partial<SceneSyncConfig> | null;
 }
 
-type DragMode = 'pan' | null;
+// --- AI 删除开始 [CAMERA-PERSPECTIVE]：删除仅支持平移的 DragMode，原因：新增右键拖拽旋转/俯仰视角支持 ---
+// type DragMode = 'pan' | null;
+// --- AI 删除结束 [CAMERA-PERSPECTIVE] ---
+// --- AI 修改开始 [CAMERA-PERSPECTIVE]：支持左/中键拖拽平移与右键拖拽旋转俯仰 ---
+type DragMode = 'pan' | 'orbit' | null;
+// --- AI 修改结束 [CAMERA-PERSPECTIVE]：支持左/中键拖拽平移与右键拖拽旋转俯仰 ---
 
 /**
  * Browser wrapper: War3MapViewer (real 3D terrain) + Blademaster MDX + DotA sim.
@@ -56,15 +62,25 @@ export class Wc3MdxViewer {
   terrainReady = false;
   simEnabled = true;
   simUnitCount = 0;
+  // --- AI 修改开始 [SCENE-SIM]：支持倍速同步兵线/野怪/神符模拟器时钟 ---
+  simSpeed = 1;
+  // --- AI 修改结束 [SCENE-SIM]：支持倍速同步兵线/野怪/神符模拟器时钟 ---
   syncConfig?: SceneSyncConfig;
 
   private raf = 0;
   private disposed = false;
-  /** WC3-like: ~60° elevation from horizontal. */
-  /** Classic WC3: look from SW, steep pitch (~60° down). */
-  private yaw = -Math.PI * 0.75;
-  private pitch = 1.05;
+  // --- AI 删除开始 [CAMERA-PERSPECTIVE]：删除错误的西南 45° 斜角相机参数（yaw = -0.75π），原因：魔兽争霸3标准视角为正北朝上（Rotation=90°, AoA=304° 即俯角56°, yaw=-π/2） ---
+  // /** WC3-like: ~60° elevation from horizontal. */
+  // /** Classic WC3: look from SW, steep pitch (~60° down). */
+  // private yaw = -Math.PI * 0.75;
+  // private pitch = 1.05;
+  // private distance = 1650;
+  // --- AI 删除结束 [CAMERA-PERSPECTIVE] ---
+  // --- AI 修改开始 [CAMERA-PERSPECTIVE]：采用魔兽争霸3原生正北朝上视角（yaw=-π/2 朝正北 +Y，pitch=0.98 即 56° 俯角，distance=1650） ---
+  private yaw = -Math.PI / 2;
+  private pitch = 0.98;
   private distance = 1650;
+  // --- AI 修改结束 [CAMERA-PERSPECTIVE]：采用魔兽争霸3原生正北朝上视角（yaw=-π/2 朝正北 +Y，pitch=0.98 即 56° 俯角，distance=1650） ---
   private target: [number, number, number] = [0, 0, 0];
   private dragMode: DragMode = null;
   private lastX = 0;
@@ -110,6 +126,13 @@ export class Wc3MdxViewer {
         this.lastX = e.clientX;
         this.lastY = e.clientY;
         this.inputEl.setPointerCapture(e.pointerId);
+      } else if (e.button === 2) {
+        // --- AI 修改开始 [CAMERA-PERSPECTIVE]：右键拖拽支持旋转与俯仰微调视角 ---
+        this.dragMode = 'orbit';
+        this.lastX = e.clientX;
+        this.lastY = e.clientY;
+        this.inputEl.setPointerCapture(e.pointerId);
+        // --- AI 修改结束 [CAMERA-PERSPECTIVE]：右键拖拽支持旋转与俯仰微调视角 ---
       }
     };
     this.onPointerMove = (e) => {
@@ -123,11 +146,19 @@ export class Wc3MdxViewer {
       const dy = e.clientY - this.lastY;
       this.lastX = e.clientX;
       this.lastY = e.clientY;
+      // --- AI 修改开始 [CAMERA-PERSPECTIVE]：区分右键环绕旋转与左键抓地拖拽方向 ---
+      if (this.dragMode === 'orbit') {
+        this.yaw -= dx * 0.0055;
+        this.pitch = Math.max(0.45, Math.min(1.42, this.pitch + dy * 0.0045));
+        this.updateCamera();
+        return;
+      }
+      // --- AI 修改结束 [CAMERA-PERSPECTIVE]：区分右键环绕旋转与左键抓地拖拽方向 ---
       const panScale = this.distance * 0.0018;
       // Screen-right / screen-down → world, matching camera yaw (not inverted).
       const [rx, ry, dxw, dyw] = this.screenPanAxes();
-      this.target[0] += (dx * rx + dy * dxw) * panScale;
-      this.target[1] += (dx * ry + dy * dyw) * panScale;
+      this.target[0] -= (dx * rx + dy * dxw) * panScale;
+      this.target[1] -= (dx * ry + dy * dyw) * panScale;
       this.clampTargetToMap();
       this.updateCamera();
     };
@@ -388,16 +419,20 @@ export class Wc3MdxViewer {
     // Prefetch unique paths in parallel so one slow shop MDX doesn't serialize the base.
     const uniquePaths = new Set<string>();
     for (const b of cfg.buildings || []) {
+      // --- AI 修改开始 [BUILDING-EXACT]：优先使用 buildings.json 中从 war3map.j 提取的独立模型路径 ---
       const spec = this.buildingModelSpec(b.kind);
-      if (!spec) continue;
-      uniquePaths.add(b.team === 1 ? spec.dire : spec.radiant);
+      const path = b.model || (spec ? (b.team === 1 ? spec.dire : spec.radiant) : '');
+      if (!path) continue;
+      uniquePaths.add(path);
+      // --- AI 修改结束 [BUILDING-EXACT]：优先使用 buildings.json 中从 war3map.j 提取的独立模型路径 ---
     }
     await Promise.all([...uniquePaths].map((p) => loadModel(p)));
 
     for (const b of cfg.buildings || []) {
+      // --- AI 修改开始 [BUILDING-EXACT]：加载每个商店/商人/建筑的精确模型、缩放与朝向四元数 ---
       const spec = this.buildingModelSpec(b.kind);
-      if (!spec) continue;
-      const path = b.team === 1 ? spec.dire : spec.radiant;
+      const path = b.model || (spec ? (b.team === 1 ? spec.dire : spec.radiant) : '');
+      if (!path) continue;
       const model = await loadModel(path);
       if (!model) continue;
       const inst = model.addInstance();
@@ -406,9 +441,19 @@ export class Wc3MdxViewer {
       inst.setSequenceLoopMode(2);
       const z = this.sampleHeight(b.x, b.y);
       inst.setLocation([b.x, b.y, z]);
-      inst.setUniformScale(spec.scale ?? 1);
-      if (model.sequences?.length) inst.setSequence(0);
-      placed.push({ id: b.id, kind: b.kind, instance: inst });
+      inst.setUniformScale(b.scale ?? spec?.scale ?? 1);
+      if (b.facing != null && Number.isFinite(b.facing)) {
+        const rad = (b.facing * Math.PI) / 180;
+        inst.setRotation?.([0, 0, Math.sin(rad / 2), Math.cos(rad / 2)]);
+      }
+      if (model.sequences?.length) {
+        const standIdx = (model.sequences as { name?: string }[]).findIndex((s) =>
+          String(s.name || '').toLowerCase().trim().startsWith('stand')
+        );
+        inst.setSequence(standIdx >= 0 ? standIdx : 0);
+      }
+      placed.push({ id: b.id, name: b.name, kind: b.kind, x: b.x, y: b.y, instance: inst });
+      // --- AI 修改结束 [BUILDING-EXACT]：加载每个商店/商人/建筑的精确模型、缩放与朝向四元数 ---
     }
     this.buildings = placed;
   }
@@ -492,15 +537,96 @@ export class Wc3MdxViewer {
   applyHeroAction(action: {
     x?: number;
     y?: number;
+    // --- AI 修改开始 [HERO-SYNC]：支持设置英雄朝向角与动作序列同步 ---
+    facingRad?: number;
+    // --- AI 修改结束 [HERO-SYNC]：支持设置英雄朝向角与动作序列同步 ---
     sequence?: number | string;
   }): void {
     if (action.x != null && action.y != null) {
       this.setHeroWorldPosition(action.x, action.y);
     }
-    if (action.sequence != null) {
-      this.playSequence(action.sequence);
+    // --- AI 修改开始 [HERO-SYNC]：应用绕 Z 轴四元数朝向并在序列不同或已结束时切换动作 ---
+    if (action.facingRad != null && Number.isFinite(action.facingRad)) {
+      const half = action.facingRad / 2;
+      this.instance?.setRotation?.([0, 0, Math.sin(half), Math.cos(half)]);
     }
+    if (action.sequence != null && this.instance) {
+      const targetSeq = this.resolveSequenceId(action.sequence);
+      if (targetSeq >= 0 && (this.instance.sequence !== targetSeq || this.instance.sequenceEnded)) {
+        this.instance.setSequence(targetSeq);
+      }
+    }
+    // --- AI 修改结束 [HERO-SYNC]：应用绕 Z 轴四元数朝向并在序列不同或已结束时切换动作 ---
   }
+
+  // --- AI 修改开始 [HERO-SYNC]：新增动态切换英雄 3D 模型与获取兵线/野怪单位列表接口 ---
+  async switchHeroModel(modelUrl: string, assetBaseUrl?: string): Promise<boolean> {
+    if (!this.scene) return false;
+    this.options.modelUrl = modelUrl;
+    if (assetBaseUrl) {
+      this.options.assetBaseUrl = assetBaseUrl;
+    }
+    const useWc3Solver = modelUrl.includes('/assets/wc3/');
+    const solver = useWc3Solver
+      ? (src: unknown) => this.resolveWc3Path(src)
+      : (src: unknown) => this.resolveHeroPath(src);
+    const model = await Promise.race([
+      this.viewer.load(modelUrl, solver),
+      new Promise<null>((r) => setTimeout(() => r(null), 10000)),
+    ]);
+    if (!model) return false;
+
+    const prevLoc = this.instance?.localLocation || this.instance?.location || [
+      RADIANT_SPAWN.x,
+      RADIANT_SPAWN.y,
+      this.sampleHeight(RADIANT_SPAWN.x, RADIANT_SPAWN.y),
+    ];
+    const prevRot = this.instance?.localRotation
+      ? [...this.instance.localRotation]
+      : [0, 0, 0, 1];
+    try {
+      this.instance?.detach?.();
+      this.instance?.setScene?.(null);
+    } catch {
+      /* ignore */
+    }
+
+    this.model = model;
+    this.sequences = (model.sequences || []).map(
+      (s: { name?: string }, index: number): Wc3SequenceInfo => ({
+        index,
+        name: String(s.name || `Sequence ${index}`).replace(/\0/g, '').trim(),
+      })
+    );
+    const inst = model.addInstance();
+    inst.setScene(this.scene);
+    inst.setTeamColor(this.options.teamColor ?? 0);
+    inst.setSequenceLoopMode(2);
+    inst.setLocation([prevLoc[0] || 0, prevLoc[1] || 0, prevLoc[2] || 0]);
+    inst.setRotation?.(prevRot);
+    inst.setUniformScale(1);
+    const standIdx = this.resolveSequenceId('Stand');
+    inst.setSequence(standIdx >= 0 ? standIdx : 0);
+    this.instance = inst;
+    return true;
+  }
+
+  getSimUnits(): { x: number; y: number; team: 0 | 1 | -1; kind: 'creep' | 'neutral' }[] {
+    if (!this.sim || !this.simEnabled) return [];
+    return this.sim.units
+      .filter((u) => u.alive)
+      .map((u) => ({ x: u.x, y: u.y, team: u.team, kind: u.kind }));
+  }
+
+  getSimRunes(): SimRune[] {
+    if (!this.sim || !this.simEnabled) return [];
+    return this.sim.runes.filter((r) => r.alive);
+  }
+
+  setSimSpeed(speed: number): void {
+    this.simSpeed = Math.max(0, speed);
+  }
+  // --- AI 修改结束 [HERO-SYNC]：新增动态切换英雄 3D 模型与获取兵线/野怪单位列表接口 ---
 
   moveHeroTo(_x: number, _y: number): void {
     // Disabled in spectator/replay mode.
@@ -521,9 +647,16 @@ export class Wc3MdxViewer {
 
   /** Fixed WC3 spectator angle (no free-orbit tilt). */
   private applyWc3GameplayCamera(): void {
+    // --- AI 删除开始 [CAMERA-PERSPECTIVE]：删除错误的西南斜向 yaw=-0.75π 与过陡俯角，原因：魔兽争霸3标准游戏视角为正北朝上（Rotation=90°, AoA=304° 即俯角56°, yaw=-π/2） ---
+    // this.distance = 1650;
+    // this.pitch = 1.05; // ~60° from horizontal — matches Frozen Throne console view
+    // this.yaw = -Math.PI * 0.75; // from southwest
+    // --- AI 删除结束 [CAMERA-PERSPECTIVE] ---
+    // --- AI 修改开始 [CAMERA-PERSPECTIVE]：采用魔兽争霸3标准正北朝上视角（yaw=-π/2，pitch=0.98 即 56° 俯角，distance=1650） ---
     this.distance = 1650;
-    this.pitch = 1.05; // ~60° from horizontal — matches Frozen Throne console view
-    this.yaw = -Math.PI * 0.75; // from southwest
+    this.pitch = 0.98;
+    this.yaw = -Math.PI / 2;
+    // --- AI 修改结束 [CAMERA-PERSPECTIVE]：采用魔兽争霸3标准正北朝上视角（yaw=-π/2，pitch=0.98 即 56° 俯角，distance=1650） ---
   }
 
   setCameraMode(mode: 'hero' | 'map' | 'free'): void {
@@ -536,7 +669,12 @@ export class Wc3MdxViewer {
       this.target = [cx, cy, cz + 80];
       this.distance = 14000;
       this.pitch = 1.15;
-      this.yaw = -Math.PI * 0.75;
+      // --- AI 删除开始 [CAMERA-PERSPECTIVE]：删除俯瞰模式下的 45° 斜角旋转，原因：与左下方小地图北朝上保持一致 ---
+      // this.yaw = -Math.PI * 0.75;
+      // --- AI 删除结束 [CAMERA-PERSPECTIVE] ---
+      // --- AI 修改开始 [CAMERA-PERSPECTIVE]：俯瞰全图同样采用正北朝上方向 ---
+      this.yaw = -Math.PI / 2;
+      // --- AI 修改结束 [CAMERA-PERSPECTIVE]：俯瞰全图同样采用正北朝上方向 ---
     } else if ((mode === 'hero' || mode === 'free') && this.instance) {
       const loc = this.instance.localLocation || this.instance.location || [0, 0, 0];
       this.target = [loc[0] || 0, loc[1] || 0, (loc[2] || 0) + 90];
@@ -686,14 +824,26 @@ export class Wc3MdxViewer {
   private patchMissingTilesets(): void {
     const td = this.viewer.terrainData;
     if (!td || typeof td.getRow !== 'function' || !td.map) return;
+    // --- AI 删除开始 [TERRAIN-SLK]：删除大小写不匹配的 td.map['Zvin'] 直接赋值，原因：MappedData.getRow 内部将键转为小写查找，大写键无法命中导致地形构建崩溃 ---
+    // if (!td.getRow('Zvin') && td.getRow('Cvin')) {
+    //   td.map['Zvin'] = td.getRow('Cvin');
+    // }
+    // if (!td.getRow('Zbks') && td.getRow('Ybtl')) {
+    //   td.map['Zbks'] = td.getRow('Ybtl');
+    // } else if (!td.getRow('Zbks') && td.getRow('Cdrt')) {
+    //   td.map['Zbks'] = td.getRow('Cdrt');
+    // }
+    // --- AI 删除结束 [TERRAIN-SLK] ---
+    // --- AI 修改开始 [TERRAIN-SLK]：使用 setRow（或小写键）注册缺失地表类型 ---
     if (!td.getRow('Zvin') && td.getRow('Cvin')) {
-      td.map['Zvin'] = td.getRow('Cvin');
+      td.setRow('Zvin', td.getRow('Cvin'));
     }
     if (!td.getRow('Zbks') && td.getRow('Ybtl')) {
-      td.map['Zbks'] = td.getRow('Ybtl');
+      td.setRow('Zbks', td.getRow('Ybtl'));
     } else if (!td.getRow('Zbks') && td.getRow('Cdrt')) {
-      td.map['Zbks'] = td.getRow('Cdrt');
+      td.setRow('Zbks', td.getRow('Cdrt'));
     }
+    // --- AI 修改结束 [TERRAIN-SLK]：使用 setRow（或小写键）注册缺失地表类型 ---
   }
 
   private waitBaseFiles(): Promise<void> {
@@ -802,9 +952,14 @@ export class Wc3MdxViewer {
     const sp = Math.sin(this.pitch);
     const cy = Math.cos(this.yaw);
     const sy = Math.sin(this.yaw);
-    const x = tx + this.distance * cp * cy;
-    const y = ty + this.distance * cp * sy;
+    // --- AI 修改开始 [CAMERA-PERSPECTIVE]：补偿底部 28.5% 魔兽控制台 HUD 遮挡，使焦点单位居中显示在顶部状态栏与底部控制台之间的可视 3D 视口中心 ---
+    const hudShift = this.cameraMode === 'map' ? 0 : this.distance * 0.115;
+    const lookX = tx + cy * hudShift;
+    const lookY = ty + sy * hudShift;
+    const x = lookX + this.distance * cp * cy;
+    const y = lookY + this.distance * cp * sy;
     const z = tz + this.distance * sp;
+    // --- AI 修改结束 [CAMERA-PERSPECTIVE]：补偿底部 28.5% 魔兽控制台 HUD 遮挡，使焦点单位居中显示在顶部状态栏与底部控制台之间的可视 3D 视口中心 ---
     const canvas = this.options.canvas;
     scene.viewport[0] = 0;
     scene.viewport[1] = 0;
@@ -817,7 +972,12 @@ export class Wc3MdxViewer {
       16,
       100000
     );
-    scene.camera.moveToAndFace([x, y, z], [tx, ty, tz], [0, 0, 1]);
+    // --- AI 删除开始 [CAMERA-PERSPECTIVE]：删除未补偿底部 HUD 遮挡的直接对焦，原因：未补偿时焦点位于全屏 50% 高度，贴近底部控制台边缘 ---
+    // scene.camera.moveToAndFace([x, y, z], [tx, ty, tz], [0, 0, 1]);
+    // --- AI 删除结束 [CAMERA-PERSPECTIVE] ---
+    // --- AI 修改开始 [CAMERA-PERSPECTIVE]：相机对准补偿后的可视视口中心点 ---
+    scene.camera.moveToAndFace([x, y, z], [lookX, lookY, tz], [0, 0, 1]);
+    // --- AI 修改结束 [CAMERA-PERSPECTIVE]：相机对准补偿后的可视视口中心点 ---
   }
 
   /**
@@ -887,7 +1047,9 @@ export class Wc3MdxViewer {
         this.applyKeyboardPan(dt / 1000);
 
         if (this.sim && this.simEnabled) {
-          this.sim.tick(dt);
+          // --- AI 修改开始 [SCENE-SIM]：按录像倍速与暂停状态缩放模拟器时钟步长 ---
+          this.sim.tick(dt * this.simSpeed);
+          // --- AI 修改结束 [SCENE-SIM]：按录像倍速与暂停状态缩放模拟器时钟步长 ---
           this.simUnitCount = this.sim.units.length;
         }
 
@@ -902,8 +1064,13 @@ export class Wc3MdxViewer {
           this.instance.setSequence(this.instance.sequence);
         }
         this.updateCamera();
-        this.viewer.updateAndRender();
-        this.mirrorToViewImage();
+        // --- AI 删除开始 [WEBGL-PERF]：删除无参 updateAndRender 与高开销 CPU 像素回读 mirrorToViewImage，原因：直接展示硬件加速 WebGL 画布并传入真实帧间隔 dt ---
+        // this.viewer.updateAndRender();
+        // this.mirrorToViewImage();
+        // --- AI 删除结束 [WEBGL-PERF] ---
+        // --- AI 修改开始 [WEBGL-PERF]：传入真实帧间隔 dt 进行动画与粒子更新渲染 ---
+        this.viewer.updateAndRender(dt);
+        // --- AI 修改结束 [WEBGL-PERF]：传入真实帧间隔 dt 进行动画与粒子更新渲染 ---
       } catch (e) {
         console.warn('[wc3] frame error', e);
       }
