@@ -1,26 +1,34 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <title>Google AI Studio Angular App</title>
-    <base href="/" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="referrer" content="no-referrer" />
-    <link rel="icon" type="image/x-icon" href="favicon.ico" />
-  </head>
-  <body>
-    <script>
-      // Early shim for CJS libs (mdx-m3-viewer / events) before ES modules evaluate
-      globalThis.process = globalThis.process || {
-        env: { NODE_ENV: 'development' },
-        browser: true,
-        version: '',
-        versions: {},
-        nextTick: function (cb) { queue 0; setTimeout(cb, 0); },
-        cwd: function () { return '/'; }
-      };
-      globalThis.global = globalThis.global || globalThis;
-    </script>
-    <app-root></app-root>
-  </body>
+
+<head>
+  <meta charset="utf-8" />
+  <title>Google AI Studio Angular App</title>
+  <base href="/" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="referrer" content="no-referrer" />
+  <link rel="icon" type="image/x-icon" href="favicon.ico" />
+</head>
+
+<body>
+  <script>
+    // Early shim for CJS libs (mdx-m3-viewer / events) before ES modules evaluate
+    globalThis.process = globalThis.process || {
+      env: { NODE_ENV: 'development' },
+      browser: true,
+      version: '',
+      versions: {},
+      // --- AI 删除开始 [SHIM-FIX]：删除会导致语法错误的非法语句 queue 0，原因：非法的 JS 语法导致整个全局 process/global 垫片脚本执行失败 ---
+      // nextTick: function (cb) { queue 0; setTimeout(cb, 0); },
+      // --- AI 删除结束 [SHIM-FIX] ---
+      // --- AI 修改开始 [SHIM-FIX]：修正 process.nextTick 实现 ---
+      nextTick: function (cb) { setTimeout(cb, 0); },
+      // --- AI 修改结束 [SHIM-FIX]：修正 process.nextTick 实现 ---
+      cwd: function () { return '/'; }
+    };
+    globalThis.global = globalThis.global || globalThis;
+  </script>
+  <app-root></app-root>
+</body>
+
 </html>

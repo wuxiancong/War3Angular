@@ -6,6 +6,10 @@ import {
 } from '@angular/ssr/node';
 import express from 'express';
 import {join} from 'node:path';
+// --- AI 修改开始 [REPLAY-API]：引入文件系统与 zlib 解压缩模块用于解析 War3Bot 玩家录像数据 ---
+import * as fs from 'node:fs';
+import * as zlib from 'node:zlib';
+// --- AI 修改结束 [REPLAY-API]：引入文件系统与 zlib 解压缩模块用于解析 War3Bot 玩家录像数据 ---
 import {GoogleGenAI} from '@google/genai';
 
 const browserDistFolder = join(import.meta.dirname, '../browser');
@@ -174,6 +178,246 @@ const chatHandler: express.RequestHandler = async (req, res) => {
 
 app.post('/api/chat', chatHandler);
 app.post('/api/chat.php', chatHandler);
+
+// --- AI 修改开始 [REPLAY-API]：挂载 War3Bot DotA 图标静态资源与 wuxiancong 录像同步 API ---
+const WAR3BOT_ROOT = 'D:/Qt/workspace/War3Bot';
+const WAR3BOT_BUILD_ROOT = `${WAR3BOT_ROOT}/build/Desktop_Qt_5_15_2_VSCode_MSVC_32bit_Release`;
+const PLAYER_ACTIONS_DIR = `${WAR3BOT_BUILD_ROOT}/data/player_actions`;
+
+app.use('/assets/dota/heroIcons', express.static(`${WAR3BOT_ROOT}/images/heroIcons`));
+app.use('/assets/dota/abilityIcons', express.static(`${WAR3BOT_BUILD_ROOT}/images/abilityIcons`));
+app.use('/assets/dota/itemIcons', express.static(`${WAR3BOT_BUILD_ROOT}/images/itemIcons`));
+app.use('/assets/dota/cmdIcons', express.static(`${WAR3BOT_BUILD_ROOT}/images/cmdIcons`));
+// --- AI 修改开始 [WC3-ASSETS-CASE]：挂载大小写不敏感的 /assets/wc3 静态目录，防止模型贴图因大小写差异回退为白模 ---
+app.use('/assets/wc3', express.static(join(process.cwd(), 'public/assets/wc3')));
+// --- AI 修改结束 [WC3-ASSETS-CASE]：挂载大小写不敏感的 /assets/wc3 静态目录，防止模型贴图因大小写差异回退为白模 ---
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedDotaData: any = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedHeroesMap: Record<string, { name: string; icon: string }> | null = null;
+
+function getDotaStaticData() {
+  if (!cachedDotaData) {
+    try {
+      cachedDotaData = JSON.parse(fs.readFileSync(`${WAR3BOT_ROOT}/images/dota_data.json`, 'utf8'));
+    } catch {
+      cachedDotaData = { items: {}, recipes: {}, heroes: {}, abilities: {} };
+    }
+  }
+  if (!cachedHeroesMap) {
+    try {
+      cachedHeroesMap = JSON.parse(fs.readFileSync(`${WAR3BOT_ROOT}/images/heroes.json`, 'utf8'));
+    } catch {
+      cachedHeroesMap = {};
+    }
+  }
+  return { dotaData: cachedDotaData, heroesMap: cachedHeroesMap! };
+}
+
+function hexHeroIdToFourCC(heroIdHex: string | undefined): string {
+  if (!heroIdHex || heroIdHex === '0') return '';
+  if (heroIdHex.length === 4) return heroIdHex;
+  if (heroIdHex.length === 8 && /^[0-9a-fA-F]{8}$/.test(heroIdHex)) {
+    try {
+      return Buffer.from(heroIdHex, 'hex').toString('ascii');
+    } catch {
+      return '';
+    }
+  }
+  return '';
+}
+
+function intToFourCC(val: number | undefined): string {
+  if (!val || val < 0x20202020 || val > 0x7a7a7a7a) return '';
+  const b = Buffer.alloc(4);
+  b.writeUInt32BE(val >>> 0, 0);
+  const s = b.toString('ascii');
+  return /^[\x20-\x7e]{4}$/.test(s) ? s : '';
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function readMatchDatFile(filePath: string): any | null {
+  try {
+    const buf = fs.readFileSync(filePath);
+    if (buf.length <= 4) return null;
+    const rawJson = zlib.inflateSync(buf.subarray(4)).toString('utf8');
+    return JSON.parse(rawJson);
+  } catch {
+    return null;
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function resolveMatchHeroCode(data: any, dotaData: any): string {
+  let code = hexHeroIdToFourCC(String(data.heroId || ''));
+  if (code && dotaData.heroes?.[code]) return code;
+  const pid = Number(data.pid || 1);
+  for (const a of data.actions || []) {
+    if (a[1] === 0x6b && typeof a[5] === 'string') {
+      const m = a[5].match(/^(\d+):9=(\d+)$/);
+      if (m && Number(m[1]) === pid) {
+        const c = intToFourCC(Number(m[2]));
+        if (c && dotaData.heroes?.[c]) return c;
+      }
+    }
+    if (a[1] === 0x10 && a[6]) {
+      const c = intToFourCC(Number(a[6]));
+      if (c && dotaData.heroes?.[c]) return c;
+    }
+  }
+  return code;
+}
+
+app.get('/api/replay/matches', (req, res) => {
+  const player = String(req.query['player'] || 'wuxiancong').replace(/[^a-zA-Z0-9_-]/g, '');
+  const dir = join(PLAYER_ACTIONS_DIR, player);
+  const { dotaData, heroesMap } = getDotaStaticData();
+  if (!fs.existsSync(dir)) {
+    return res.json({ player, matches: [] });
+  }
+  const files = fs
+    .readdirSync(dir)
+    .filter((f) => f.endsWith('.dat'))
+    .sort((a, b) => b.localeCompare(a));
+
+  const matches = [];
+  for (const fileName of files) {
+    const data = readMatchDatFile(join(dir, fileName));
+    if (!data) continue;
+    const heroCode = resolveMatchHeroCode(data, dotaData);
+    const heroEntry = dotaData.heroes?.[heroCode] || heroesMap?.[heroCode];
+    const heroIconFile = heroesMap?.[heroCode]?.icon || '';
+    let moveActions = 0;
+    for (const a of data.actions || []) {
+      if (a[1] === 0x11 || a[1] === 0x12) moveActions++;
+    }
+    matches.push({
+      fileName,
+      matchId: String(data.matchId || fileName.replace(/^match_|\.dat$/g, '')),
+      player: String(data.player || player),
+      pid: Number(data.pid || 1),
+      heroId: String(data.heroId || ''),
+      heroCode,
+      heroName: heroEntry?.name || (heroCode ? heroCode : '未选择英雄'),
+      heroIcon: heroIconFile ? `/assets/dota/heroIcons/${heroIconFile}` : '',
+      gameStartMs: Number(data.gameStartMs || 0),
+      gameEndMs: Number(data.gameEndMs || 0),
+      durationMs: Number(data.durationMs || 0),
+      totalActions: Number(data.totalActions || (data.actions?.length ?? 0)),
+      moveActions,
+    });
+  }
+  return res.json({ player, matches });
+});
+
+app.get('/api/replay/match', (req, res) => {
+  const player = String(req.query['player'] || 'wuxiancong').replace(/[^a-zA-Z0-9_-]/g, '');
+  const wantMatchId = String(req.query['matchId'] || '').trim();
+  const wantFile = String(req.query['file'] || '').trim();
+  const isLive = req.query['live'] === '1';
+  const { dotaData, heroesMap } = getDotaStaticData();
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let data: any = null;
+  let chosenFile = '';
+
+  if (isLive) {
+    const livePath = join(PLAYER_ACTIONS_DIR, 'live_match.json');
+    if (fs.existsSync(livePath)) {
+      try {
+        const liveData = JSON.parse(fs.readFileSync(livePath, 'utf8'));
+        if (liveData?.actions?.length) {
+          data = liveData;
+          chosenFile = 'live_match.json';
+        }
+      } catch {
+        /* fallback to .dat */
+      }
+    }
+  }
+
+  const dir = join(PLAYER_ACTIONS_DIR, player);
+  if (!data && fs.existsSync(dir)) {
+    const files = fs
+      .readdirSync(dir)
+      .filter((f) => f.endsWith('.dat'))
+      .sort((a, b) => b.localeCompare(a));
+
+    if (wantFile && files.includes(wantFile)) {
+      data = readMatchDatFile(join(dir, wantFile));
+      chosenFile = wantFile;
+    }
+    if (!data && wantMatchId) {
+      const byName = files.find((f) => f.includes(wantMatchId));
+      if (byName) {
+        data = readMatchDatFile(join(dir, byName));
+        chosenFile = byName;
+      } else {
+        for (const f of files) {
+          const d = readMatchDatFile(join(dir, f));
+          if (d?.matchId === wantMatchId) {
+            data = d;
+            chosenFile = f;
+            break;
+          }
+        }
+      }
+    }
+    if (!data) {
+      // 默认选取最新一局有选英雄且有移动操作的有效录像
+      for (const f of files) {
+        const d = readMatchDatFile(join(dir, f));
+        if (!d) continue;
+        const hc = resolveMatchHeroCode(d, dotaData);
+        const hasMoves = (d.actions || []).some((a: number[]) => a[1] === 0x11 || a[1] === 0x12);
+        if (hc && hasMoves) {
+          data = d;
+          chosenFile = f;
+          break;
+        }
+      }
+      if (!data && files.length) {
+        data = readMatchDatFile(join(dir, files[0]));
+        chosenFile = files[0];
+      }
+    }
+  }
+
+  if (!data) {
+    return res.status(404).json({ error: '未找到匹配的录像数据' });
+  }
+
+  const heroCode = resolveMatchHeroCode(data, dotaData) || 'Nbbc';
+  const heroDef = dotaData.heroes?.[heroCode] || dotaData.heroes?.['Nbbc'] || {
+    name: '主宰',
+    attrCode: 'Aamk',
+    skills: [],
+  };
+  const heroIconFile = heroesMap?.[heroCode]?.icon || 'ReplaceableTextures_CommandButtons_BTNHeroBlademaster.png';
+
+  return res.json({
+    fileName: chosenFile,
+    matchId: String(data.matchId || chosenFile),
+    player: String(data.player || player),
+    pid: Number(data.pid || 1),
+    heroId: String(data.heroId || ''),
+    heroCode,
+    heroName: heroDef.name || '主宰',
+    heroIcon: `/assets/dota/heroIcons/${heroIconFile}`,
+    gameStartMs: Number(data.gameStartMs || 0),
+    gameEndMs: Number(data.gameEndMs || 0),
+    durationMs: Number(data.durationMs || 0),
+    totalActions: Number(data.totalActions || (data.actions?.length ?? 0)),
+    players: data.players || { '1': player },
+    heroMeta: heroDef,
+    items: dotaData.items || {},
+    recipes: dotaData.recipes || {},
+    abilities: dotaData.abilities || {},
+    actions: data.actions || [],
+  });
+});
+// --- AI 修改结束 [REPLAY-API]：挂载 War3Bot DotA 图标静态资源与 wuxiancong 录像同步 API ---
 
 /**
  * Serve static files from /browser
