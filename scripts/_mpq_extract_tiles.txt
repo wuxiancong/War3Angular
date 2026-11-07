@@ -1,0 +1,5 @@
+e "X:\????\??3-????\WAR3.MPQ" "UI\Console\Human\HumanUITile01.blp" "D:\Qt\workspace\War3Angular\public\assets\wc3\ui\assembled\mpq-editor" /fp
+e "X:\????\??3-????\WAR3.MPQ" "UI\Console\NightElf\NightElfUITile01.blp" "D:\Qt\workspace\War3Angular\public\assets\wc3\ui\assembled\mpq-editor" /fp
+e "X:\????\??3-????\WAR3.MPQ" "UI\Console\Human\HumanUITile02.blp" "D:\Qt\workspace\War3Angular\public\assets\wc3\ui\assembled\mpq-editor" /fp
+e "X:\????\??3-????\WAR3.MPQ" "UI\Console\Human\HumanUITile03.blp" "D:\Qt\workspace\War3Angular\public\assets\wc3\ui\assembled\mpq-editor" /fp
+e "X:\????\??3-????\WAR3.MPQ" "UI\Console\Human\HumanUITile04.blp" "D:\Qt\workspace\War3Angular\public\assets\wc3\ui\assembled\mpq-editor" /fp

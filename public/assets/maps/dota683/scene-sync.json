@@ -1,0 +1,62 @@
+{
+  "enabled": false,
+  "heroMoveSpeed": 320,
+  "creepWaveIntervalMs": 30000,
+  "creepWaveSize": 4,
+  "creepMoveSpeed": 270,
+  "neutralRefreshMs": 60000,
+  "startCreepsAtMs": 0,
+  "startNeutralsAtMs": 30000,
+  "lanes": [
+    {
+      "id": "mid",
+      "radiantSpawn": [-4704, -4384],
+      "direSpawn": [4384, 4288],
+      "waypoints": [
+        [-4704, -4384],
+        [-3200, -3000],
+        [-1600, -1500],
+        [0, 0],
+        [1600, 1500],
+        [3200, 3000],
+        [4384, 4288]
+      ]
+    },
+    {
+      "id": "top",
+      "radiantSpawn": [-6144, -3904],
+      "direSpawn": [3904, 6016],
+      "waypoints": [
+        [-6144, -3904],
+        [-6200, -1800],
+        [-4500, 500],
+        [-2000, 2800],
+        [500, 5000],
+        [3904, 6016]
+      ]
+    },
+    {
+      "id": "bot",
+      "radiantSpawn": [-3904, -6144],
+      "direSpawn": [6016, 3904],
+      "waypoints": [
+        [-3904, -6144],
+        [-1800, -6200],
+        [500, -4500],
+        [2800, -2000],
+        [5000, 500],
+        [6016, 3904]
+      ]
+    }
+  ],
+  "neutralCamps": [
+    { "id": "r_easy_mid", "x": -3136, "y": -256, "count": 3, "scale": 0.85 },
+    { "id": "r_hard_mid", "x": -2496, "y": 1024, "count": 4, "scale": 1.0 },
+    { "id": "r_ancients", "x": -3584, "y": 2880, "count": 3, "scale": 1.15 },
+    { "id": "d_easy_mid", "x": 3008, "y": 128, "count": 3, "scale": 0.85 },
+    { "id": "d_hard_mid", "x": 2432, "y": -1152, "count": 4, "scale": 1.0 },
+    { "id": "d_ancients", "x": 3456, "y": -3008, "count": 3, "scale": 1.15 },
+    { "id": "r_forest_bot", "x": -1024, "y": -3904, "count": 3, "scale": 0.9 },
+    { "id": "d_forest_top", "x": 960, "y": 3712, "count": 3, "scale": 0.9 }
+  ]
+}

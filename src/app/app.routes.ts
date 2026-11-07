@@ -20,6 +20,7 @@ import { MapUpdatesComponent } from './pages/map-updates.component';
 import { UserProfileComponent } from './pages/user-profile.component';
 import { ShoppingBagComponent } from './pages/shopping-bag.component';
 import { PlatformUpdatesComponent } from './pages/platform-updates.component';
+import { Replay3dComponent } from './pages/replay-3d.component';
 
 export const routes: Routes = [
   { path: '', component: HomeComponent },
@@ -27,6 +28,7 @@ export const routes: Routes = [
   { path: 'login', component: LoginComponent },
   { path: 'forgot-password', component: ForgotPasswordComponent },
   { path: 'matches', component: StatsComponent },
+  { path: 'replay-3d', component: Replay3dComponent },
   { path: 'ladder', component: LadderComponent },
   { path: 'squad', component: SquadComponent },
   { path: 'my-squad', component: MySquadComponent },

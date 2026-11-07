@@ -9,6 +9,18 @@
     <link rel="icon" type="image/x-icon" href="favicon.ico" />
   </head>
   <body>
+    <script>
+      // Early shim for CJS libs (mdx-m3-viewer / events) before ES modules evaluate
+      globalThis.process = globalThis.process || {
+        env: { NODE_ENV: 'development' },
+        browser: true,
+        version: '',
+        versions: {},
+        nextTick: function (cb) { queue 0; setTimeout(cb, 0); },
+        cwd: function () { return '/'; }
+      };
+      globalThis.global = globalThis.global || globalThis;
+    </script>
     <app-root></app-root>
   </body>
 </html>
