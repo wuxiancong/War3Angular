@@ -82,14 +82,18 @@ export interface CommandCardSlot {
       }
       /* --- AI 修改结束 [WC3-UI-AUTHENTIC]：使用魔兽争霸3原生人族铁护手手指鼠标指针与小地图准星指针 --- */
       .wc3-topbar {
+        width: 100%;
+        height: 36px;
+        position: relative;
+        z-index: 25;
+        flex-shrink: 0;
+      }
+      .wc3-topbar-bg {
         position: absolute;
         left: 0;
         right: 0;
         top: 0;
-        height: 36px;
-        z-index: 25;
-        pointer-events: none;
-      }
+        height: 68px;
       .wc3-topbar-bg {
         position: absolute;
         left: 0;
@@ -101,68 +105,15 @@ export interface CommandCardSlot {
         pointer-events: none;
         z-index: 0;
       }
-      /* --- AI 修改开始 [WC3-TOP-MENU-TEXTURE] --- */
-      .wc3-top-menu-btn {
+      .wc3-console {
+        width: 100%;
+        aspect-ratio: 1600 / 342;
+        background: url('/assets/wc3/ui/console-assembled.png') center / 100% 100% no-repeat;
+        position: relative;
+        z-index: 20;
+        flex-shrink: 0;
         pointer-events: auto;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: url('/assets/wc3/ui/upper-btn-normal.png') center / 100% 100% no-repeat;
-        color: #fcd34d;
-        font-size: clamp(9px, 0.76vw, 11px);
-        font-weight: 900;
-        letter-spacing: 0.02em;
-        text-shadow: 0 1px 2px #000, 0 0 3px #000;
-        border: 0;
-        padding: 0 2px;
-        transition: filter 0.1s;
       }
-      .wc3-top-menu-btn:hover {
-        background-image: url('/assets/wc3/ui/upper-btn-highlight.png');
-        filter: brightness(1.15);
-        color: #ffffff;
-      }
-      .wc3-top-menu-btn:active,
-      .wc3-top-menu-btn.active {
-        background-image: url('/assets/wc3/ui/upper-btn-pushed.png');
-        color: #ffffff;
-      }
-      /* --- AI 修改结束 [WC3-TOP-MENU-TEXTURE] --- */
-      /* --- AI 修改开始 [COMBAT-GOLD-OVERLAY] --- */
-      .wc3-overhead-hp {
-        position: absolute;
-        transform: translate(-50%, -100%);
-        pointer-events: none;
-        z-index: 25;
-        background: rgba(0, 0, 0, 0.85);
-        border: 1px solid #000000;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
-      }
-      .wc3-floating-gold {
-        position: absolute;
-        transform: translate(-50%, -100%);
-        pointer-events: none;
-        z-index: 30;
-        font-family: monospace, sans-serif;
-        font-weight: 900;
-        font-size: 13px;
-        text-shadow: 0 1px 2px #000, 0 0 4px #000;
-        white-space: nowrap;
-      }
-      /* --- AI 修改结束 [COMBAT-GOLD-OVERLAY] --- */
-      .wc3-res-box {
-        position: absolute;
-        top: 2px;
-        height: 23px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 0 0.65%;
-        font-size: clamp(10px, 0.85vw, 13px);
-        font-weight: 900;
-        color: #f8e8b8;
-        text-shadow: 0 1px 2px #000, 0 0 3px #000;
-        z-index: 15;
         pointer-events: auto;
       }
       /* --- AI 修改开始 [WC3-CONSOLE-OVERLAP]：将底部控制台绝对定位于 3D 视口底部，使透明镂空上沿透出 3D 画面，彻底消除上方黑条 --- */
@@ -240,7 +191,7 @@ export interface CommandCardSlot {
       .wc3-port {
         overflow: hidden;
         border-radius: 42% 42% 0 0 / 28% 28% 0 0;
-        background: radial-gradient(circle at 35% 25%, #3a2e1c, #0d0906 74%);
+        background: radial-gradient(circle at 35% 25%, #4a3a22, #120c08 72%);
       }
       /* --- AI 修改开始 [WC3-BAR-TEXTURES]：使用从 war3.mpq 提取的真实人族生命条/魔法条/经验条贴图渲染 --- */
       .wc3-bar {
@@ -315,10 +266,17 @@ export interface CommandCardSlot {
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 9px;
+        font-size: clamp(8px, 0.72vw, 11px);
         font-weight: 800;
         color: #f5e6c4;
         text-shadow: 0 1px 2px #000, 0 0 3px #000;
+        line-height: 1;
+      }
+      .wc3-hp > i {
+        background: linear-gradient(180deg, #6ee06e, #1f7a2a 55%, #0f4a18);
+      }
+      .wc3-mp > i {
+        background: linear-gradient(180deg, #6ab0ff, #1a4a9a 55%, #0a2858);
       }
       /* --- AI 修改结束 [WC3-BAR-TEXTURES]：使用从 war3.mpq 提取的真实人族生命条/魔法条/经验条贴图渲染 --- */
       .wc3-info {
@@ -544,72 +502,7 @@ export interface CommandCardSlot {
       </div>
 
       <div class="flex flex-col lg:flex-row flex-grow min-h-0">
-        <!-- --- AI 删除开始 [FIRST-LOAD-WEBGL]：删除 lg:min-h-0，原因：首屏 flex 尚未算出高度时视口塌成 0，WebGL 在 0 尺寸下初始化后黑屏且无法交互 --- -->
-        <!-- <div class="relative flex-grow min-h-[580px] lg:min-h-0 bg-[#05080c] overflow-hidden"> -->
-        <!-- --- AI 删除结束 [FIRST-LOAD-WEBGL] --- -->
-        <!-- --- AI 修改开始 [FIRST-LOAD-WEBGL]：始终保留最小高度，避免首次加载 WebGL 视口为 0 --- -->
-        <div class="relative flex-grow min-h-[580px] bg-[#05080c] overflow-hidden">
-        <!-- --- AI 修改结束 [FIRST-LOAD-WEBGL] --- -->
-          <!-- --- AI 修改开始 [WC3-TOPBAR-AUTHENTIC]：还原魔兽争霸3左上四联菜单按钮（地图信息F9/菜单F10/盟友F11/聊天F12）、中央时间分秒及右侧四格资源框 --- -->
-          <div class="wc3-topbar">
-            <div class="wc3-topbar-bg"></div>
-
-            <!-- 左上角 4 个原生魔兽菜单槽（精确对齐 UpperButtonBar.fdf 孔位与原生贴图，严丝合缝） -->
-            <button type="button" class="wc3-abs wc3-top-menu-btn"
-                    [class.active]="activeTopMenu() === 'quests'"
-                    style="left:0.25%; width:10.625%; top:2px; height:24px; z-index:15"
-                    (click)="toggleTopMenu('quests')"
-                    title="查看地图信息与机制说明 (F9)">
-              地图信息 (<span class="text-white underline">F9</span>)
-            </button>
-            <button type="button" class="wc3-abs wc3-top-menu-btn"
-                    [class.active]="activeTopMenu() === 'menu'"
-                    style="left:10.875%; width:10.625%; top:2px; height:24px; z-index:15"
-                    (click)="toggleTopMenu('menu')"
-                    title="打开游戏菜单 (F10)">
-              菜单 (<span class="text-white underline">F10</span>)
-            </button>
-            <button type="button" class="wc3-abs wc3-top-menu-btn"
-                    [class.active]="activeTopMenu() === 'allies'"
-                    style="left:21.5%; width:10.625%; top:2px; height:24px; z-index:15"
-                    (click)="toggleTopMenu('allies')"
-                    title="查看盟友与对局阵容 (F11)">
-              盟友 (<span class="text-white underline">F11</span>)
-            </button>
-            <button type="button" class="wc3-abs wc3-top-menu-btn"
-                    [class.active]="activeTopMenu() === 'chat'"
-                    style="left:32.125%; width:10.625%; top:2px; height:24px; z-index:15"
-                    (click)="toggleTopMenu('chat')"
-                    title="查看对局聊天与事件记录 (F12)">
-              聊天 (<span class="text-white underline">F12</span>)
-            </button>
-
-            <!-- 顶部中央日夜球时钟读数（分 : 秒 精确居中） -->
-            <div class="wc3-abs flex flex-col items-center justify-end z-20 pointer-events-none"
-                 style="left:46%; width:8%; top:2px; height:58px">
-              <div class="font-mono text-[11px] font-black text-[#fff3c4] drop-shadow-[0_1px_2px_rgba(0,0,0,0.98)] bg-black/75 border border-amber-500/40 px-1.5 py-0.2 rounded flex items-center gap-0.5"
-                   title="游戏时间（分:秒）">
-                <span>{{ clockMinText() }}</span>
-                <span class="text-amber-400">:</span>
-                <span>{{ clockSecText() }}</span>
-              </div>
-            </div>
-
-            <!-- 右侧 4 个原生魔兽资源槽（精确对齐 ResourceBar.fdf 4个凹槽：金币 / 木材 / 人口等级 / 地图版本） -->
-            <div class="wc3-res-box" style="left:57.75%; width:9.1%" title="当前金钱">
-              <img class="w-4 h-4 shrink-0" src="/assets/wc3/ui/icons/gold.png" alt="金币" />
-              <span class="font-mono text-[#ffd74a] pr-1">{{ gold() }}</span>
-            </div>
-            <div class="wc3-res-box" style="left:68.55%; width:9.1%" title="当前木材">
-              <img class="w-4 h-4 shrink-0" src="/assets/wc3/ui/icons/lumber.png" alt="木材" />
-              <span class="font-mono text-[#6ee7b7] pr-1">{{ lumber() }}</span>
-            </div>
-            <div class="wc3-res-box" style="left:79.35%; width:9.1%" title="当前英雄等级 / 等级上限">
-              <img class="w-4 h-4 shrink-0" src="/assets/wc3/ui/icons/supply.png" alt="人口" />
-              <span class="font-mono text-[#fde68a] pr-1">{{ heroLevel() }} / 25</span>
-            </div>
-            <div class="wc3-res-box justify-center" style="left:90.15%; width:9.3%" title="DotA 地图版本与维修费状态">
-              <span class="font-mono text-[#5eff5e] tracking-tight">v6.83d</span>
+        <div class="relative flex-grow min-h-[580px] bg-[#05080c] flex flex-col overflow-hidden">
             </div>
           </div>
           <!-- --- AI 修改结束 [WC3-TOPBAR-AUTHENTIC]：还原魔兽争霸3左上四联菜单按钮（地图信息F9/菜单F10/盟友F11/聊天F12）、中央时间分秒及右侧四格资源框 --- -->
@@ -622,44 +515,8 @@ export interface CommandCardSlot {
                       class="absolute inset-0 w-full h-full block z-[1] pointer-events-auto bg-[#05080c]"></canvas>
             }
             <div #viewLayer
-                 class="absolute inset-0 z-0 pointer-events-none bg-transparent"></div>
+                 class="absolute inset-0 z-0 pointer-events-auto bg-transparent cursor-grab active:cursor-grabbing"></div>
             <!-- --- AI 修改结束 [FIRST-LOAD-WEBGL] --- -->
-
-            <!-- --- AI 修改开始 [COMBAT-GOLD-OVERLAY]：3D 战场实时头顶血条（血条开关默认开启）与击杀/拾取飘金动画 --- -->
-            @if (showHealthBars()) {
-              @for (bar of overheadHpBars(); track bar.id) {
-                <div
-                  class="wc3-overhead-hp"
-                  [style.left.%]="bar.sx"
-                  [style.top.%]="bar.sy"
-                  [style.width.px]="bar.isTower ? 54 : bar.isHero ? 48 : 34"
-                  [style.height.px]="bar.isTower ? 7 : bar.isHero ? 6 : 4"
-                >
-                  <div
-                    class="h-full transition-all duration-75"
-                    [style.width.%]="bar.hpPct"
-                    [style.background]="bar.color"
-                  ></div>
-                </div>
-              }
-            }
-
-            @for (ft of activeFloatingTexts(); track ft.id) {
-              <div
-                class="wc3-floating-gold"
-                [style.left.%]="ft.sx"
-                [style.top.%]="ft.sy"
-                [style.color]="ft.color"
-                [style.opacity]="ft.opacity"
-              >
-                {{ ft.text }}
-              </div>
-            }
-            <!-- --- AI 修改结束 [COMBAT-GOLD-OVERLAY] --- -->
-
-            <!-- 左上角实时动作指令浮动提示 -->
-            <div class="absolute top-11 left-3 z-10 pointer-events-none space-y-1">
-              <div class="px-2.5 py-1 rounded bg-black/70 border border-amber-400/35 text-[11px] text-amber-100 font-mono flex items-center gap-2">
                 <span class="inline-block w-2 h-2 rounded-full" [ngClass]="isMoving() ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'"></span>
                 <span>坐标 ({{ heroPos().x }}, {{ heroPos().y }})</span>
                 <span class="text-amber-300">· {{ activeSequenceName() || 'Stand' }}</span>
@@ -670,123 +527,8 @@ export interface CommandCardSlot {
                 </div>
               }
             </div>
-
-            <!-- 右上角经典 DotA 6.83d 计分板（Multiboard） -->
-            <div class="absolute top-9 right-2.5 z-10 pointer-events-none bg-black/72 border border-[#a88948]/65 rounded px-2.5 py-1.5 text-[11px] text-[#f0e0b0] shadow-lg min-w-[235px]">
-              <div class="flex items-center justify-between border-b border-[#a88948]/35 pb-0.5 mb-1">
-                <span class="text-[#7ee787] font-black tracking-wide">DotA Allstars v6.83d</span>
-                <span class="font-mono text-amber-300">{{ clockMinText() }}:{{ clockSecText() }}</span>
-              </div>
-              <div class="flex items-center justify-between gap-3">
-                <span class="text-sky-300 font-bold flex items-center gap-1">
-                  <img [src]="heroIcon()" alt="" class="w-4 h-4 rounded-sm border border-amber-400/60" />
-                  {{ player() || 'wuxiancong' }} ({{ heroNameCn() }})
-                </span>
-                <span class="font-mono">
-                  <b class="text-emerald-300">{{ kills() }}</b>/<b class="text-rose-400">{{ deaths() }}</b>/<b class="text-sky-300">{{ assists() }}</b>
-                </span>
-              </div>
-              <div class="flex items-center justify-between text-[10px] text-amber-100/85 font-mono mt-0.5">
-                <span>正补/反补: <b class="text-amber-300">{{ lastHits() }}</b>/{{ denies() }}</span>
-                <span>野怪: <b class="text-amber-300">{{ neutrals() }}</b></span>
-                <span>位置: ({{ heroPos().x }},{{ heroPos().y }})</span>
-              </div>
-            </div>
-
-            <!-- 顶部四联菜单弹窗（地图信息 F9 / 菜单 F10 / 盟友 F11 / 聊天 F12） -->
-            @if (activeTopMenu()) {
-              <div class="absolute top-12 left-1/2 -translate-x-1/2 z-30 w-[92%] max-w-lg bg-[#120e09]/95 border-2 border-[#d4af37] rounded shadow-[0_0_28px_rgba(0,0,0,0.95)] p-4 text-[#f5e6c4]">
-                <div class="flex items-center justify-between border-b border-[#d4af37]/40 pb-2 mb-3">
-                  <h3 class="text-sm font-black text-[#fcd34d] tracking-wider">
-                    @switch (activeTopMenu()) {
-                      @case ('quests') { 📜 地图信息与任务说明 (F9) }
-                      @case ('menu') { ⚙️ 魔兽争霸 III 游戏菜单 (F10) }
-                      @case ('allies') { 🛡️ 盟友与对局阵容 (F11) }
-                      @case ('chat') { 💬 对局聊天与事件日志 (F12) }
-                    }
-                  </h3>
-                  <button type="button" (click)="activeTopMenu.set(null)"
-                          class="px-2 py-0.5 text-xs font-bold bg-[#2a1f12] border border-[#d4af37]/70 rounded text-amber-200 hover:bg-[#3b2c1a]">
-                    关闭 ✕
-                  </button>
-                </div>
-
-                @if (activeTopMenu() === 'quests') {
-                  <div class="space-y-2 text-xs leading-relaxed">
-                    <div class="p-2 rounded bg-black/50 border border-amber-500/30">
-                      <div class="font-bold text-amber-300">DotA Allstars v6.83d (地形与物件原版还原)</div>
-                      <p class="text-amber-100/85 mt-0.5">近卫军团（左下翠绿森林）迎战天灾军团（右上荒芜之地），摧毁敌方遗迹（世界之树 / 冰封王座）即可获胜。</p>
-                    </div>
-                    <ul class="list-disc list-inside space-y-1 text-[11px] text-amber-100/90">
-                      <li><b>自动出兵</b>：每 30 秒三路兵营刷出近战/远程小兵（每第 7 波附带攻城车），沿各路推进并与敌军和防御塔交战。</li>
-                      <li><b>防御塔防线</b>：各路防御塔主动攻击 700 码内敌方小兵与英雄，小兵遇塔停步攻塔并自动绕行防穿模。</li>
-                      <li><b>野怪与神符</b>：12 处野怪营地每整分钟判空刷新；上下河道神符点每 2 分钟刷新赏金/强化神符。</li>
-                    </ul>
-                  </div>
-                }
-
-                @if (activeTopMenu() === 'menu') {
-                  <div class="grid grid-cols-2 gap-2 text-xs">
-                    <button type="button" (click)="togglePlay(); activeTopMenu.set(null)"
-                            class="py-2 px-3 rounded bg-[#241a0e] border border-[#d4af37]/60 text-amber-200 font-bold hover:bg-[#352615]">
-                      {{ isPlaying() ? '⏸ 暂停录像播放' : '▶ 继续录像播放' }}
-                    </button>
-                    <button type="button" (click)="resetCamera(); activeTopMenu.set(null)"
-                            class="py-2 px-3 rounded bg-[#241a0e] border border-[#d4af37]/60 text-amber-200 font-bold hover:bg-[#352615]">
-                      🎥 复位魔兽标准视角
-                    </button>
-                    <button type="button" (click)="toggleSim()"
-                            class="py-2 px-3 rounded bg-[#241a0e] border border-[#d4af37]/60 text-amber-200 font-bold hover:bg-[#352615]">
-                      {{ simOn() ? '✅ 兵线/野怪/神符模拟：开启' : '⭕ 兵线/野怪/神符模拟：关闭' }}
-                    </button>
-                    <button type="button" (click)="reload(); activeTopMenu.set(null)"
-                            class="py-2 px-3 rounded bg-[#241a0e] border border-[#d4af37]/60 text-amber-200 font-bold hover:bg-[#352615]">
-                      🔄 重新加载 3D 场景
-                    </button>
-                  </div>
-                }
-
-                @if (activeTopMenu() === 'allies') {
-                  <div class="space-y-2 text-xs">
-                    <div class="text-emerald-300 font-bold">🌿 近卫军团 (Sentinel)</div>
-                    <div class="flex items-center justify-between p-2 rounded bg-black/55 border border-emerald-500/40">
-                      <div class="flex items-center gap-2">
-                        <img [src]="heroIcon()" alt="" class="w-7 h-7 rounded border border-amber-400" />
-                        <div>
-                          <div class="font-bold text-sky-300">{{ player() || 'wuxiancong' }} · {{ heroNameCn() }} (Lv.{{ heroLevel() }})</div>
-                          <div class="text-[10px] text-amber-200/80">{{ heroTitle() }} · 坐标 ({{ heroPos().x }}, {{ heroPos().y }})</div>
-                        </div>
-                      </div>
-                      <div class="text-right font-mono">
-                        <div class="text-amber-300">金钱 {{ gold() }}</div>
-                        <div class="text-[10px]">KDA {{ kills() }}/{{ deaths() }}/{{ assists() }} · CS {{ lastHits() }}/{{ denies() }}</div>
-                      </div>
-                    </div>
-                    <div class="flex items-center justify-between text-[11px] text-amber-200/85 pt-1">
-                      <span>共享视野：已开启</span>
-                      <span>小地图盟友颜色模式：{{ mmAllyColorMode() ? '阵营双色(绿/红)' : '玩家原色(蓝/青/紫)' }}</span>
-                    </div>
-                  </div>
-                }
-
-                @if (activeTopMenu() === 'chat') {
-                  <div class="space-y-1.5 max-h-60 overflow-y-auto pr-1 text-xs font-mono">
-                    @for (ev of recentEvents(); track ev.timeMs + ev.text) {
-                      <div class="px-2 py-1 rounded bg-black/55 border-l-2 border-amber-400">
-                        <span class="text-amber-300 mr-1.5">[{{ ev.timeText }}]</span>
-                        <span class="text-sky-300 mr-1">{{ player() }}:</span>
-                        <span class="text-amber-100">{{ ev.text }}</span>
-                      </div>
-                    } @empty {
-                      <div class="text-amber-200/60 py-4 text-center">暂无动作聊天记录</div>
-                    }
-                  </div>
-                }
-              </div>
-            }
-
             @if (loading()) {
-              <div class="absolute top-12 right-3 z-10 pointer-events-none">
+              <div class="absolute top-3 right-3 z-10 pointer-events-none">
                 <div class="flex items-center gap-2 px-3 py-1.5 rounded bg-black/75 border border-white/15 text-accent font-bold uppercase tracking-widest text-[11px]">
                   <span class="material-icons animate-spin text-sm">autorenew</span>
                   加载 3D 地形与录像中…
@@ -817,7 +559,6 @@ export interface CommandCardSlot {
                      [style.opacity]="mmShowTerrain() ? 1 : 0.12"
                      draggable="false" />
 
-                <!-- 原版野怪营地小地图图标（绿=小野 / 橙=中大野 / 红=远古与肉山，可通过右侧第4个按钮开关） -->
                 @if (mmShowCamps()) {
                   @for (c of minimapCamps; track c.id) {
                     <img
@@ -832,7 +573,6 @@ export interface CommandCardSlot {
                   }
                 }
 
-                <!-- 防御塔/兵营/遗迹/商店标记（商店使用原版 mm-icon-shop.png，防御塔与兵营使用魔兽原生锐利小方块） -->
                 @for (b of minimapBuildings(); track b.id) {
                   @if (b.isShop) {
                     <img
@@ -854,7 +594,6 @@ export interface CommandCardSlot {
                   }
                 }
 
-                <!-- 实时兵线小兵与存活野怪点（还原魔兽3原生锐利像素小方块） -->
                 @for (u of minimapSimUnits(); track $index) {
                   <span
                     style="position:absolute;width:3px;height:3px;transform:translate(-50%,-50%);pointer-events:none;z-index:3;box-shadow:0 0 1px #000"
@@ -864,7 +603,6 @@ export interface CommandCardSlot {
                   ></span>
                 }
 
-                <!-- 上下河道神符高亮标记 -->
                 @for (r of minimapRunes(); track r.id) {
                   <img
                     src="/assets/wc3/ui/mm-icon-rune.png"
@@ -876,7 +614,6 @@ export interface CommandCardSlot {
                   />
                 }
 
-                <!-- 英雄当前位置（魔兽原生英雄小地图图标 + 高亮光环） -->
                 <img
                   src="/assets/wc3/ui/mm-icon-hero.png"
                   alt=""
@@ -885,7 +622,6 @@ export interface CommandCardSlot {
                   [style.top.%]="minimapHeroPct().y"
                 />
 
-                <!-- 小地图信号波纹动画 -->
                 @if (minimapPing()) {
                   <img
                     src="/assets/wc3/ui/mm-icon-ping.png"
@@ -897,13 +633,11 @@ export interface CommandCardSlot {
                   />
                 }
 
-                <!-- 当前镜头视野框 -->
                 <span class="wc3-cam"
                       [style.left.%]="minimapCamPct().x"
                       [style.top.%]="minimapCamPct().y"></span>
               </button>
 
-              <!-- --- AI 修改开始 [MINIMAP-SIDE-BUTTONS]：补齐小地图右侧 5 个魔兽争霸3原生按钮（发信号、显示地形、盟友颜色、野怪营地、队形开关） --- -->
               <button type="button"
                       class="wc3-mm-sidebtn"
                       [class.active-btn]="mmPingMode()"
@@ -945,9 +679,7 @@ export interface CommandCardSlot {
                 <img [src]="formationOn() ? '/assets/wc3/ui/minimap-btn-formation-on.png' : '/assets/wc3/ui/minimap-btn-formation-off.png'"
                      alt="队形开关" />
               </button>
-              <!-- --- AI 修改结束 [MINIMAP-SIDE-BUTTONS]：补齐小地图右侧 5 个魔兽争霸3原生按钮（发信号、显示地形、盟友颜色、野怪营地、队形开关） --- -->
 
-              <!-- 2. 3D 动态英雄肖像（实时播放 Portrait / Portrait Talk 呼吸对白动作）与等级角标 -->
               <div class="wc3-abs wc3-port"
                    [style.left.%]="cf.port.l" [style.top.%]="cf.port.t"
                    [style.width.%]="cf.port.w" [style.height.%]="cf.port.h"
@@ -964,7 +696,6 @@ export interface CommandCardSlot {
                 </span>
               </div>
 
-              <!-- 3. 原生贴图生命值与魔法值条 -->
               <div class="wc3-abs wc3-bar wc3-hp"
                    [style.left.%]="cf.hp.l" [style.top.%]="cf.hp.t"
                    [style.width.%]="cf.hp.w" [style.height.%]="cf.hp.h">
@@ -978,16 +709,119 @@ export interface CommandCardSlot {
                 <span>{{ heroMp() }} / {{ heroMpMax() }}</span>
               </div>
 
-              <!-- 4. 中央英雄属性面板（力量/敏捷/智力往右微调） -->
               <div class="wc3-abs wc3-info"
                    [style.left.%]="cf.info.l" [style.top.%]="cf.info.t"
                    [style.width.%]="cf.info.w" [style.height.%]="cf.info.h">
                 <div>
                   <div class="name">{{ heroNameCn() }}</div>
-                  <!-- 原生贴图经验条 -->
                   <div class="wc3-xp-bar" [title]="'等级 ' + heroLevel() + ' · 经验进度 ' + xpPercent() + '%'">
                     <i [style.width.%]="xpPercent()"></i>
                     <span>等级 {{ heroLevel() }} · {{ heroTitle() }}</span>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-x-4 gap-y-1 my-auto pt-1">
+                  <div class="space-y-1">
+                    <div class="flex items-center gap-1.5">
+                      <img class="w-5 h-5 shrink-0" src="/assets/wc3/ui/icons/infocard-attack-melee.png" alt="攻击" />
+                      <div class="leading-tight">
+                        <div class="text-[10px] text-amber-200/75">攻击力</div>
+                        <div class="font-bold text-white">
+                          {{ heroAtk() }}
+                          @if (heroAtkBonus() > 0) {
+                            <span class="text-emerald-400">+{{ heroAtkBonus() }}</span>
+                          }
+                        </div>
+                      </div>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                      <img class="w-5 h-5 shrink-0" src="/assets/wc3/ui/icons/infocard-armor-hero.png" alt="护甲" />
+                      <div class="leading-tight">
+                        <div class="text-[10px] text-amber-200/75">护甲 · 移速 {{ heroMoveSpeed() }}</div>
+                        <div class="font-bold text-white">
+                          {{ heroArmor() }}
+                          @if (heroArmorBonus() > 0) {
+                            <span class="text-emerald-400">+{{ heroArmorBonus() }}</span>
+                          }
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="space-y-0.5 pl-5 ml-2">
+                    <div class="flex items-center gap-1.5">
+                      <img class="w-4 h-4 shrink-0" src="/assets/wc3/ui/icons/infocard-str.png" alt="力量" />
+                      <span class="text-amber-200/80 text-[10px] w-7">力量</span>
+                      <span class="font-bold text-white">{{ heroStr() }}</span>
+                      @if (heroStrBonus() > 0) {
+                        <span class="text-emerald-400 font-bold">+{{ heroStrBonus() }}</span>
+                      }
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                      <img class="w-4 h-4 shrink-0" src="/assets/wc3/ui/icons/infocard-agi.png" alt="敏捷" />
+                      <span class="text-amber-200/80 text-[10px] w-7">敏捷</span>
+                      <span class="font-bold text-white">{{ heroAgi() }}</span>
+                      @if (heroAgiBonus() > 0) {
+                        <span class="text-emerald-400 font-bold">+{{ heroAgiBonus() }}</span>
+                      }
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                      <img class="w-4 h-4 shrink-0" src="/assets/wc3/ui/icons/infocard-int.png" alt="智力" />
+                      <span class="text-amber-200/80 text-[10px] w-7">智力</span>
+                      <span class="font-bold text-white">{{ heroInt() }}</span>
+                      @if (heroIntBonus() > 0) {
+                        <span class="text-emerald-400 font-bold">+{{ heroIntBonus() }}</span>
+                      }
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="wc3-abs"
+                   [style.left.%]="cf.inv.l" [style.top.%]="cf.inv.t"
+                   [style.width.%]="cf.inv.w" [style.height.%]="cf.inv.h">
+                <div class="wc3-grid wc3-grid-inv">
+                  @for (it of itemSlots(); track it.slot) {
+                    <div class="wc3-slot"
+                         [class.has-item]="!!it.icon"
+                         [class.active-toggle]="!!it.activeToggle"
+                         [title]="it.code ? it.name + ' (' + it.hotkey + ')' : '物品栏 (' + it.hotkey + ')'">
+                      @if (it.icon) {
+                        <img class="ico" [src]="it.icon" [alt]="it.name" draggable="false" />
+                        <span class="hk">{{ it.hotkey }}</span>
+                        @if (it.charges > 1) {
+                          <span class="lv">{{ it.charges }}</span>
+                        }
+                      }
+                    </div>
+                  }
+                </div>
+              </div>
+
+              <div class="wc3-abs"
+                   [style.left.%]="cf.cmd.l" [style.top.%]="cf.cmd.t"
+                   [style.width.%]="cf.cmd.w" [style.height.%]="cf.cmd.h">
+                <div class="wc3-grid wc3-grid-cmd">
+                  @for (sk of commandSlots(); track sk.id) {
+                    <button type="button"
+                            class="wc3-slot"
+                            [class.has-cmd]="!!sk.icon"
+                            [class.unlearned]="!!sk.unlearned"
+                            [title]="sk.name ? sk.name + (sk.hotkey ? ' [' + sk.hotkey + ']' : '') : ''">
+                      @if (sk.icon) {
+                        <img class="ico" [src]="sk.icon" [alt]="sk.name" draggable="false" />
+                      }
+                      @if (sk.hotkey) {
+                        <span class="hk">{{ sk.hotkey }}</span>
+                      }
+                      @if (sk.level > 0) {
+                        <span class="lv">Lv.{{ sk.level }}</span>
+                      }
+                    </button>
+                  }
+                </div>
+              </div>
+            </div>
                   </div>
                 </div>
 
@@ -1051,7 +885,6 @@ export interface CommandCardSlot {
                 </div>
               </div>
 
-              <!-- 5. 6格物品栏（实时同步 PUI/DRI、合成与臂章开关状态） -->
               <div class="wc3-abs"
                    [style.left.%]="cf.inv.l" [style.top.%]="cf.inv.t"
                    [style.width.%]="cf.inv.w" [style.height.%]="cf.inv.h">
@@ -1073,7 +906,6 @@ export interface CommandCardSlot {
                 </div>
               </div>
 
-              <!-- 6. 12格命令与英雄技能面板 -->
               <div class="wc3-abs"
                    [style.left.%]="cf.cmd.l" [style.top.%]="cf.cmd.t"
                    [style.width.%]="cf.cmd.w" [style.height.%]="cf.cmd.h">
@@ -1218,15 +1050,11 @@ export class Replay3dComponent implements OnDestroy {
   readonly minimapHeroPct = signal({ x: 15, y: 85 });
   readonly minimapBuildings = signal<{ id: string; px: number; py: number; size: number; color: string; isShop?: boolean }[]>([]);
   readonly minimapSimUnits = signal<{ px: number; py: number; color: string; team: 0 | 1 | -1 }[]>([]);
-  // --- AI 修改开始 [SCENE-SIM-DOTA]：小地图河道神符实时状态信号 ---
   readonly minimapRunes = signal<{ id: string; px: number; py: number; name: string; color: string }[]>([]);
-  // --- AI 修改结束 [SCENE-SIM-DOTA]：小地图河道神符实时状态信号 ---
-  // --- AI 修改开始 [COMBAT-GOLD-SIM]：头顶血条开关、投影血条与飘金跳字信号 ---
   readonly showHealthBars = signal(true);
   readonly overheadHpBars = signal<{ id: string; sx: number; sy: number; hpPct: number; color: string; isHero?: boolean; isTower?: boolean; name?: string }[]>([]);
   readonly activeFloatingTexts = signal<{ id: number; sx: number; sy: number; text: string; color: string; opacity: number }[]>([]);
   readonly currentHeroKey = signal<'pa' | 'blademaster' | 'antimage' | 'sniper' | 'tauren' | 'paladin' | 'lich'>('blademaster');
-  // --- AI 修改结束 [COMBAT-GOLD-SIM] ---
 
   readonly heroNameCn = signal('主宰');
   readonly heroTitle = signal('尤涅若 · 近战敏捷');
@@ -1404,6 +1232,7 @@ export class Replay3dComponent implements OnDestroy {
     }, 2400);
   }
 
+  // --- AI 修改结束 [SCENE-SIM-DOTA]：支持一键跳转镜头至商店、神秘商店、上下河道神符点与肉山巢穴，以及顶部菜单与小地图信号 ---
   jumpToPoint(x: number, y: number): void {
     if (!this.mdx) return;
     this.mdx.panCameraTo(x, y);
@@ -1561,6 +1390,7 @@ export class Replay3dComponent implements OnDestroy {
           py: Math.max(0, Math.min(100, up.py)),
           color: u.team === 0 ? '#22c55e' : u.team === 1 ? '#ef4444' : '#fbbf24',
           team: u.team,
+
         };
       })
     );
@@ -1578,10 +1408,12 @@ export class Replay3dComponent implements OnDestroy {
       runes.map((r) => {
         const rp = worldToMapPixel(r.x, r.y, bounds, 100, 100);
         return {
-          id: r.spotId,
+          id: r.spotId ?? r.id,
           px: Math.max(0, Math.min(100, rp.px)),
           py: Math.max(0, Math.min(100, rp.py)),
-          name: `${r.spotName}：${r.nameCn}`,
+          name: r.spotName ? `${r.spotName}：${r.nameCn}` : r.name,
+          color: runeColors[r.kind] || '#38bdf8',
+
           color: runeColors[r.kind] || '#38bdf8',
         };
       })
@@ -1616,7 +1448,6 @@ export class Replay3dComponent implements OnDestroy {
       const cfg = await loadDotaMapConfig(DEFAULT_DOTA_MAP_URL);
       const list = (cfg.buildings || [])
         .map((b: DotaBuilding) => {
-          // --- AI 修改开始 [MINIMAP-SHOPS-AUTHENTIC]：对齐原版 DotA 6.83d 小地图，仅在 2 个神秘商店与 2 个边路商店显示中立商店图标，基地内部 10 个 NPC 商人不在小地图显示小房子 ---
           if (b.kind === 'shop') return null;
           if (b.id === 'shop_side_top_2' || b.id === 'shop_side_bot_2') return null;
           const { px, py } = worldToMapPixel(b.x, b.y, cfg.bounds, 100, 100);
@@ -1629,7 +1460,6 @@ export class Replay3dComponent implements OnDestroy {
             color: isShop ? '#facc15' : b.team === 0 ? '#10b981' : '#ef4444',
             isShop,
           };
-          // --- AI 修改结束 [MINIMAP-SHOPS-AUTHENTIC] ---
         })
         .filter(Boolean) as { id: string; px: number; py: number; size: number; color: string; isShop?: boolean }[];
       this.minimapBuildings.set(list);
@@ -1837,7 +1667,6 @@ export class Replay3dComponent implements OnDestroy {
       const parent = canvas.parentElement;
       if (parent) ro.observe(parent);
       const timer = setTimeout(() => finish(read()), timeoutMs);
-      // 连续 rAF 采样，不依赖仅 ResizeObserver（尺寸不变时也可能从未触发）
       const tick = () => {
         if (finished || waitGen !== this.bootGen) return;
         sample();
@@ -1857,7 +1686,6 @@ export class Replay3dComponent implements OnDestroy {
     const parent = canvas.parentElement;
     if (parent) this.viewportRo.observe(parent);
   }
-
   private async boot(): Promise<void> {
     // --- AI 修改开始 [FIRST-LOAD-WEBGL]：布局尺寸稳定后再创建 WebGL；bootGen 丢弃过期启动 ---
     const gen = ++this.bootGen;

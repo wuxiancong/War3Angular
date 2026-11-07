@@ -60,7 +60,6 @@ function ensureWebglContextPatch(): void {
   };
 }
 // --- AI 修改结束 [FIRST-LOAD-WEBGL]：进程级补丁，保证主场景/肖像创建上下文属性一致且可合成 ---
-
 // --- AI 删除开始 [CAMERA-PERSPECTIVE]：删除仅支持平移的 DragMode，原因：新增右键拖拽旋转/俯仰视角支持 ---
 // type DragMode = 'pan' | null;
 // --- AI 删除结束 [CAMERA-PERSPECTIVE] ---
@@ -711,7 +710,6 @@ export class Wc3MdxViewer {
     if (!ModelViewer || !handlers || !canvas) return;
     try {
       ensureWebglContextPatch();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const pv: any = new ModelViewer(canvas);
       const solver = (src: unknown) => this.resolvePortraitPath(src);
       pv.addHandler(handlers.mdx, solver, false);
@@ -803,6 +801,67 @@ export class Wc3MdxViewer {
     }
   }
   // --- AI 修改结束 [PORTRAIT-3D]：挂载底部控制台 3D 英雄对白肖像画布并驱动 Portrait / Portrait Talk 序列动画 ---
+    }
+    if (action.sequence != null && this.instance) {
+      const targetSeq = this.resolveSequenceId(action.sequence);
+      if (targetSeq >= 0 && (this.instance.sequence !== targetSeq || this.instance.sequenceEnded)) {
+        this.instance.setSequence(targetSeq);
+      }
+    }
+    // --- AI 修改结束 [HERO-SYNC]：应用绕 Z 轴四元数朝向并在序列不同或已结束时切换动作 ---
+  }
+
+  // --- AI 修改开始 [HERO-SYNC]：新增动态切换英雄 3D 模型与获取兵线/野怪单位列表接口 ---
+  async switchHeroModel(modelUrl: string, assetBaseUrl?: string): Promise<boolean> {
+    if (!this.scene) return false;
+    this.options.modelUrl = modelUrl;
+    if (assetBaseUrl) {
+      this.options.assetBaseUrl = assetBaseUrl;
+    }
+    const useWc3Solver = modelUrl.includes('/assets/wc3/');
+    const solver = useWc3Solver
+      ? (src: unknown) => this.resolveWc3Path(src)
+      : (src: unknown) => this.resolveHeroPath(src);
+    const model = await Promise.race([
+      this.viewer.load(modelUrl, solver),
+      new Promise<null>((r) => setTimeout(() => r(null), 10000)),
+    ]);
+    if (!model) return false;
+
+    const prevLoc = this.instance?.localLocation || this.instance?.location || [
+      RADIANT_SPAWN.x,
+      RADIANT_SPAWN.y,
+      this.sampleHeight(RADIANT_SPAWN.x, RADIANT_SPAWN.y),
+    ];
+    const prevRot = this.instance?.localRotation
+      ? [...this.instance.localRotation]
+      : [0, 0, 0, 1];
+    try {
+      this.instance?.detach?.();
+      this.instance?.setScene?.(null);
+    } catch {
+      /* ignore */
+    }
+
+    this.model = model;
+    this.sequences = (model.sequences || []).map(
+      (s: { name?: string }, index: number): Wc3SequenceInfo => ({
+        index,
+        name: String(s.name || `Sequence ${index}`).replace(/\0/g, '').trim(),
+      })
+    );
+    const inst = model.addInstance();
+    inst.setScene(this.scene);
+    inst.setTeamColor(this.options.teamColor ?? 0);
+    inst.setSequenceLoopMode(2);
+    inst.setLocation([prevLoc[0] || 0, prevLoc[1] || 0, prevLoc[2] || 0]);
+    inst.setRotation?.(prevRot);
+    inst.setUniformScale(1);
+    const standIdx = this.resolveSequenceId('Stand');
+    inst.setSequence(standIdx >= 0 ? standIdx : 0);
+    this.instance = inst;
+    return true;
+  }
 
   getSimUnits(): { x: number; y: number; team: 0 | 1 | -1; kind: 'creep' | 'neutral' }[] {
     if (!this.sim || !this.simEnabled) return [];
@@ -846,7 +905,6 @@ export class Wc3MdxViewer {
     return this.sim?.getGoldTotal() ?? 603;
   }
   // --- AI 修改结束 [COMBAT-GOLD-SIM]：将世界坐标 (x,y,z) 投影至 WebGL 视口屏幕百分比并提供战斗实体与飘金数据接口 ---
-
   setSimSpeed(speed: number): void {
     this.simSpeed = Math.max(0, speed);
   }

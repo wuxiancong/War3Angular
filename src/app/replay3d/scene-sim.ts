@@ -67,7 +67,6 @@ export interface SimTower {
   instance: any;
 }
 // --- AI 修改结束 [TOWER-COMBAT]：新增防御塔战斗实体定义，支持防御塔攻击小兵/英雄及小兵攻塔碰撞 ---
-
 export interface SceneSyncConfig {
   enabled: boolean;
   heroMoveSpeed: number;
@@ -461,7 +460,6 @@ export class DotaSceneSim {
     const heroPos = this.getHeroPosition();
     if (!heroPos || !this.heroInstance) return;
 
-    // 寻找 260 码内的敌方小兵或野怪作为攻击目标
     let targetEnemy: SimUnit | null = null;
     let minDist = 260;
     for (const u of this.units) {
@@ -499,10 +497,8 @@ export class DotaSceneSim {
         this.goldTotal += bounty;
         this.addFloatingText('+' + bounty, targetEnemy.x, targetEnemy.y, targetEnemy.z + 55, '#fbbf24');
       }
-    } else {
-      if (this.heroHp < this.heroMaxHp) {
-        this.heroHp = Math.min(this.heroMaxHp, this.heroHp + 5.5 * dt);
-      }
+    } else if (this.heroHp < this.heroMaxHp) {
+      this.heroHp = Math.min(this.heroMaxHp, this.heroHp + 5.5 * dt);
     }
   }
   // --- AI 修改结束 [COMBAT-GOLD-SIM]：实现英雄与敌方小兵/野怪之间的双向普攻伤害与受击扣血 ---
@@ -526,7 +522,6 @@ export class DotaSceneSim {
       if (targetCreep) {
         tower.inCombat = true;
         const ang = Math.atan2(targetCreep.y - tower.y, targetCreep.x - tower.x);
-        // WatchTower 无旋转骨骼，AncientProtector 可面向目标并播放 Attack 动画
         if (tower.team === 0) {
           tower.instance?.setRotation?.([0, 0, Math.sin(ang / 2), Math.cos(ang / 2)]);
         }
@@ -549,7 +544,6 @@ export class DotaSceneSim {
         continue;
       }
 
-      // 若射程内无敌方小兵且敌方（天灾塔对近卫英雄）英雄进入 700 码射程，防御塔同样朝向英雄攻击
       if (tower.team === 1 && heroPos && dist2(tower.x, tower.y, heroPos.x, heroPos.y) <= tower.range) {
         tower.inCombat = true;
         if (
@@ -574,15 +568,75 @@ export class DotaSceneSim {
   // --- AI 修改结束 [TOWER-COMBAT]：防御塔自动攻击射程（700码）内的敌方小兵与英雄 ---
 
   private tickUnits(dt: number): void {
-    // --- AI 修改开始 [SCENE-SIM]：实现近卫/天灾兵线相遇交战互砍、小兵攻击敌方防御塔与绕行防穿模、英雄刷野战斗及阵亡清理逻辑 ---
     const heroPos = this.getHeroPosition();
     for (const u of this.units) {
       if (!u.alive) continue;
 
       if (u.kind === 'creep') {
-        // 查找 280 码内最近的敌方小兵进行交战
         let targetEnemy: SimUnit | null = null;
         let minDist = 280;
+        for (const other of this.units) {
+          if (!other.alive || other.kind !== 'creep' || other.team === u.team) continue;
+          const d = dist2(u.x, u.y, other.x, other.y);
+          if (d < minDist) {
+            minDist = d;
+            targetEnemy = other;
+          }
+        }
+
+        if (targetEnemy) {
+          u.inCombat = true;
+          const ang = Math.atan2(targetEnemy.y - u.y, targetEnemy.x - u.x);
+          u.instance?.setRotation?.([0, 0, Math.sin(ang / 2), Math.cos(ang / 2)]);
+          if (u.attackSeq >= 0 && (u.instance?.sequence !== u.attackSeq || u.instance?.sequenceEnded)) {
+            u.instance?.setSequence?.(u.attackSeq);
+          }
+          targetEnemy.hp -= u.dps * 0.75 * dt;
+          u.hp -= targetEnemy.dps * 0.8 * dt;
+          if (targetEnemy.hp <= 0) {
+            targetEnemy.alive = false;
+            try {
+              targetEnemy.instance?.detach?.();
+              targetEnemy.instance?.setScene?.(null);
+            } catch {
+              /* ignore */
+            }
+            const bounty = Math.floor(Math.random() * 11) + 38;
+            if (u.team === 0) {
+              this.goldTotal += bounty;
+            }
+            this.addFloatingText('+' + bounty, targetEnemy.x, targetEnemy.y, targetEnemy.z + 45, '#fbbf24');
+          }
+          continue;
+        }
+
+        let targetTower: SimTower | null = null;
+        let minTowerDist = 235;
+        for (const tower of this.towers) {
+          if (!tower.alive || tower.team === u.team) continue;
+          const d = dist2(u.x, u.y, tower.x, tower.y);
+          if (d < minTowerDist) {
+            minTowerDist = d;
+            targetTower = tower;
+          }
+        }
+
+        if (targetTower) {
+          u.inCombat = true;
+          const ang = Math.atan2(targetTower.y - u.y, targetTower.x - u.x);
+          u.instance?.setRotation?.([0, 0, Math.sin(ang / 2), Math.cos(ang / 2)]);
+          if (u.attackSeq >= 0 && (u.instance?.sequence !== u.attackSeq || u.instance?.sequenceEnded)) {
+            u.instance?.setSequence?.(u.attackSeq);
+          }
+          targetTower.hp -= u.dps * 0.42 * dt;
+          if (targetTower.hp <= 0) {
+            targetTower.hp = targetTower.maxHp * 0.65;
+          }
+          continue;
+        }
+      }
+    }
+  }
         for (const other of this.units) {
           if (!other.alive || other.kind !== 'creep' || other.team === u.team) continue;
           const d = dist2(u.x, u.y, other.x, other.y);
@@ -619,7 +673,6 @@ export class DotaSceneSim {
           continue;
         }
 
-        // 若附近无敌方小兵，检测 235 码内是否有敌方防御塔，停下攻塔而非直接穿塔而过
         let targetTower: SimTower | null = null;
         let minTowerDist = 235;
         for (const tower of this.towers) {
@@ -640,8 +693,11 @@ export class DotaSceneSim {
           }
           targetTower.hp -= u.dps * 0.42 * dt;
           if (targetTower.hp <= 0) {
-            // 防御塔在录像回放模式下保留最低 15% 耐久并重置，避免建筑永久消失
             targetTower.hp = targetTower.maxHp * 0.65;
+          }
+          continue;
+        }
+
           }
           continue;
         }
@@ -702,6 +758,9 @@ export class DotaSceneSim {
         continue;
       }
       const [tx, ty] = u.waypoints[u.wpIndex];
+      const step = u.speed * dt;
+      const prevX = u.x;
+      const prevY = u.y;
       const step = u.speed * dt;
       const prevX = u.x;
       const prevY = u.y;
@@ -1074,7 +1133,6 @@ export class DotaSceneSim {
     this.runes = this.runes.filter((r) => r.alive);
   }
   // --- AI 修改结束 [RUNE-SIM]：实现 DotA 6.83d 河道双神符自动刷新（war3map.j function CBO 规则）与拾取逻辑 ---
-
   // --- AI 修改开始 [COMBAT-GOLD-SIM]：飘金粒子池管理、金钱总数统计与实时血条实体查询 ---
   addFloatingText(
     text: string,

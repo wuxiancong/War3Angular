@@ -177,7 +177,7 @@ export function patchWar3MapViewerMap(deps: DoodadPatchDeps): void {
     this.anyReady = true;
   };
 
-  // --- AI 修改开始 [CLIFF-SAFE]：限制悬崖层级差在 0..2（A..C）内，并确保悬崖边缘裙边与地面亮度和贴图严丝合缝消除方块感 ---
+  // --- AI 修改开始 [CLIFF-SAFE]：限制悬崖层级差在 0..2（A..C）内，并确保悬崖边缘裙边与地面亮度和贴图严丝合缝消除方块感；同时保护悬崖纹理索引，防止多层悬崖产生 NaN 路径 ---
   War3MapViewerMap.prototype.isCliff = function isCliffSafe(
     this: any,
     column: number,
@@ -196,7 +196,6 @@ export function patchWar3MapViewerMap(deps: DoodadPatchDeps): void {
       bottomLeft !== bottomRight || bottomLeft !== topLeft || bottomLeft !== topRight
     );
   };
-
   War3MapViewerMap.prototype.cliffFileName = function cliffFileNameSafe(
     bottomLeftLayer: number,
     bottomRightLayer: number,
@@ -224,7 +223,6 @@ export function patchWar3MapViewerMap(deps: DoodadPatchDeps): void {
     if (!this.cliffTilesets[clamped]) return 0;
     return origCliffGroundIndex.call(this, clamped);
   };
-
   // --- AI 修改开始 [CORNER-TEXTURE-NATURAL]：地表网格直接采用地图原生绘制的草皮/泥土贴图，彻底避免因相邻悬崖判定强制覆盖为城镇石砖方块 ---
   War3MapViewerMap.prototype.cornerTexture = function cornerTextureNatural(
     this: any,
@@ -248,6 +246,8 @@ export function patchWar3MapViewerMap(deps: DoodadPatchDeps): void {
   const origLoadTerrain = War3MapViewerMap.prototype.loadTerrainCliffsAndWater;
   War3MapViewerMap.prototype.loadTerrainCliffsAndWater =
     async function loadTerrainCliffsAndWaterSafe(this: any) {
+      // --- AI 修改开始 [TERRAIN-LIGHTING]：仅对悬崖垂直岩壁应用法线明暗阴影，保持悬崖水平裙边与相邻地面 1.0 等亮无缝衔接，彻底消除岩石周围方块色差 ---
+      try {
       // --- AI 修改开始 [TERRAIN-LIGHTING]：仅对悬崖垂直岩壁应用法线明暗阴影，保持悬崖水平裙边与相邻地面 1.0 等亮无缝衔接，彻底消除岩石周围方块色差 ---
       try {
         const viewer = this.viewer;
@@ -397,7 +397,6 @@ export function patchWar3MapViewerMap(deps: DoodadPatchDeps): void {
         console.warn('[wc3] lit terrain shader init skipped', e);
       }
       // --- AI 修改结束 [TERRAIN-LIGHTING]：仅对悬崖垂直岩壁应用法线明暗阴影，保持悬崖水平裙边与相邻地面 1.0 等亮无缝衔接，彻底消除岩石周围方块色差 ---
-      try {
         await Promise.race([
           origLoadTerrain.call(this),
           new Promise<void>((resolve) => setTimeout(resolve, 10000)),

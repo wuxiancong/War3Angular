@@ -1090,7 +1090,7 @@
     {
       "id": "shop_side_top_1",
       "name": "上路边路商店·地精商人",
-      "team": -1,
+"team": 0,
       "kind": "side_shop",
       "x": -7296,
       "y": 4416,
@@ -1101,7 +1101,7 @@
     {
       "id": "shop_side_top_2",
       "name": "上路边路商店·地精实验室",
-      "team": -1,
+"team": 0,
       "kind": "side_shop",
       "x": -7296,
       "y": 4224,
@@ -1112,7 +1112,7 @@
     {
       "id": "shop_side_bot_1",
       "name": "下路边路商店·地精商人",
-      "team": -1,
+"team": 1,
       "kind": "side_shop",
       "x": 7360,
       "y": -4224,
@@ -1123,7 +1123,7 @@
     {
       "id": "shop_side_bot_2",
       "name": "下路边路商店·地精实验室",
-      "team": -1,
+"team": 1,
       "kind": "side_shop",
       "x": 7360,
       "y": -4416,
@@ -1134,7 +1134,7 @@
     {
       "id": "shop_secret_r",
       "name": "近卫神秘商店·黑市商人雷拉格斯",
-      "team": -1,
+"team": 0,
       "kind": "secret_shop",
       "x": -4544,
       "y": 1152,
@@ -1145,7 +1145,7 @@
     {
       "id": "shop_secret_d",
       "name": "天灾神秘商店·黑市商人雷拉格斯",
-      "team": -1,
+"team": 1,
       "kind": "secret_shop",
       "x": 3200,
       "y": -64,

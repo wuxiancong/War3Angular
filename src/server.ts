@@ -192,9 +192,10 @@ app.use('/assets/dota/heroIcons', express.static(`${WAR3BOT_ROOT}/images/heroIco
 app.use('/assets/dota/abilityIcons', express.static(`${WAR3BOT_BUILD_ROOT}/images/abilityIcons`));
 app.use('/assets/dota/itemIcons', express.static(`${WAR3BOT_BUILD_ROOT}/images/itemIcons`));
 app.use('/assets/dota/cmdIcons', express.static(`${WAR3BOT_BUILD_ROOT}/images/cmdIcons`));
-// --- AI 修改开始 [WC3-ASSETS-CASE]：挂载大小写不敏感的 /assets/wc3 静态目录，防止模型贴图因大小写差异回退为白模 ---
 app.use('/assets/wc3', express.static(join(process.cwd(), 'public/assets/wc3')));
-// --- AI 修改结束 [WC3-ASSETS-CASE]：挂载大小写不敏感的 /assets/wc3 静态目录，防止模型贴图因大小写差异回退为白模 ---
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedDotaData: any = null;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let cachedDotaData: any = null;
