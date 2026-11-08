@@ -17,6 +17,9 @@ export interface NeutralCampCfg {
   tier?: 'small' | 'medium' | 'large' | 'ancient' | 'roshan';
   // --- AI 修改结束 [SCENE-SIM]：支持野怪营地名称、等级 tier 与缺省数量兜底 ---
   scale?: number;
+  // --- AI 修改开始 [NEUTRAL-COMPOSITION]：营地可配置异种单位组合（对齐 DotA 小/中/大/远古/肉山差异） ---
+  composition?: string[];
+  // --- AI 修改结束 [NEUTRAL-COMPOSITION] ---
 }
 
 // --- AI 修改开始 [RUNE-SIM]：新增河道神符点配置与神符状态类型定义 ---
@@ -67,6 +70,7 @@ export interface SimTower {
   instance: any;
 }
 // --- AI 修改结束 [TOWER-COMBAT]：新增防御塔战斗实体定义，支持防御塔攻击小兵/英雄及小兵攻塔碰撞 ---
+
 export interface SceneSyncConfig {
   enabled: boolean;
   heroMoveSpeed: number;
@@ -197,9 +201,54 @@ function findSeqIndex(instance: any, hint: string, fallback = 0): number {
 }
 // --- AI 修改结束 [RUNE-SIM]：DotA 6.83d 6 种神符元数据定义 ---
 
+// --- AI 修改开始 [NEUTRAL-COMPOSITION]：有限模型库下的 DotA 风格营地异种组合 ---
+type NeutralSpec = { path: string; scale: number; hp: number; dps: number };
+
+const NEUTRAL_SPECS: Record<string, NeutralSpec> = {
+  kobold_foreman: { path: 'Units\\Creeps\\Kobold\\Kobold.mdx', scale: 1.15, hp: 420, dps: 22 },
+  kobold: { path: 'Units\\Creeps\\Kobold\\Kobold.mdx', scale: 0.88, hp: 260, dps: 14 },
+  forest_troll: { path: 'Units\\Creeps\\ForestTroll\\ForestTroll.mdx', scale: 1.0, hp: 560, dps: 28 },
+  centaur_khan: { path: 'Units\\Creeps\\CentaurKhan\\CentaurKhan.mdx', scale: 1.12, hp: 950, dps: 36 },
+  centaur: { path: 'Units\\Creeps\\CentaurKhan\\CentaurKhan.mdx', scale: 0.92, hp: 680, dps: 28 },
+  furbolg: { path: 'Units\\Creeps\\Furbolg\\Furbolg.mdx', scale: 1.05, hp: 800, dps: 32 },
+  rock_golem: { path: 'Units\\Creeps\\RockGolem\\RockGolem.mdx', scale: 1.15, hp: 1200, dps: 40 },
+  roshan: { path: 'Units\\Creeps\\RockGolem\\RockGolem.mdx', scale: 1.55, hp: 4500, dps: 65 },
+};
+
+function resolveNeutralSpecs(camp: NeutralCampCfg): NeutralSpec[] {
+  if (camp.composition?.length) {
+    // composition 自带相对体型；不再乘 camp.scale，避免 Roshan 等被二次放大
+    return camp.composition.map((key) => NEUTRAL_SPECS[key] || NEUTRAL_SPECS['kobold']);
+  }
+  const count =
+    camp.count ??
+    (camp.tier === 'roshan' ? 1 : camp.tier === 'large' || camp.tier === 'ancient' ? 2 : 3);
+  const fallbackKey =
+    camp.tier === 'roshan'
+      ? 'roshan'
+      : camp.tier === 'ancient'
+        ? 'rock_golem'
+        : camp.tier === 'large'
+          ? camp.id.includes('2')
+            ? 'furbolg'
+            : 'centaur_khan'
+          : camp.tier === 'medium'
+            ? 'forest_troll'
+            : 'kobold';
+  const base = NEUTRAL_SPECS[fallbackKey];
+  return Array.from({ length: count }, () => ({
+    ...base,
+    scale: camp.scale ?? base.scale,
+  }));
+}
+// --- AI 修改结束 [NEUTRAL-COMPOSITION] ---
+
 export async function loadSceneSyncConfig(url = DEFAULT_SCENE_SYNC_URL): Promise<SceneSyncConfig> {
   try {
-    const res = await fetch(url);
+    // --- AI 修改开始 [CACHE-BUST]：开发期给 scene-sync.json 加时间戳，避免浏览器一直用旧兵线/野怪配置 ---
+    const bust = url.includes('?') ? `&_=${Date.now()}` : `?_=${Date.now()}`;
+    const res = await fetch(url + bust, { cache: 'no-store' });
+    // --- AI 修改结束 [CACHE-BUST] ---
     if (!res.ok) return { ...DEFAULT_CFG };
     const raw = (await res.json()) as Partial<SceneSyncConfig>;
     return { ...DEFAULT_CFG, ...raw };
@@ -460,6 +509,7 @@ export class DotaSceneSim {
     const heroPos = this.getHeroPosition();
     if (!heroPos || !this.heroInstance) return;
 
+    // 寻找 260 码内的敌方小兵或野怪作为攻击目标
     let targetEnemy: SimUnit | null = null;
     let minDist = 260;
     for (const u of this.units) {
@@ -486,16 +536,8 @@ export class DotaSceneSim {
       this.heroHp = Math.max(90, this.heroHp - targetEnemy.dps * 0.45 * dt);
 
       if (targetEnemy.hp <= 0) {
-        targetEnemy.alive = false;
-        try {
-          targetEnemy.instance?.detach?.();
-          targetEnemy.instance?.setScene?.(null);
-        } catch {
-          /* ignore */
-        }
         const bounty = targetEnemy.kind === 'neutral' ? 52 : Math.floor(Math.random() * 11) + 38;
-        this.goldTotal += bounty;
-        this.addFloatingText('+' + bounty, targetEnemy.x, targetEnemy.y, targetEnemy.z + 55, '#fbbf24');
+        this.killUnit(targetEnemy, true, bounty);
       }
     } else if (this.heroHp < this.heroMaxHp) {
       this.heroHp = Math.min(this.heroMaxHp, this.heroHp + 5.5 * dt);
@@ -522,6 +564,7 @@ export class DotaSceneSim {
       if (targetCreep) {
         tower.inCombat = true;
         const ang = Math.atan2(targetCreep.y - tower.y, targetCreep.x - tower.x);
+        // WatchTower 无旋转骨骼，AncientProtector 可面向目标并播放 Attack 动画
         if (tower.team === 0) {
           tower.instance?.setRotation?.([0, 0, Math.sin(ang / 2), Math.cos(ang / 2)]);
         }
@@ -533,17 +576,12 @@ export class DotaSceneSim {
         }
         targetCreep.hp -= tower.dps * dt;
         if (targetCreep.hp <= 0) {
-          targetCreep.alive = false;
-          try {
-            targetCreep.instance?.detach?.();
-            targetCreep.instance?.setScene?.(null);
-          } catch {
-            /* ignore */
-          }
+          this.killUnit(targetCreep, false);
         }
         continue;
       }
 
+      // 若射程内无敌方小兵且敌方（天灾塔对近卫英雄）英雄进入 700 码射程，防御塔同样朝向英雄攻击
       if (tower.team === 1 && heroPos && dist2(tower.x, tower.y, heroPos.x, heroPos.y) <= tower.range) {
         tower.inCombat = true;
         if (
@@ -568,11 +606,13 @@ export class DotaSceneSim {
   // --- AI 修改结束 [TOWER-COMBAT]：防御塔自动攻击射程（700码）内的敌方小兵与英雄 ---
 
   private tickUnits(dt: number): void {
+    // --- AI 修改开始 [SCENE-SIM]：实现近卫/天灾兵线相遇交战互砍、小兵攻击敌方防御塔与绕行防穿模、英雄刷野战斗及阵亡清理逻辑 ---
     const heroPos = this.getHeroPosition();
     for (const u of this.units) {
       if (!u.alive) continue;
 
       if (u.kind === 'creep') {
+        // 查找 280 码内最近的敌方小兵进行交战
         let targetEnemy: SimUnit | null = null;
         let minDist = 280;
         for (const other of this.units) {
@@ -591,88 +631,15 @@ export class DotaSceneSim {
           if (u.attackSeq >= 0 && (u.instance?.sequence !== u.attackSeq || u.instance?.sequenceEnded)) {
             u.instance?.setSequence?.(u.attackSeq);
           }
-          targetEnemy.hp -= u.dps * 0.75 * dt;
-          u.hp -= targetEnemy.dps * 0.8 * dt;
-          if (targetEnemy.hp <= 0) {
-            targetEnemy.alive = false;
-            try {
-              targetEnemy.instance?.detach?.();
-              targetEnemy.instance?.setScene?.(null);
-            } catch {
-              /* ignore */
-            }
-            const bounty = Math.floor(Math.random() * 11) + 38;
-            if (u.team === 0) {
-              this.goldTotal += bounty;
-            }
-            this.addFloatingText('+' + bounty, targetEnemy.x, targetEnemy.y, targetEnemy.z + 45, '#fbbf24');
-          }
-          continue;
-        }
-
-        let targetTower: SimTower | null = null;
-        let minTowerDist = 235;
-        for (const tower of this.towers) {
-          if (!tower.alive || tower.team === u.team) continue;
-          const d = dist2(u.x, u.y, tower.x, tower.y);
-          if (d < minTowerDist) {
-            minTowerDist = d;
-            targetTower = tower;
-          }
-        }
-
-        if (targetTower) {
-          u.inCombat = true;
-          const ang = Math.atan2(targetTower.y - u.y, targetTower.x - u.x);
-          u.instance?.setRotation?.([0, 0, Math.sin(ang / 2), Math.cos(ang / 2)]);
-          if (u.attackSeq >= 0 && (u.instance?.sequence !== u.attackSeq || u.instance?.sequenceEnded)) {
-            u.instance?.setSequence?.(u.attackSeq);
-          }
-          targetTower.hp -= u.dps * 0.42 * dt;
-          if (targetTower.hp <= 0) {
-            targetTower.hp = targetTower.maxHp * 0.65;
-          }
-          continue;
-        }
-      }
-    }
-  }
-        for (const other of this.units) {
-          if (!other.alive || other.kind !== 'creep' || other.team === u.team) continue;
-          const d = dist2(u.x, u.y, other.x, other.y);
-          if (d < minDist) {
-            minDist = d;
-            targetEnemy = other;
-          }
-        }
-
-        if (targetEnemy) {
-          u.inCombat = true;
-          const ang = Math.atan2(targetEnemy.y - u.y, targetEnemy.x - u.x);
-          u.instance?.setRotation?.([0, 0, Math.sin(ang / 2), Math.cos(ang / 2)]);
-          if (u.attackSeq >= 0 && (u.instance?.sequence !== u.attackSeq || u.instance?.sequenceEnded)) {
-            u.instance?.setSequence?.(u.attackSeq);
-          }
+          // 双方都在各自 tick 中输出伤害，形成互砍；同时确保 Attack 序列循环
           targetEnemy.hp -= u.dps * dt;
           if (targetEnemy.hp <= 0) {
-            targetEnemy.alive = false;
-            try {
-              targetEnemy.instance?.detach?.();
-              targetEnemy.instance?.setScene?.(null);
-            } catch {
-              /* ignore */
-            }
-            // --- AI 修改开始 [COMBAT-GOLD-SIM]：兵线小兵阵亡时头顶跳出所得金币，并为近卫累加金钱 ---
-            const bounty = Math.floor(Math.random() * 11) + 38;
-            if (u.team === 0) {
-              this.goldTotal += bounty;
-            }
-            this.addFloatingText('+' + bounty, targetEnemy.x, targetEnemy.y, targetEnemy.z + 45, '#fbbf24');
-            // --- AI 修改结束 [COMBAT-GOLD-SIM]：兵线小兵阵亡时头顶跳出所得金币，并为近卫累加金钱 ---
+            this.killUnit(targetEnemy, u.team === 0);
           }
           continue;
         }
 
+        // 若附近无敌方小兵，检测 235 码内是否有敌方防御塔，停下攻塔而非直接穿塔而过
         let targetTower: SimTower | null = null;
         let minTowerDist = 235;
         for (const tower of this.towers) {
@@ -693,11 +660,8 @@ export class DotaSceneSim {
           }
           targetTower.hp -= u.dps * 0.42 * dt;
           if (targetTower.hp <= 0) {
+            // 防御塔在录像回放模式下保留耐久，避免建筑永久消失
             targetTower.hp = targetTower.maxHp * 0.65;
-          }
-          continue;
-        }
-
           }
           continue;
         }
@@ -707,7 +671,7 @@ export class DotaSceneSim {
           if (u.walkSeq >= 0) u.instance?.setSequence?.(u.walkSeq);
         }
       } else if (u.kind === 'neutral' && heroPos) {
-        // 英雄靠近野怪营地（320码内）时触发打野交战，野怪掉血阵亡后等待下一整分钟自动刷新
+        // 英雄靠近野怪营地（320码内）时触发打野交战
         const dHero = dist2(u.x, u.y, heroPos.x, heroPos.y);
         if (dHero <= 320) {
           u.inCombat = true;
@@ -718,18 +682,7 @@ export class DotaSceneSim {
           }
           u.hp -= 85 * dt;
           if (u.hp <= 0) {
-            u.alive = false;
-            try {
-              u.instance?.detach?.();
-              u.instance?.setScene?.(null);
-            } catch {
-              /* ignore */
-            }
-            // --- AI 修改开始 [COMBAT-GOLD-SIM]：击杀野怪掉落赏金并头顶跳字 ---
-            const bounty = 68;
-            this.goldTotal += bounty;
-            this.addFloatingText('+' + bounty, u.x, u.y, u.z + 55, '#fbbf24');
-            // --- AI 修改结束 [COMBAT-GOLD-SIM] ---
+            this.killUnit(u, true, u.kind === 'neutral' ? 68 : undefined);
           }
           continue;
         } else if (u.inCombat) {
@@ -758,9 +711,6 @@ export class DotaSceneSim {
         continue;
       }
       const [tx, ty] = u.waypoints[u.wpIndex];
-      const step = u.speed * dt;
-      const prevX = u.x;
-      const prevY = u.y;
       const step = u.speed * dt;
       const prevX = u.x;
       const prevY = u.y;
@@ -802,6 +752,42 @@ export class DotaSceneSim {
     // --- AI 修改结束 [SCENE-SIM]：实现近卫/天灾兵线相遇交战互砍、小兵攻击敌方防御塔与绕行防穿模、英雄刷野战斗及阵亡清理逻辑 ---
   }
 
+  // --- AI 修改开始 [COMBAT-DEATH]：统一阵亡：先切 Death 序列再移除，并按需飘金 ---
+  private killUnit(unit: SimUnit, grantGold: boolean, bountyOverride?: number): void {
+    if (!unit.alive) return;
+    unit.alive = false;
+    unit.hp = 0;
+    try {
+      if (unit.deathSeq >= 0) {
+        unit.instance?.setSequence?.(unit.deathSeq);
+      }
+    } catch {
+      /* ignore */
+    }
+    const remove = () => {
+      try {
+        unit.instance?.detach?.();
+        unit.instance?.setScene?.(null);
+      } catch {
+        /* ignore */
+      }
+    };
+    // 给 Death 动画一帧窗口；无 death 序列则立即移除
+    if (unit.deathSeq >= 0) {
+      setTimeout(remove, 450);
+    } else {
+      remove();
+    }
+    if (grantGold) {
+      const bounty =
+        bountyOverride ??
+        (unit.kind === 'neutral' ? 52 : Math.floor(Math.random() * 11) + 38);
+      this.goldTotal += bounty;
+      this.addFloatingText('+' + bounty, unit.x, unit.y, unit.z + 45, '#fbbf24');
+    }
+  }
+  // --- AI 修改结束 [COMBAT-DEATH] ---
+
   private async spawnWave(): Promise<void> {
     if (!this.cfg.lanes.length || this.spawningWave) return;
     // --- AI 修改开始 [SCENE-SIM]：限制场上兵线单位总数上限，防止长时间运行堆积过多实例 ---
@@ -816,16 +802,16 @@ export class DotaSceneSim {
         // const forward = lane.waypoints;
         // const reverse = [...lane.waypoints].reverse();
         // --- AI 删除结束 [LANE-WAYPOINTS] ---
-        // --- AI 修改开始 [LANE-WAYPOINTS]：跳过第 0 个自身出生点并以敌方基地遗迹作为最终推进终点，使三路小兵出兵即沿兵线平滑推进 ---
-        const forward: [number, number][] = [
-          ...lane.waypoints.slice(1),
-          [4902, 4537],
-        ];
-        const reverse: [number, number][] = [
-          ...[...lane.waypoints].reverse().slice(1),
-          [-5684, -5172],
-        ];
-        // --- AI 修改结束 [LANE-WAYPOINTS]：跳过第 0 个自身出生点并以敌方基地遗迹作为最终推进终点，使三路小兵出兵即沿兵线平滑推进 ---
+        // --- AI 修改开始 [LANE-WAYPOINTS]：跳过出生点自身；终点使用 buildings.json 天灾/近卫遗迹坐标 ---
+        const forward: [number, number][] = [...lane.waypoints.slice(1)];
+        const reverse: [number, number][] = [...[...lane.waypoints].reverse().slice(1)];
+        if (!forward.length || forward[forward.length - 1][0] !== 5184) {
+          forward.push([5184, 4864]);
+        }
+        if (!reverse.length || reverse[reverse.length - 1][0] !== -5632) {
+          reverse.push([-5632, -6144]);
+        }
+        // --- AI 修改结束 [LANE-WAYPOINTS] ---
         await this.spawnCreepGroup(lane.id, 0, lane.radiantSpawn, forward);
         await this.spawnCreepGroup(lane.id, 1, lane.direSpawn, reverse);
       }
@@ -952,48 +938,25 @@ export class DotaSceneSim {
           continue;
         }
 
-        const count =
-          camp.count ??
-          (camp.tier === 'roshan' ? 1 : camp.tier === 'large' || camp.tier === 'ancient' ? 2 : 3);
-        const neutralModel =
-          camp.tier === 'roshan' || camp.id === 'roshan'
-            ? 'Units\\Creeps\\RockGolem\\RockGolem.mdx'
-            : camp.tier === 'ancient'
-              ? 'Units\\Creeps\\RockGolem\\RockGolem.mdx'
-              : camp.tier === 'large'
-                ? camp.id.includes('2')
-                  ? 'Units\\Creeps\\Furbolg\\Furbolg.mdx'
-                  : 'Units\\Creeps\\CentaurKhan\\CentaurKhan.mdx'
-                : camp.tier === 'medium'
-                  ? 'Units\\Creeps\\ForestTroll\\ForestTroll.mdx'
-                  : 'Units\\Creeps\\Kobold\\Kobold.mdx';
-        const maxHp =
-          camp.tier === 'roshan'
-            ? 4500
-            : camp.tier === 'ancient'
-              ? 1100
-              : camp.tier === 'large'
-                ? 750
-                : camp.tier === 'medium'
-                  ? 500
-                  : 320;
-        for (let i = 0; i < count; i++) {
-          const ang = (i / Math.max(1, count)) * Math.PI * 2;
-          const radius = count === 1 ? 0 : 85;
+        // --- AI 修改开始 [NEUTRAL-COMPOSITION]：按 composition 刷异种野怪，避免全营同一模型 ---
+        const specs = resolveNeutralSpecs(camp);
+        for (let i = 0; i < specs.length; i++) {
+          const spec = specs[i];
+          const ang = (i / Math.max(1, specs.length)) * Math.PI * 2;
+          const radius = specs.length === 1 ? 0 : 85;
           const x = camp.x + Math.cos(ang) * radius;
           const y = camp.y + Math.sin(ang) * radius;
           const z = this.sampleHeight(x, y);
           const inst = await this.spawnModel({
-            path: neutralModel,
+            path: spec.path,
             x,
             y,
             z,
             teamColor: 12,
-            scale: camp.scale ?? (camp.tier === 'roshan' ? 1.45 : 0.9),
+            scale: spec.scale,
             sequenceHint: 'Stand',
           });
           if (!inst) continue;
-          // 让野怪朝向营地中心外侧
           const faceAng = ang + Math.PI;
           inst.setRotation?.([0, 0, Math.sin(faceAng / 2), Math.cos(faceAng / 2)]);
           this.units.push({
@@ -1004,21 +967,22 @@ export class DotaSceneSim {
             y,
             z,
             speed: 0,
-            scale: camp.scale ?? 0.95,
+            scale: spec.scale,
             waypoints: [],
             wpIndex: 0,
             instance: inst,
             alive: true,
             campId: camp.id,
-            hp: maxHp,
-            maxHp,
-            dps: 25,
+            hp: spec.hp,
+            maxHp: spec.hp,
+            dps: spec.dps,
             walkSeq: findSeqIndex(inst, 'Walk', 0),
             standSeq: findSeqIndex(inst, 'Stand', 0),
             attackSeq: findSeqIndex(inst, 'Attack', 0),
             deathSeq: findSeqIndex(inst, 'Death', 0),
           });
         }
+        // --- AI 修改结束 [NEUTRAL-COMPOSITION] ---
       }
     } finally {
       this.refreshingNeutrals = false;
@@ -1133,6 +1097,7 @@ export class DotaSceneSim {
     this.runes = this.runes.filter((r) => r.alive);
   }
   // --- AI 修改结束 [RUNE-SIM]：实现 DotA 6.83d 河道双神符自动刷新（war3map.j function CBO 规则）与拾取逻辑 ---
+
   // --- AI 修改开始 [COMBAT-GOLD-SIM]：飘金粒子池管理、金钱总数统计与实时血条实体查询 ---
   addFloatingText(
     text: string,

@@ -1,0 +1,4 @@
+e "D:\Qt\workspace\War3Launcher\versions\1.27.0.52240\war3.mpq" "UI\Feedback\XpBar\*" "D:\Qt\workspace\War3Angular\scratch\mpq-ui-extract\xp" /fp
+e "D:\Qt\workspace\War3Launcher\versions\1.27.0.52240\war3.mpq" "ReplaceableTextures\CommandButtons\BTNStatUp.blp" "D:\Qt\workspace\War3Angular\scratch\mpq-ui-extract\btn" /fp
+e "D:\Qt\workspace\War3Launcher\versions\1.27.0.52240\war3.mpq" "ReplaceableTextures\PassiveButtons\PASBTNStatUp.blp" "D:\Qt\workspace\War3Angular\scratch\mpq-ui-extract\btn" /fp
+e "D:\Qt\workspace\War3Launcher\versions\1.27.0.52240\war3.mpq" "ReplaceableTextures\CommandButtons\BTNSkillz.blp" "D:\Qt\workspace\War3Angular\scratch\mpq-ui-extract\btn" /fp

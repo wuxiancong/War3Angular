@@ -36,30 +36,6 @@ export interface Wc3MdxViewerOptions {
   syncOverrides?: Partial<SceneSyncConfig> | null;
 }
 
-// --- AI 修改开始 [FIRST-LOAD-WEBGL]：进程级补丁，保证主场景/肖像创建上下文属性一致且可合成 ---
-let webglContextPatched = false;
-function ensureWebglContextPatch(): void {
-  if (webglContextPatched || typeof HTMLCanvasElement === 'undefined') return;
-  webglContextPatched = true;
-  const canvasProto = HTMLCanvasElement.prototype as any;
-  const origGetContext = canvasProto.getContext;
-  canvasProto.getContext = function getContextPreserved(
-    this: HTMLCanvasElement,
-    type: string,
-    attrs?: WebGLContextAttributes
-  ) {
-    if (type === 'webgl' || type === 'experimental-webgl') {
-      attrs = {
-        ...(attrs || {}),
-        alpha: false,
-        premultipliedAlpha: false,
-        preserveDrawingBuffer: true,
-      };
-    }
-    return origGetContext.call(this, type, attrs);
-  };
-}
-// --- AI 修改结束 [FIRST-LOAD-WEBGL]：进程级补丁，保证主场景/肖像创建上下文属性一致且可合成 ---
 // --- AI 删除开始 [CAMERA-PERSPECTIVE]：删除仅支持平移的 DragMode，原因：新增右键拖拽旋转/俯仰视角支持 ---
 // type DragMode = 'pan' | null;
 // --- AI 删除结束 [CAMERA-PERSPECTIVE] ---
@@ -136,6 +112,7 @@ export class Wc3MdxViewer {
   private readonly onResize: () => void;
   private readonly onKeyDown: (e: KeyboardEvent) => void;
   private readonly onKeyUp: (e: KeyboardEvent) => void;
+  private resizeObserver?: ResizeObserver;
   private readonly wc3Base: string;
   private readonly inputEl: HTMLElement;
 
@@ -147,7 +124,7 @@ export class Wc3MdxViewer {
   ) {
     const { canvas } = options;
     this.wc3Base = (options.wc3BaseUrl || '/assets/wc3/').replace(/\/?$/, '/');
-    // 输入目标优先用 viewLayer；首屏修复后传 canvas 自身，避免透明盖层抢事件/合成黑屏。
+    // Pointer events go to the visible layer (WebGL canvas is not interactive).
     this.inputEl = options.viewLayer || canvas;
 
     const pathSolver = (src: unknown) => this.resolveWc3Path(src);
@@ -217,38 +194,30 @@ export class Wc3MdxViewer {
       this.distance = Math.max(minD, Math.min(maxD, this.distance));
       this.updateCamera();
     };
-    // --- AI 修改开始 [FIRST-LOAD-WEBGL]：按 CSS 盒×DPR 同步缓冲；尺寸未变则跳过，避免无谓重置 drawing buffer ---
     this.onResize = () => {
       const rect = this.inputEl.getBoundingClientRect();
-      const cssW = Math.max(1, Math.floor(rect.width || canvas.clientWidth || 0));
-      const cssH = Math.max(1, Math.floor(rect.height || canvas.clientHeight || 0));
-      if (cssW < 2 || cssH < 2) return;
-      const dpr = Math.min(2, typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1);
-      const w = Math.max(64, Math.floor(cssW * dpr));
-      const h = Math.max(64, Math.floor(cssH * dpr));
+      const parent = canvas.parentElement?.getBoundingClientRect();
+      const rw = Math.max(rect.width, parent?.width || 0);
+      const rh = Math.max(rect.height, parent?.height || 0);
+      const w = Math.max(640, Math.floor(rw) || canvas.width || 1280);
+      const h = Math.max(360, Math.floor(rh) || canvas.height || 720);
       if (canvas.width !== w || canvas.height !== h) {
         canvas.width = w;
         canvas.height = h;
       }
       this.updateCamera();
     };
-    // --- AI 修改结束 [FIRST-LOAD-WEBGL]：按 CSS 盒×DPR 同步缓冲；尺寸未变则跳过，避免无谓重置 drawing buffer ---
-    canvas.addEventListener(
-      'webglcontextlost',
-      (e) => {
-        e.preventDefault();
-        console.warn('[wc3] webglcontextlost');
-      },
-      false
-    );
-    canvas.addEventListener(
-      'webglcontextrestored',
-      () => {
-        console.warn('[wc3] webglcontextrestored — sync viewport');
-        this.onResize();
-      },
-      false
-    );
+    // --- AI 修改开始 [BOOT-RESIZE]：容器尺寸晚于首帧就绪时自动 resize，避免初次黑屏必须手动重载 ---
+    try {
+      const roTarget = canvas.parentElement || this.inputEl;
+      this.resizeObserver = new ResizeObserver(() => {
+        if (!this.disposed) this.onResize();
+      });
+      this.resizeObserver.observe(roTarget);
+    } catch {
+      /* older env */
+    }
+    // --- AI 修改结束 [BOOT-RESIZE] ---
     this.onKeyDown = (e) => {
       const k = e.key.toLowerCase();
       if (['w', 'a', 's', 'd'].includes(k)) {
@@ -285,9 +254,25 @@ export class Wc3MdxViewer {
     (Wc3MdxViewer as any)._handlers = libs.handlers;
     // --- AI 修改结束 [PORTRAIT-3D]：保存 ModelViewer 与 handlers 供 3D 英雄肖像画布复用 ---
 
-    // Cursor/Electron：持久补丁，避免构造期外延迟创建上下文时丢失 preserveDrawingBuffer。
-    ensureWebglContextPatch();
-    return new Wc3MdxViewer(options, libs.War3MapViewer);
+    // Cursor/Electron WebGL often clears the drawing buffer before compositing;
+    // force preserveDrawingBuffer so the canvas is actually visible on screen.
+    const canvasProto = HTMLCanvasElement.prototype as any;
+    const origGetContext = canvasProto.getContext;
+    canvasProto.getContext = function getContextPreserved(
+      this: HTMLCanvasElement,
+      type: string,
+      attrs?: WebGLContextAttributes
+    ) {
+      if (type === 'webgl' || type === 'experimental-webgl') {
+        attrs = { ...(attrs || {}), alpha: false, preserveDrawingBuffer: true };
+      }
+      return origGetContext.call(this, type, attrs);
+    };
+    try {
+      return new Wc3MdxViewer(options, libs.War3MapViewer);
+    } finally {
+      canvasProto.getContext = origGetContext;
+    }
   }
 
   async load(): Promise<void> {
@@ -709,8 +694,24 @@ export class Wc3MdxViewer {
     const handlers = (Wc3MdxViewer as any)._handlers;
     if (!ModelViewer || !handlers || !canvas) return;
     try {
-      ensureWebglContextPatch();
-      const pv: any = new ModelViewer(canvas);
+      const canvasProto = HTMLCanvasElement.prototype as any;
+      const origGetContext = canvasProto.getContext;
+      canvasProto.getContext = function getContextPortrait(
+        this: HTMLCanvasElement,
+        type: string,
+        attrs?: WebGLContextAttributes
+      ) {
+        if (type === 'webgl' || type === 'experimental-webgl') {
+          attrs = { ...(attrs || {}), alpha: false, preserveDrawingBuffer: true };
+        }
+        return origGetContext.call(this, type, attrs);
+      };
+      let pv: any;
+      try {
+        pv = new ModelViewer(canvas);
+      } finally {
+        canvasProto.getContext = origGetContext;
+      }
       const solver = (src: unknown) => this.resolvePortraitPath(src);
       pv.addHandler(handlers.mdx, solver, false);
       pv.addHandler(handlers.blp);
@@ -801,67 +802,6 @@ export class Wc3MdxViewer {
     }
   }
   // --- AI 修改结束 [PORTRAIT-3D]：挂载底部控制台 3D 英雄对白肖像画布并驱动 Portrait / Portrait Talk 序列动画 ---
-    }
-    if (action.sequence != null && this.instance) {
-      const targetSeq = this.resolveSequenceId(action.sequence);
-      if (targetSeq >= 0 && (this.instance.sequence !== targetSeq || this.instance.sequenceEnded)) {
-        this.instance.setSequence(targetSeq);
-      }
-    }
-    // --- AI 修改结束 [HERO-SYNC]：应用绕 Z 轴四元数朝向并在序列不同或已结束时切换动作 ---
-  }
-
-  // --- AI 修改开始 [HERO-SYNC]：新增动态切换英雄 3D 模型与获取兵线/野怪单位列表接口 ---
-  async switchHeroModel(modelUrl: string, assetBaseUrl?: string): Promise<boolean> {
-    if (!this.scene) return false;
-    this.options.modelUrl = modelUrl;
-    if (assetBaseUrl) {
-      this.options.assetBaseUrl = assetBaseUrl;
-    }
-    const useWc3Solver = modelUrl.includes('/assets/wc3/');
-    const solver = useWc3Solver
-      ? (src: unknown) => this.resolveWc3Path(src)
-      : (src: unknown) => this.resolveHeroPath(src);
-    const model = await Promise.race([
-      this.viewer.load(modelUrl, solver),
-      new Promise<null>((r) => setTimeout(() => r(null), 10000)),
-    ]);
-    if (!model) return false;
-
-    const prevLoc = this.instance?.localLocation || this.instance?.location || [
-      RADIANT_SPAWN.x,
-      RADIANT_SPAWN.y,
-      this.sampleHeight(RADIANT_SPAWN.x, RADIANT_SPAWN.y),
-    ];
-    const prevRot = this.instance?.localRotation
-      ? [...this.instance.localRotation]
-      : [0, 0, 0, 1];
-    try {
-      this.instance?.detach?.();
-      this.instance?.setScene?.(null);
-    } catch {
-      /* ignore */
-    }
-
-    this.model = model;
-    this.sequences = (model.sequences || []).map(
-      (s: { name?: string }, index: number): Wc3SequenceInfo => ({
-        index,
-        name: String(s.name || `Sequence ${index}`).replace(/\0/g, '').trim(),
-      })
-    );
-    const inst = model.addInstance();
-    inst.setScene(this.scene);
-    inst.setTeamColor(this.options.teamColor ?? 0);
-    inst.setSequenceLoopMode(2);
-    inst.setLocation([prevLoc[0] || 0, prevLoc[1] || 0, prevLoc[2] || 0]);
-    inst.setRotation?.(prevRot);
-    inst.setUniformScale(1);
-    const standIdx = this.resolveSequenceId('Stand');
-    inst.setSequence(standIdx >= 0 ? standIdx : 0);
-    this.instance = inst;
-    return true;
-  }
 
   getSimUnits(): { x: number; y: number; team: 0 | 1 | -1; kind: 'creep' | 'neutral' }[] {
     if (!this.sim || !this.simEnabled) return [];
@@ -905,6 +845,7 @@ export class Wc3MdxViewer {
     return this.sim?.getGoldTotal() ?? 603;
   }
   // --- AI 修改结束 [COMBAT-GOLD-SIM]：将世界坐标 (x,y,z) 投影至 WebGL 视口屏幕百分比并提供战斗实体与飘金数据接口 ---
+
   setSimSpeed(speed: number): void {
     this.simSpeed = Math.max(0, speed);
   }
@@ -1006,14 +947,20 @@ export class Wc3MdxViewer {
     this.setCameraMode(this.cameraMode === 'free' ? 'hero' : this.cameraMode);
   }
 
-  /** 对外暴露：首屏布局稳定后或容器尺寸变化时强制同步 WebGL 视口。 */
-  forceResize(): void {
+  /** 强制按当前容器尺寸重配 WebGL 视口（初次布局晚到时调用） */
+  resizeToContainer(): void {
     this.onResize();
   }
 
   dispose(): void {
     this.disposed = true;
     this.sim?.dispose();
+    try {
+      this.resizeObserver?.disconnect();
+    } catch {
+      /* ignore */
+    }
+    this.resizeObserver = undefined;
     if (typeof cancelAnimationFrame !== 'undefined') {
       cancelAnimationFrame(this.raf);
     }
@@ -1031,32 +978,40 @@ export class Wc3MdxViewer {
     } catch {
       /* ignore */
     }
-    // 主动丢弃 GL，配合组件侧换新 canvas，避免属性不匹配导致 getContext 返回 null
-    try {
-      const gl = this.viewer?.gl as WebGLRenderingContext | undefined;
-      const ext = gl?.getExtension?.('WEBGL_lose_context') as { loseContext: () => void } | null;
-      ext?.loseContext();
-    } catch {
-      /* ignore */
-    }
-    try {
-      this.portraitViewer?.gl
-        ?.getExtension?.('WEBGL_lose_context')
-        ?.loseContext?.();
-    } catch {
-      /* ignore */
-    }
   }
 
+  // --- AI 修改开始 [TERRAIN-BILINEAR]：双线性插值采样地面高度，避免坡度上单位阶梯式“贴地隆起” ---
   sampleHeight(x: number, y: number): number {
     const map = this.viewer.map;
     if (!map?.corners?.length || !map.centerOffset) return 0;
-    const col = Math.floor((x - map.centerOffset[0]) / 128);
-    const row = Math.floor((y - map.centerOffset[1]) / 128);
-    const corner = map.corners[row]?.[col];
-    if (!corner) return 0;
+    const fx = (x - map.centerOffset[0]) / 128;
+    const fy = (y - map.centerOffset[1]) / 128;
+    const col = Math.floor(fx);
+    const row = Math.floor(fy);
+    const tx = fx - col;
+    const ty = fy - row;
+    const h00 = this.cornerWorldZ(map, row, col);
+    const h10 = this.cornerWorldZ(map, row, col + 1);
+    const h01 = this.cornerWorldZ(map, row + 1, col);
+    const h11 = this.cornerWorldZ(map, row + 1, col + 1);
+    const hx0 = h00 * (1 - tx) + h10 * tx;
+    const hx1 = h01 * (1 - tx) + h11 * tx;
+    return hx0 * (1 - ty) + hx1 * ty;
+  }
+
+  private cornerWorldZ(map: any, row: number, col: number): number {
+    const corner = map.corners?.[row]?.[col];
+    if (!corner) {
+      const clampRow = Math.max(0, Math.min((map.corners?.length || 1) - 1, row));
+      const clampCol = Math.max(0, Math.min((map.corners?.[0]?.length || 1) - 1, col));
+      const c = map.corners?.[clampRow]?.[clampCol];
+      if (!c) return 0;
+      return (c.groundHeight + c.layerHeight - 2) * 128;
+    }
     return (corner.groundHeight + corner.layerHeight - 2) * 128;
   }
+  // --- AI 修改结束 [TERRAIN-BILINEAR] ---
+
 
   /** Approximate ground pick: ray vs z = sampleHeight plane near target. */
   private pickGround(clientX: number, clientY: number): { x: number; y: number } | null {
@@ -1272,7 +1227,10 @@ export class Wc3MdxViewer {
     const cy = Math.cos(this.yaw);
     const sy = Math.sin(this.yaw);
     // --- AI 修改开始 [CAMERA-PERSPECTIVE]：补偿底部 28.5% 魔兽控制台 HUD 遮挡，使焦点单位居中显示在顶部状态栏与底部控制台之间的可视 3D 视口中心 ---
-    const hudShift = this.cameraMode === 'map' ? 0 : this.distance * 0.115;
+    // --- AI 修改开始 [CONSOLE-HEIGHT]：底部控制台降至约 26vh 后，略减 HUD 上移补偿 ---
+    const hudShift = this.cameraMode === 'map' ? 0 : this.distance * 0.09;
+    // --- AI 修改结束 [CONSOLE-HEIGHT] ---
+
     const lookX = tx + cy * hudShift;
     const lookY = ty + sy * hudShift;
     const x = lookX + this.distance * cp * cy;

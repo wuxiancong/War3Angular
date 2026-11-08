@@ -196,9 +196,6 @@ app.use('/assets/wc3', express.static(join(process.cwd(), 'public/assets/wc3')))
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let cachedDotaData: any = null;
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let cachedDotaData: any = null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let cachedHeroesMap: Record<string, { name: string; icon: string }> | null = null;
 

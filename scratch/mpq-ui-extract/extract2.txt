@@ -1,0 +1,6 @@
+e "D:\Qt\workspace\War3Launcher\versions\1.27.0.52240\War3x.mpq" "ReplaceableTextures\CommandButtons\BTNStatUp.blp" "D:\Qt\workspace\War3Angular\scratch\mpq-ui-extract\btn" /fp
+e "D:\Qt\workspace\War3Launcher\versions\1.27.0.52240\War3x.mpq" "ReplaceableTextures\PassiveButtons\PASBTNStatUp.blp" "D:\Qt\workspace\War3Angular\scratch\mpq-ui-extract\btn" /fp
+e "D:\Qt\workspace\War3Launcher\versions\1.27.0.52240\War3Patch.mpq" "ReplaceableTextures\CommandButtons\BTNStatUp.blp" "D:\Qt\workspace\War3Angular\scratch\mpq-ui-extract\btn" /fp
+e "D:\Qt\workspace\War3Launcher\versions\1.27.0.52240\War3Patch.mpq" "ReplaceableTextures\PassiveButtons\PASBTNStatUp.blp" "D:\Qt\workspace\War3Angular\scratch\mpq-ui-extract\btn" /fp
+e "D:\Qt\workspace\War3Launcher\versions\1.27.0.52240\war3.mpq" "ReplaceableTextures\CommandButtons\BTNStatUp.blp" "D:\Qt\workspace\War3Angular\scratch\mpq-ui-extract\btn" /fp
+e "D:\Qt\workspace\War3Launcher\versions\1.27.0.52240\war3.mpq" "ReplaceableTextures\PassiveButtons\PASBTNStatUp.blp" "D:\Qt\workspace\War3Angular\scratch\mpq-ui-extract\btn" /fp

@@ -19,9 +19,9 @@ console.log(`GEMINI_API_KEYS length: ${apiKeys.length}`);
 // 构建命令
 // 使用双引号包裹单引号，确保 esbuild 接收到正确的 JS 字符串字面量
 const isDev = process.argv.includes('--dev');
-// --- AI 修改开始 [RUN-ANGULAR]：避免 npx 受限于 Windows PowerShell 脚本执行策略，直接使用 node 调用本地 ng.js ---
+// --- AI 修改开始 [RUN-ANGULAR]：配置 --allowed-hosts 支持局域网 IP 与各种 Host 访问，防止 Angular Vite 拦截 ---
 const ngBin = path.join(__dirname, '../node_modules/@angular/cli/bin/ng.js');
-const baseCmd = isDev ? `node "${ngBin}" serve --port=4200 --host=0.0.0.0` : `node "${ngBin}" build`;
+const baseCmd = isDev ? `node "${ngBin}" serve --port=4200 --host=0.0.0.0 --allowed-hosts` : `node "${ngBin}" build`;
 // --- AI 修改结束 [RUN-ANGULAR] ---
 const hmrFlag = isDev && process.env.DISABLE_HMR ? '--live-reload=false' : '';
 

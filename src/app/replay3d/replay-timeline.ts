@@ -114,6 +114,8 @@ export interface ReplayFrameState {
   facingRad: number;
   sequence: string;
   isMoving: boolean;
+  /** 当前基本指令：移动/停止/保持原位/攻击/巡逻（命令卡绿色高亮） */
+  basicCommand: '' | 'move' | 'stop' | 'hold' | 'attack' | 'patrol';
   level: number;
   xpPercent: number;
   unspentSkillPoints: number;
@@ -158,6 +160,8 @@ interface MoveKeyframe {
   anim: string;
 }
 
+type BasicCommandId = '' | 'move' | 'stop' | 'hold' | 'attack' | 'patrol';
+
 interface StateSnapshot {
   timeMs: number;
   level: number;
@@ -171,6 +175,22 @@ interface StateSnapshot {
   lastHits: number;
   denies: number;
   neutrals: number;
+  basicCommand: BasicCommandId;
+}
+
+/** WC3 基本命令 OrderId → 命令卡槽位 */
+function resolveBasicCommand(orderId: number): BasicCommandId | null {
+  // 0xD0012 move / 0xD0003 smart（右键点地多视为移动）
+  if (orderId === 0xd0012 || orderId === 0xd0003) return 'move';
+  // 0xD000F attack / attack-move
+  if (orderId === 0xd000f) return 'attack';
+  // 0xD0016 patrol
+  if (orderId === 0xd0016) return 'patrol';
+  // 0xD0004 stop
+  if (orderId === 0xd0004) return 'stop';
+  // 0xD0019 holdposition（兼容误记的 0xD0005）
+  if (orderId === 0xd0019 || orderId === 0xd0005) return 'hold';
+  return null;
 }
 
 const INV_HOTKEYS = ['Num7', 'Num8', 'Num4', 'Num5', 'Num1', 'Num2'];
@@ -237,6 +257,20 @@ function intToFourCC(val: number | undefined): string {
   const c3 = val & 0xff;
   const s = String.fromCharCode(c0, c1, c2, c3);
   return /^[\x20-\x7e]{4}$/.test(s) ? s : '';
+}
+
+/** 臂章开/关（及信使版）视为同一件装备，切换时是替换而非新增 */
+function isArmletFamily(code: string): boolean {
+  return (
+    code === 'I00M' ||
+    code === 'I00Q' ||
+    code === 'I00S' ||
+    code === 'I00T' ||
+    code === 'I00N' ||
+    code === 'I00R' ||
+    code === 'I00V' ||
+    code === 'I00W'
+  );
 }
 
 export function formatMsClock(ms: number): string {
@@ -337,6 +371,7 @@ export class ReplayTimelineEngine {
 
     let lastToggleSlot = -1;
     let lastToggleTime = -99999;
+    let basicCommand: BasicCommandId = '';
 
     const pushSnapshot = (timeMs: number) => {
       this.snapshots.push({
@@ -352,7 +387,14 @@ export class ReplayTimelineEngine {
         lastHits,
         denies,
         neutrals,
+        basicCommand,
       });
+    };
+
+    const setBasicCommand = (timeMs: number, cmd: BasicCommandId) => {
+      if (basicCommand === cmd) return;
+      basicCommand = cmd;
+      pushSnapshot(timeMs);
     };
 
     const advanceHeroTo = (t: number) => {
@@ -446,26 +488,34 @@ export class ReplayTimelineEngine {
       const orderId = Number(a[6] || 0);
       const orderCode = intToFourCC(orderId);
 
-      // 1. 地面移动或攻击移动指令 (0x11 / 0x12)
-      if ((id === 0x11 || id === 0x12) && (Math.abs(ax) > 1 || Math.abs(ay) > 1)) {
-        advanceHeroTo(t);
-        const dist = Math.hypot(ax - curX, ay - curY);
-        if (dist > 8) {
-          curFacing = Math.atan2(ay - curY, ax - curX);
-          moveStartT = t;
-          moveEndT = t + (dist / Math.max(100, baseSpeed)) * 1000;
-          targetX = ax;
-          targetY = ay;
+      // 1. 点地/目标点指令 (0x11 / 0x12)：移动、攻击移动、巡逻、smart
+      if (id === 0x11 || id === 0x12) {
+        const pointCmd = resolveBasicCommand(orderId);
+        if (pointCmd) setBasicCommand(t, pointCmd);
+        if (Math.abs(ax) > 1 || Math.abs(ay) > 1) {
+          advanceHeroTo(t);
+          const dist = Math.hypot(ax - curX, ay - curY);
+          if (dist > 8) {
+            curFacing = Math.atan2(ay - curY, ax - curX);
+            moveStartT = t;
+            moveEndT = t + (dist / Math.max(100, baseSpeed)) * 1000;
+            targetX = ax;
+            targetY = ay;
+          }
         }
-        continue;
+        if (pointCmd || Math.abs(ax) > 1 || Math.abs(ay) > 1) continue;
       }
 
       // 2. 立即指令 (0x10)：停止、选英雄、学技能、释放无目标技能、购买或使用物品
       if (id === 0x10) {
-        // Stop / Hold Position
-        if (orderId === 851972 || orderId === 851973) {
-          advanceHeroTo(t);
-          moveEndT = 0;
+        // Stop / Hold / 少数立即类基本指令
+        const immCmd = resolveBasicCommand(orderId);
+        if (immCmd) {
+          if (immCmd === 'stop' || immCmd === 'hold') {
+            advanceHeroTo(t);
+            moveEndT = 0;
+          }
+          setBasicCommand(t, immCmd);
           continue;
         }
 
@@ -598,13 +648,28 @@ export class ReplayTimelineEngine {
               this.recipeToRealItem.get(itemCode) ||
               this.shopToRealItem.get(itemCode);
             const realCode = itemDef?.realCode || itemCode;
-            const isArmletToggle =
-              (realCode === 'I00M' || realCode === 'I00Q') && t - lastToggleTime < 400;
+            const armlet = isArmletFamily(realCode) || isArmletFamily(itemCode);
+            const isArmletToggle = armlet && t - lastToggleTime < 800;
 
             let targetSlot = -1;
-            if (isArmletToggle && lastToggleSlot >= 0 && lastToggleSlot < 6 && inv[lastToggleSlot] === null) {
-              targetSlot = lastToggleSlot;
+            // --- AI 修改开始 [ARMLET-UNIQUE]：臂章开/关是同一件；合成后 PUI 再发一次不得占第二格 ---
+            if (armlet) {
+              targetSlot = inv.findIndex((s) => !!s && isArmletFamily(s.code));
+              if (
+                targetSlot < 0 &&
+                isArmletToggle &&
+                lastToggleSlot >= 0 &&
+                lastToggleSlot < 6 &&
+                inv[lastToggleSlot] === null
+              ) {
+                targetSlot = lastToggleSlot;
+              }
             }
+            // 非堆叠成品若已在栏中（本地 checkRecipes 已合成），后续 PUI 只刷新原格
+            if (targetSlot < 0 && itemDef && !itemDef.stackable) {
+              targetSlot = inv.findIndex((s) => s?.code === realCode || s?.code === itemCode);
+            }
+            // --- AI 修改结束 [ARMLET-UNIQUE] ---
             if (targetSlot < 0 && itemDef?.stackable) {
               targetSlot = inv.findIndex((s) => s?.code === realCode);
               if (targetSlot >= 0 && inv[targetSlot]) {
@@ -617,6 +682,12 @@ export class ReplayTimelineEngine {
               targetSlot = inv.findIndex((s) => s === null);
             }
             if (targetSlot >= 0) {
+              const prev = inv[targetSlot];
+              const isRefresh =
+                !!prev &&
+                (prev.code === realCode ||
+                  prev.code === itemCode ||
+                  (armlet && isArmletFamily(prev.code)));
               inv[targetSlot] = {
                 slot: targetSlot,
                 hotkey: INV_HOTKEYS[targetSlot],
@@ -624,12 +695,13 @@ export class ReplayTimelineEngine {
                 name: this.resolveItemName(realCode),
                 icon: this.resolveItemIcon(realCode),
                 charges: 1,
+                // I00Q 为高属性开启形态（与下方面板加成一致）
                 activeToggle: realCode === 'I00Q',
               };
               if (realCode === 'I020' || realCode === 'I012' || realCode === 'I015') {
                 baseSpeed = 355;
               }
-              if (!isArmletToggle) {
+              if (!isArmletToggle && !isRefresh) {
                 this.events.push({
                   timeMs: t,
                   timeText: formatMsClock(t),
@@ -653,15 +725,22 @@ export class ReplayTimelineEngine {
             this.shopToRealItem.get(itemCode);
           const realCode = itemDef?.realCode || itemCode;
           let idx = -1;
-          if (
-            (realCode === 'I00M' || realCode === 'I00Q') &&
-            lastToggleSlot >= 0 &&
-            inv[lastToggleSlot]?.code === realCode
-          ) {
-            idx = lastToggleSlot;
+          // --- AI 修改开始 [ARMLET-UNIQUE]：DRI 任一侧形态都清掉栏内那一件臂章 ---
+          if (isArmletFamily(realCode) || isArmletFamily(itemCode)) {
+            if (
+              lastToggleSlot >= 0 &&
+              lastToggleSlot < 6 &&
+              inv[lastToggleSlot] &&
+              isArmletFamily(inv[lastToggleSlot]!.code)
+            ) {
+              idx = lastToggleSlot;
+            } else {
+              idx = inv.findIndex((s) => !!s && isArmletFamily(s.code));
+            }
           } else {
             idx = inv.findIndex((s) => s?.code === realCode || s?.code === itemCode);
           }
+          // --- AI 修改结束 [ARMLET-UNIQUE] ---
           if (idx >= 0) {
             inv[idx] = null;
             pushSnapshot(t);
@@ -865,8 +944,11 @@ export class ReplayTimelineEngine {
       facingRad,
       sequence,
       isMoving,
+      basicCommand: snap.basicCommand || '',
       level: lv,
-      xpPercent: lv >= 25 ? 100 : Math.round(((t % 60000) / 60000) * 100),
+      // --- AI 修改开始 [XP-BAR-NATIVE]：录像无精确经验值时不再用时间伪造进度（旧公式 t%60000 会导致经验条一直走） ---
+      xpPercent: lv >= 25 ? 100 : 0,
+      // --- AI 修改结束 [XP-BAR-NATIVE] ---
       unspentSkillPoints,
       hp: maxHp,
       maxHp,
