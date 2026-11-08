@@ -4,6 +4,7 @@ import { NgClass, UpperCasePipe } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { RegionService } from '../core/region.service';
+import { LadderService } from '../core/ladder.service';
 
 interface Player {
   rank: number;
@@ -18,6 +19,8 @@ interface Player {
   signatureHeroes: string[];
   region: string;
   status: 'online' | 'offline' | 'ingame';
+  rankTitle: string;
+  rankCode: string;
 }
 
 @Component({
@@ -190,6 +193,7 @@ interface Player {
                                         </div>
                                         <div class="truncate max-w-[80px] md:max-w-none">
                                             <div class="font-bold text-[var(--text-main)] text-sm md:text-base group-hover:text-accent transition-colors truncate">{{ player.name }}</div>
+                                            <div class="text-[10px] text-[var(--text-muted)] truncate">{{ player.rankTitle }} ({{ player.rankCode }})</div>
                                         </div>
                                     </div>
                                 </td>
@@ -292,6 +296,7 @@ interface Player {
 export class LadderComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private el = inject(ElementRef);
+  private ladderApi = inject(LadderService);
   regionService = inject(RegionService);
   currentTab = signal<'solo' | 'team'>('solo');
   selectedRegion = signal<string>('全部');
@@ -299,10 +304,9 @@ export class LadderComponent implements OnInit {
   regionSearchQuery = signal<string>('');
   playerSearchQuery = signal<string>('');
   isLoaded = signal(false);
-
-  constructor() {
-    setTimeout(() => this.isLoaded.set(true), 500);
-  }
+  loadError = signal<string>('');
+  soloPlayers = signal<Player[]>([]);
+  teamPlayers = signal<Player[]>([]);
 
   filteredCountryList = computed(() => {
     const query = this.regionSearchQuery().toLowerCase().trim();
@@ -334,17 +338,13 @@ export class LadderComponent implements OnInit {
     const players = this.currentTab() === 'solo' ? this.soloPlayers() : this.teamPlayers();
     const region = this.selectedRegion();
     const query = this.playerSearchQuery().toLowerCase().trim();
-    
     let filtered = players;
-    
     if (region !== '全部') {
       filtered = filtered.filter(p => p.region === region);
     }
-    
     if (query) {
       filtered = filtered.filter(p => p.name.toLowerCase().includes(query));
     }
-    
     return filtered;
   });
 
@@ -355,26 +355,43 @@ export class LadderComponent implements OnInit {
         this.currentTab.set(tab);
       }
     });
+    this.loadLeaderboard();
   }
 
-  soloPlayers = signal<Player[]>([
-    { rank: 1, name: 'Vigoss', avatar: 'assets/images/avatars/Vigoss.png', level: 99, points: 8450, winRate: 68.5, games: 1240, trend: 'up', trendValue: 25, signatureHeroes: ['qop', 'puck', 'mirana'], region: '俄罗斯', status: 'online' },
-    { rank: 2, name: 'YaphetS', avatar: 'assets/images/avatars/YaphetS.png', level: 95, points: 8320, winRate: 65.2, games: 980, trend: 'same', trendValue: 0, signatureHeroes: ['sf', 'storm', 'invoker'], region: '中国', status: 'ingame' },
-    { rank: 3, name: 'Burning', avatar: 'assets/images/avatars/Burning.png', level: 92, points: 8150, winRate: 62.8, games: 1560, trend: 'up', trendValue: 12, signatureHeroes: ['am', 'morph', 'jugg'], region: '中国', status: 'online' },
-    { rank: 4, name: 'Merlini', avatar: 'assets/images/avatars/Merlini.png', level: 88, points: 7980, winRate: 59.4, games: 850, trend: 'down', trendValue: 15, signatureHeroes: ['zeus', 'silencer', 'wind'], region: '美国', status: 'offline' },
-    { rank: 5, name: 'Loda', avatar: 'assets/images/avatars/Loda.png', level: 85, points: 7850, winRate: 58.9, games: 1120, trend: 'up', trendValue: 8, signatureHeroes: ['spectre', 'tiny', 'slardar'], region: '瑞典', status: 'online' },
-    { rank: 6, name: 'Dendi', avatar: 'assets/images/avatars/Dendi.png', level: 82, points: 7720, winRate: 57.5, games: 1340, trend: 'down', trendValue: 5, signatureHeroes: ['pudge', 'puck', 'rubick'], region: '乌克兰', status: 'ingame' },
-    { rank: 7, name: 'Puppey', avatar: 'assets/images/avatars/Puppey.png', level: 80, points: 7650, winRate: 56.8, games: 1450, trend: 'up', trendValue: 18, signatureHeroes: ['chen', 'enigma', 'enchantress'], region: '爱沙尼亚', status: 'online' },
-    { rank: 8, name: 'KuroKy', avatar: 'assets/images/avatars/KuroKy.png', level: 78, points: 7580, winRate: 55.4, games: 1280, trend: 'same', trendValue: 0, signatureHeroes: ['rubick', 'visage', 'io'], region: '德国', status: 'offline' },
-    { rank: 9, name: 'Fear', avatar: 'assets/images/avatars/Fear.png', level: 75, points: 7450, winRate: 54.2, games: 1620, trend: 'down', trendValue: 10, signatureHeroes: ['sven', 'clinkz', 'lycan'], region: '美国', status: 'online' },
-    { rank: 10, name: 'Zhou', avatar: 'assets/images/avatars/Zhou.png', level: 72, points: 7380, winRate: 53.8, games: 1150, trend: 'up', trendValue: 22, signatureHeroes: ['luna', 'gyro', 'weaver'], region: '中国', status: 'ingame' },
-  ]);
-
-  teamPlayers = signal<Player[]>([
-    { rank: 1, name: 'Natus Vincere', avatar: 'assets/images/avatars/NaVi.png', level: 50, points: 9200, winRate: 72.5, games: 450, trend: 'up', trendValue: 45, signatureHeroes: ['pudge', 'chen', 'enigma'], region: '乌克兰', status: 'online' },
-    { rank: 2, name: 'Alliance', avatar: 'assets/images/avatars/Alliance.png', level: 48, points: 8950, winRate: 70.2, games: 380, trend: 'up', trendValue: 30, signatureHeroes: ['np', 'puck', 'io'], region: '瑞典', status: 'ingame' },
-    { rank: 3, name: 'EHOME', avatar: 'assets/images/avatars/EHOME.png', level: 45, points: 8800, winRate: 68.8, games: 520, trend: 'down', trendValue: 15, signatureHeroes: ['tiny', 'wisp', 'doom'], region: '中国', status: 'offline' },
-    { rank: 4, name: 'LGD Gaming', avatar: 'assets/images/avatars/LGD.png', level: 42, points: 8650, winRate: 66.4, games: 480, trend: 'same', trendValue: 0, signatureHeroes: ['sf', 'magnus', 'ds'], region: '中国', status: 'online' },
-    { rank: 5, name: 'Invictus Gaming', avatar: 'assets/images/avatars/IG.png', level: 40, points: 8500, winRate: 65.1, games: 410, trend: 'up', trendValue: 20, signatureHeroes: ['ta', 'brew', 'tide'], region: '中国', status: 'ingame' },
-  ]);
+  loadLeaderboard() {
+    this.loadError.set('');
+    this.ladderApi.getLeaderboard(50, 1).subscribe({
+      next: (res) => {
+        const list = (res?.list || []).map((r, index) => {
+          const games = (r.wins || 0) + (r.losses || 0);
+          const streak = r.current_win_streak || 0;
+          return {
+            rank: index + 1,
+            name: r.userName,
+            avatar: '',
+            level: r.rank_level,
+            points: r.score,
+            winRate: r.winRate,
+            games,
+            trend: (streak > 0 ? 'up' : 'same') as Player['trend'],
+            trendValue: Math.abs(streak),
+            signatureHeroes: [] as string[],
+            region: '全部',
+            status: 'offline' as const,
+            rankTitle: r.rank_title,
+            rankCode: r.rank_code,
+          };
+        });
+        this.soloPlayers.set(list);
+        this.teamPlayers.set([]);
+        this.isLoaded.set(true);
+      },
+      error: (err) => {
+        this.loadError.set(err?.message || '天梯排行榜加载失败');
+        this.soloPlayers.set([]);
+        this.teamPlayers.set([]);
+        this.isLoaded.set(true);
+      },
+    });
+  }
 }

@@ -3,6 +3,7 @@
  * 解析 War3Bot 保存的 wuxiancong 录像数据（match_*.dat），
  * 按时间轴实时还原英雄 3D 坐标、朝向、动画序列、等级、属性、6 格物品栏、4 技能等级、金钱与击杀补刀数据。
  */
+import { getDotaHeroStats, heroAttrsAtLevel } from './dota-heroes-archive';
 
 export interface ReplayMatchSummary {
   fileName: string;
@@ -397,6 +398,18 @@ export class ReplayTimelineEngine {
       pushSnapshot(timeMs);
     };
 
+    /** 截断仍覆盖 timeMs 的行走关键帧（停止/新指令时必须切断，否则 isMoving 一直为 true） */
+    const cutMoveKeyframesAt = (timeMs: number) => {
+      for (const kf of this.moveKeyframes) {
+        if (timeMs > kf.t0 && timeMs < kf.t1) {
+          const r = (timeMs - kf.t0) / Math.max(1, kf.t1 - kf.t0);
+          kf.x1 = kf.x0 + (kf.x1 - kf.x0) * r;
+          kf.y1 = kf.y0 + (kf.y1 - kf.y0) * r;
+          kf.t1 = timeMs;
+        }
+      }
+    };
+
     const advanceHeroTo = (t: number) => {
       if (moveEndT > moveStartT && t > moveStartT) {
         const clampedT = Math.min(t, moveEndT);
@@ -494,6 +507,7 @@ export class ReplayTimelineEngine {
         if (pointCmd) setBasicCommand(t, pointCmd);
         if (Math.abs(ax) > 1 || Math.abs(ay) > 1) {
           advanceHeroTo(t);
+          cutMoveKeyframesAt(t);
           const dist = Math.hypot(ax - curX, ay - curY);
           if (dist > 8) {
             curFacing = Math.atan2(ay - curY, ax - curX);
@@ -513,7 +527,9 @@ export class ReplayTimelineEngine {
         if (immCmd) {
           if (immCmd === 'stop' || immCmd === 'hold') {
             advanceHeroTo(t);
+            cutMoveKeyframesAt(t);
             moveEndT = 0;
+            moveStartT = t;
           }
           setBasicCommand(t, immCmd);
           continue;
@@ -823,13 +839,13 @@ export class ReplayTimelineEngine {
         ) {
           trailPoints.push({ x, y });
         }
-      } else if (t >= kf.t0 && t <= kf.t1) {
+      } else if (t >= kf.t0 && t < kf.t1) {
         const r = (t - kf.t0) / Math.max(1, kf.t1 - kf.t0);
         x = kf.x0 + (kf.x1 - kf.x0) * r;
         y = kf.y0 + (kf.y1 - kf.y0) * r;
         facingRad = kf.facingRad;
         sequence = kf.anim;
-        isMoving = kf.anim === 'Walk';
+        isMoving = kf.anim === 'Walk' || kf.anim === 'Attack Walk Stand Spin';
         trailPoints.push({ x, y });
         break;
       } else {
@@ -846,20 +862,23 @@ export class ReplayTimelineEngine {
 
     const heroCfg = HERO_MODEL_MAP[this.payload.heroCode] || HERO_MODEL_MAP['Nbbc'];
     const lv = snap.level;
-    const strBase = Math.round(20 + (lv - 1) * 1.9);
-    const agiBase = Math.round(26 + (lv - 1) * 2.85);
-    const intBase = Math.round(14 + (lv - 1) * 1.4);
+    // --- AI 修改开始 [HERO-STATS-ARCHIVE]：从 DotA 6.83d UnitBalance 档案取初始/成长，纠正写死主宰三维导致血蓝错误 ---
+    const heroStats = getDotaHeroStats(this.payload.heroCode) || getDotaHeroStats('Nbbc')!;
+    const baseAttrs = heroAttrsAtLevel(heroStats, lv);
+    const strBase = Math.round(baseAttrs.str);
+    const agiBase = Math.round(baseAttrs.agi);
+    const intBase = Math.round(baseAttrs.int);
 
     let strBonus = snap.attrBonusLevel * 2;
     let agiBonus = snap.attrBonusLevel * 2;
     let intBonus = snap.attrBonusLevel * 2;
     let damageBonus = 0;
     let armorBonus = 0;
-    let moveSpeed = 305;
+    let moveSpeed = heroStats.moveSpeed || 300;
 
     for (const item of snap.inventory) {
       if (!item) continue;
-      if (item.code === 'I020' || item.code === 'I012' || item.code === 'I015') moveSpeed = 355;
+      if (item.code === 'I020' || item.code === 'I012' || item.code === 'I015') moveSpeed = Math.max(moveSpeed, 355);
       if (item.code === 'I00M') {
         damageBonus += 9;
         armorBonus += 5;
@@ -876,17 +895,23 @@ export class ReplayTimelineEngine {
       }
     }
 
-    const maxHp = 150 + (strBase + strBonus) * 19;
-    const maxMp = (intBase + intBonus) * 13;
+    const strTotal = strBase + strBonus;
+    const agiTotal = agiBase + agiBonus;
+    const intTotal = intBase + intBonus;
+    const maxHp = Math.round(heroStats.baseHp + strTotal * 19);
+    const maxMp =
+      heroStats.realMp > 0
+        ? Math.round(heroStats.realMp + (intTotal - heroStats.intBase) * 13)
+        : Math.round(heroStats.baseMp + intTotal * 13);
+    const primaryAttr = heroStats.primary || heroCfg.primary;
     const primaryStat =
-      heroCfg.primary === 'str'
-        ? strBase + strBonus
-        : heroCfg.primary === 'int'
-          ? intBase + intBonus
-          : agiBase + agiBonus;
-    const damageMin = 24 + primaryStat;
-    const damageMax = 28 + primaryStat;
-    const armor = Math.round((1 + (agiBase + agiBonus) * 0.14) * 10) / 10;
+      primaryAttr === 'str' ? strTotal : primaryAttr === 'int' ? intTotal : agiTotal;
+    const damageMin = Math.round(heroStats.attackDmgBase + primaryStat);
+    const damageMax = Math.round(
+      heroStats.attackDmgBase + heroStats.attackDice * heroStats.attackSides + primaryStat
+    );
+    const armor = Math.round((heroStats.baseArmor + agiTotal * 0.14) * 10) / 10;
+    // --- AI 修改结束 [HERO-STATS-ARCHIVE] ---
 
     // 3. 计算金钱（初始 825 + 出兵后每 0.6 秒 1 金 + 补刀/击杀奖励 - 购买花费）
     const passiveGold =
@@ -944,7 +969,15 @@ export class ReplayTimelineEngine {
       facingRad,
       sequence,
       isMoving,
-      basicCommand: snap.basicCommand || '',
+      // 到达/站立时不再锁死「移动」：仅在真正行走/攻击移动中高亮 move/attack/patrol
+      basicCommand: (() => {
+        const raw = (snap.basicCommand || '') as BasicCommandId;
+        if (!isMoving && (raw === 'move' || raw === 'attack' || raw === 'patrol')) {
+          return 'stop';
+        }
+        if (isMoving && !raw) return 'move';
+        return raw;
+      })(),
       level: lv,
       // --- AI 修改开始 [XP-BAR-NATIVE]：录像无精确经验值时不再用时间伪造进度（旧公式 t%60000 会导致经验条一直走） ---
       xpPercent: lv >= 25 ? 100 : 0,

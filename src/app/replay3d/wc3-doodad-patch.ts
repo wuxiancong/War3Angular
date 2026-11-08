@@ -118,15 +118,46 @@ export function patchWar3MapViewerMap(deps: DoodadPatchDeps): void {
       // --- AI 修改结束 [DOODAD-PATH]：去重候选模型路径，避免重复请求同一路径 ---
     };
 
+    // --- AI 修改开始 [DOODAD-FILTER-V3]：去掉泉水/基地灌木矮树（ZPsh/APbs 等）、花丛蘑菇芦苇、技能特效与路径块；保留主树 ATtr 与岩石图腾 ---
+    const shouldSkipDoodad = (id: string, row: any, file: string): boolean => {
+      const id4 = String(id || '').replace(/\0/g, '').trim();
+      const cat = String(row.string?.('category') || row.string?.('doodClass') || '');
+      const name = String(row.string?.('Name') || '');
+      const fileNorm = String(file || '').replace(/\//g, '\\');
+      // 路径/视野辅助（含 TeamColor 色块 LOSBlocker）
+      if (cat === 'P') return true;
+      if (/^(YTlb|YTpb|YTfc|YTpc)$/i.test(id4)) return true;
+      if (/LOSBlocker|PathingBlocker|BlightDoodad|InvisiblePlatform|ClickHelper/i.test(fileNorm)) return true;
+      if (/WESTRING_DEST_LOS|WESTRING_DEST_PATH/i.test(name)) return true;
+      // DotA 自定义：D00B=Ruins_Shrub 变体、D009=FaerieFire、D000/D001 辅助
+      if (/^(D00B|D009|D000|D001)$/i.test(id4)) return true;
+      if (/^Abilities\\/i.test(fileNorm) || /FaerieFire/i.test(fileNorm)) return true;
+      // 灌木/花/蘑菇/芦苇/冠盖矮树 ID（截图里的「小树木」）
+      if (
+        /^(ZPsh|ZPfw|APbs|CPbs|YPbs|APms|CPms|CPct|APct|NTtc|ATtc|ZPru|CPlp|LPwh)$/i.test(id4)
+      ) {
+        return true;
+      }
+      if (
+        /Ruins_Shrub|Ruins_Flower|Ruins_Rush|AshenBush|AshenShrooms|AshenCanopyTree|FelwoodBush|FelwoodCatTail|AshenCatTail|Cityscape\\?Plant|Wheat|CornField|Lilypad|GlowRunes/i.test(
+          fileNorm
+        )
+      ) {
+        return true;
+      }
+      // AshenBush0 等：Bush 后紧跟数字，不能用 \b
+      if (/SkullPile|Bones|Bush|Shrub|Flower|Shroom|CatTail|CanopyTree/i.test(fileNorm)) return true;
+      return false;
+    };
+    // --- AI 修改结束 [DOODAD-FILTER-V3] ---
+
     for (const doodad of parser.doodads) {
       try {
         const row = this.viewer.doodadsData.getRow(doodad.id);
         if (!row) continue;
         let file = row.string('file');
         if (!file) continue;
-        // --- AI 修改开始 [DOODAD-FILTER]：跳过地图编辑器专用隐藏辅助物（视野阻断器、路径阻断器、荒芜地表标记） ---
-        if (/LOSBlocker|PathingBlocker|BlightDoodad/i.test(file)) continue;
-        // --- AI 修改结束 [DOODAD-FILTER]：跳过地图编辑器专用隐藏辅助物（视野阻断器、路径阻断器、荒芜地表标记） ---
+        if (shouldSkipDoodad(String(doodad.id || ''), row, file)) continue;
         if (file.toLowerCase().endsWith('.mdl')) file = file.slice(0, -4);
         const dir = row.string('dir');
         const paths = buildCandidates(dir, file, doodad.variation, row.number('numVar') || 1);
@@ -188,10 +219,19 @@ export function patchWar3MapViewerMap(deps: DoodadPatchDeps): void {
     }
     const corners = this.corners;
     if (!corners?.[row]?.[column] || !corners?.[row + 1]?.[column + 1]) return false;
-    const bottomLeft = corners[row][column].layerHeight;
-    const bottomRight = corners[row][column + 1].layerHeight;
-    const topLeft = corners[row + 1][column].layerHeight;
-    const topRight = corners[row + 1][column + 1].layerHeight;
+    const c00 = corners[row][column];
+    const c10 = corners[row][column + 1];
+    const c01 = corners[row + 1][column];
+    const c11 = corners[row + 1][column + 1];
+    // --- AI 修改开始 [RAMP-AS-SLOPE]：带 ramp 标记的层差格用地面网格三角坡表现，避免当成悬崖 mesh 后看起来「没坡度」 ---
+    if (c00.ramp || c10.ramp || c01.ramp || c11.ramp) {
+      return false;
+    }
+    // --- AI 修改结束 [RAMP-AS-SLOPE] ---
+    const bottomLeft = c00.layerHeight;
+    const bottomRight = c10.layerHeight;
+    const topLeft = c01.layerHeight;
+    const topRight = c11.layerHeight;
     return (
       bottomLeft !== bottomRight || bottomLeft !== topLeft || bottomLeft !== topRight
     );
@@ -204,7 +244,7 @@ export function patchWar3MapViewerMap(deps: DoodadPatchDeps): void {
     topRightLayer: number,
     base: number
   ): string {
-    // --- AI 修改开始 [CLIFF-HEIGHT]：层差放宽到 0..4（A..E）。过严 clamp 到 2 会在高台/坡缘生成过矮悬崖 mesh，视觉上像“坡度直接隆起” ---
+    // --- AI 修改开始 [CLIFF-HEIGHT]：层差 0..4（A..E）。原版多为 A..C；过严 clamp=2 会在高台缘生成过矮 mesh 呈“坡鼓包”，过高字母无模型会破洞 ---
     const clampChar = (layer: number) =>
       String.fromCharCode(65 + Math.max(0, Math.min(4, layer - base)));
     // --- AI 修改结束 [CLIFF-HEIGHT] ---
@@ -217,30 +257,271 @@ export function patchWar3MapViewerMap(deps: DoodadPatchDeps): void {
   };
 
   const origCliffGroundIndex = War3MapViewerMap.prototype.cliffGroundIndex;
-  War3MapViewerMap.prototype.cliffGroundIndex = function cliffGroundIndexSafe(
+
+  // --- AI 修改开始 [CORNER-TEXTURE-MARBLE]：
+  // 绿方块根因有两层：
+  // 1) CCgr.groundTile=Cgrs，悬崖邻格强制刷亮绿草；
+  // 2) 高台内部 w3e 仍写着 Cgrs/Zvin，邻居也是草皮，marbleNear 数不到 Clvg（边缘才被悬崖逻辑盖成大理石）。
+  // 处理：CCgr→Clvg；并把「近悬崖的高台草皮/暗草绿」烘焙+查询时都换成 Clvg。
+  const tileIndexById = function tileIndexById(this: any, tileId: string): number {
+    const tilesets = this.tilesets || [];
+    for (let i = 0, l = tilesets.length; i < l; i++) {
+      if (tilesets[i]?.string?.('tileID') === tileId) return i;
+    }
+    return -1;
+  };
+
+  const marbleTileIndex = function marbleTileIndex(this: any): number {
+    const clvg = tileIndexById.call(this, 'Clvg');
+    if (clvg >= 0) return clvg;
+    return tileIndexById.call(this, 'Zbks');
+  };
+
+  /** 角点是否处于悬崖邻接（与 cornerTexture 原版环一致） */
+  const isCliffAdjacentCorner = function isCliffAdjacentCorner(
+    map: any,
+    column: number,
+    row: number
+  ): boolean {
+    const columns = map.columns;
+    const rows = map.rows;
+    for (let y = -1; y < 1; y++) {
+      for (let x = -1; x < 1; x++) {
+        const cc = column + x;
+        const rr = row + y;
+        if (cc > 0 && cc < columns - 1 && rr > 0 && rr < rows - 1 && map.isCliff(cc, rr)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  };
+
+  const nearCliffCell = function nearCliffCell(
+    map: any,
+    column: number,
+    row: number,
+    radius: number
+  ): boolean {
+    for (let dy = -radius; dy <= radius; dy++) {
+      for (let dx = -radius; dx <= radius; dx++) {
+        const cc = column + dx;
+        const rr = row + dy;
+        if (cc > 0 && cc < map.columns - 1 && rr > 0 && rr < map.rows - 1 && map.isCliff(cc, rr)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  };
+
+  /**
+   * 高台大理石语境：自身/邻格已是 Clvg/Zbks，或邻格是悬崖边（渲染时已是大理石）。
+   * 用于把岛状 Cgrs/Zvin 绿方块清掉。
+   */
+  const countMarbleContext = function countMarbleContext(
+    map: any,
+    column: number,
+    row: number,
+    radius: number,
+    clvg: number,
+    zbks: number
+  ): number {
+    const corners = map.corners;
+    let n = 0;
+    for (let dy = -radius; dy <= radius; dy++) {
+      for (let dx = -radius; dx <= radius; dx++) {
+        if (!dx && !dy) continue;
+        const c = corners[row + dy]?.[column + dx];
+        if (!c) continue;
+        const t = c.groundTexture | 0;
+        if ((clvg >= 0 && t === clvg) || (zbks >= 0 && t === zbks)) {
+          n++;
+          continue;
+        }
+        if (isCliffAdjacentCorner(map, column + dx, row + dy)) n++;
+      }
+    }
+    return n;
+  };
+
+  const shouldForceMarbleTile = function shouldForceMarbleTile(
+    map: any,
+    column: number,
+    row: number,
+    tex: number,
+    cgrs: number,
+    zvin: number,
+    clvg: number,
+    zbks: number,
+    marble: number
+  ): boolean {
+    if (marble < 0) return false;
+    if (tex !== cgrs && (zvin < 0 || tex !== zvin)) return false;
+    const corner = map.corners[row][column];
+    if (!corner) return false;
+    const ctx1 = countMarbleContext(map, column, row, 1, clvg, zbks);
+    if (ctx1 >= 2) return true;
+    // 高台内部岛：近悬崖且周围有大理石语境（含悬崖边“伪大理石”）
+    if (
+      (corner.layerHeight | 0) >= 10 &&
+      nearCliffCell(map, column, row, 2) &&
+      countMarbleContext(map, column, row, 2, clvg, zbks) >= 1
+    ) {
+      return true;
+    }
+    return false;
+  };
+
+  /** 地面 mesh 采样前：高台 Cgrs/Zvin → Clvg，并洪水填充被大理石围住的草皮岛 */
+  const bakeMarblePlatformTextures = function bakeMarblePlatformTextures(map: any, corners: any[][]) {
+    if (!corners?.length || !map?.tilesets?.length) return;
+    const cgrs = tileIndexById.call(map, 'Cgrs');
+    const zvin = tileIndexById.call(map, 'Zvin');
+    const clvg = tileIndexById.call(map, 'Clvg');
+    const zbks = tileIndexById.call(map, 'Zbks');
+    const marble = marbleTileIndex.call(map);
+    if (marble < 0 || cgrs < 0) return;
+    const rows = corners.length;
+    const cols = corners[0]?.length || 0;
+    const marks: boolean[][] = new Array(rows);
+    for (let row = 0; row < rows; row++) {
+      marks[row] = new Array(cols).fill(false);
+      for (let col = 0; col < cols; col++) {
+        const c = corners[row][col];
+        if (!c) continue;
+        marks[row][col] = shouldForceMarbleTile(
+          map,
+          col,
+          row,
+          c.groundTexture | 0,
+          cgrs,
+          zvin,
+          clvg,
+          zbks,
+          marble
+        );
+      }
+    }
+    // 洪水：仅从种子向外扩最多 3 格，吞掉高台内部绿岛，避免吞掉整片野区森林
+    const seedDist: number[][] = new Array(rows);
+    for (let row = 0; row < rows; row++) {
+      seedDist[row] = new Array(cols);
+      for (let col = 0; col < cols; col++) {
+        seedDist[row][col] = marks[row][col] ? 0 : 99;
+      }
+    }
+    for (let pass = 0; pass < 3; pass++) {
+      let grew = 0;
+      for (let row = 1; row < rows - 1; row++) {
+        for (let col = 1; col < cols - 1; col++) {
+          if (marks[row][col]) continue;
+          const c = corners[row][col];
+          if (!c) continue;
+          const tex = c.groundTexture | 0;
+          if (tex !== cgrs && (zvin < 0 || tex !== zvin)) continue;
+          if ((c.layerHeight | 0) < 10) continue;
+          let near = 0;
+          let best = 99;
+          for (let dy = -1; dy <= 1; dy++) {
+            for (let dx = -1; dx <= 1; dx++) {
+              if (!dx && !dy) continue;
+              const n = corners[row + dy]?.[col + dx];
+              if (!n) continue;
+              const nt = n.groundTexture | 0;
+              const marked = !!marks[row + dy]?.[col + dx];
+              const naturalMarble =
+                nt === marble || nt === clvg || (zbks >= 0 && nt === zbks);
+              if (marked || naturalMarble) {
+                near++;
+                if (marked) best = Math.min(best, seedDist[row + dy][col + dx] + 1);
+                else best = Math.min(best, 1); // 紧贴原生 Clvg/Zbks 的草皮岛
+              }
+            }
+          }
+          if (near >= 2 && best <= 3) {
+            marks[row][col] = true;
+            seedDist[row][col] = best;
+            grew++;
+          }
+        }
+      }
+      if (!grew) break;
+    }
+    let changed = 0;
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        if (!marks[row][col] || !corners[row][col]) continue;
+        corners[row][col].groundTexture = marble;
+        changed++;
+      }
+    }
+    if (changed) {
+      console.info('[wc3] marble bake: replaced grass tiles on platforms', changed);
+    }
+  };
+
+  War3MapViewerMap.prototype.cliffGroundIndex = function cliffGroundIndexMarble(
     this: any,
     whichCliff: number
   ): number {
     if (!this.cliffTilesets?.length) return 0;
     const clamped = Math.max(0, Math.min(this.cliffTilesets.length - 1, whichCliff | 0));
     if (!this.cliffTilesets[clamped]) return 0;
-    return origCliffGroundIndex.call(this, clamped);
+    const idx = origCliffGroundIndex.call(this, clamped);
+    const cgrs = tileIndexById.call(this, 'Cgrs');
+    const marble = marbleTileIndex.call(this);
+    if (marble >= 0 && cgrs >= 0 && idx === cgrs) return marble;
+    return idx;
   };
 
-  // --- AI 修改开始 [CORNER-TEXTURE-NATURAL]：地表网格直接采用地图原生绘制的草皮/泥土贴图，彻底避免因相邻悬崖判定强制覆盖为城镇石砖方块 ---
-  War3MapViewerMap.prototype.cornerTexture = function cornerTextureNatural(
+  War3MapViewerMap.prototype.cornerTexture = function cornerTextureMarble(
     this: any,
     column: number,
     row: number
   ): number {
     const corners = this.corners;
-    const corner = corners?.[row]?.[column];
-    if (!corner) return 0;
+    if (!corners?.[row]?.[column]) return 0;
+    // columns/tilesets 已就绪时，先整图烘焙高台草皮（仅一次；须早于地面 mesh 采样）
+    if (!this.__marblePlatformBaked && this.tilesets?.length && this.columns > 0) {
+      this.__marblePlatformBaked = true;
+      try {
+        bakeMarblePlatformTextures(this, corners);
+      } catch (e) {
+        console.warn('[wc3] marble platform bake failed', e);
+      }
+    }
+    const columns = this.columns;
+    const rows = this.rows;
+    const cgrs = tileIndexById.call(this, 'Cgrs');
+    const zvin = tileIndexById.call(this, 'Zvin');
+    const zbks = tileIndexById.call(this, 'Zbks');
+    const clvg = tileIndexById.call(this, 'Clvg');
+    const marble = marbleTileIndex.call(this);
+
+    for (let y = -1; y < 1; y++) {
+      for (let x = -1; x < 1; x++) {
+        if (column + x > 0 && column + x < columns - 1 && row + y > 0 && row + y < rows - 1) {
+          if (this.isCliff(column + x, row + y)) {
+            let texture = corners[row + y][column + x].cliffTexture;
+            if (texture === 15) texture = 1;
+            return this.cliffGroundIndex(texture);
+          }
+        }
+      }
+    }
+
+    const corner = corners[row][column];
     if (corner.blight) return this.blightTextureIndex;
-    return corner.groundTexture;
+
+    let tex = corner.groundTexture | 0;
+    if (shouldForceMarbleTile(this, column, row, tex, cgrs, zvin, clvg, zbks, marble)) {
+      tex = marble;
+    }
+    return tex;
   };
-  // --- AI 修改结束 [CORNER-TEXTURE-NATURAL]：地表网格直接采用地图原生绘制的草皮/泥土贴图，彻底避免因相邻悬崖判定强制覆盖为城镇石砖方块 ---
-  // --- AI 修改结束 [CLIFF-SAFE]：限制悬崖层级差在 0..2（A..C）内，并确保悬崖边缘裙边与地面亮度和贴图严丝合缝消除方块感 ---
+  // --- AI 修改结束 [CORNER-TEXTURE-MARBLE] ---
+  // --- AI 修改结束 [CLIFF-SAFE] ---
 
   /**
    * Cliff MDX loads can hang / reject (missing geoset, path case). Without
@@ -250,6 +531,74 @@ export function patchWar3MapViewerMap(deps: DoodadPatchDeps): void {
   const origLoadTerrain = War3MapViewerMap.prototype.loadTerrainCliffsAndWater;
   War3MapViewerMap.prototype.loadTerrainCliffsAndWater =
     async function loadTerrainCliffsAndWaterSafe(this: any) {
+      // --- AI 修改开始 [RAMP-HEIGHT-SMOOTH]：在 orig 赋值 this.corners 时原地平滑 ramp（须先于 heightMap 烘焙）。DotA 大量 AAAA 同层斜坡仅靠 ramp 标记，不做平滑则永远是平地 ---
+      const smoothRampHeights = (corners: any[][]) => {
+        if (!corners?.length) return;
+        const rows = corners.length;
+        const cols = corners[0]?.length || 0;
+        const eff: number[][] = new Array(rows);
+        for (let y = 0; y < rows; y++) {
+          eff[y] = new Array(cols);
+          for (let x = 0; x < cols; x++) {
+            const c = corners[y][x];
+            eff[y][x] = (c?.groundHeight || 0) + (c?.layerHeight || 0);
+          }
+        }
+        for (let iter = 0; iter < 5; iter++) {
+          const next = eff.map((r) => r.slice());
+          for (let y = 1; y < rows - 1; y++) {
+            for (let x = 1; x < cols - 1; x++) {
+              if (!corners[y][x]?.ramp) continue;
+              let s = 0;
+              let n = 0;
+              for (let dy = -1; dy <= 1; dy++) {
+                for (let dx = -1; dx <= 1; dx++) {
+                  s += eff[y + dy][x + dx];
+                  n++;
+                }
+              }
+              next[y][x] = s / n;
+            }
+          }
+          for (let y = 1; y < rows - 1; y++) {
+            for (let x = 1; x < cols - 1; x++) {
+              if (corners[y][x]?.ramp) eff[y][x] = next[y][x];
+            }
+          }
+        }
+        for (let y = 0; y < rows; y++) {
+          for (let x = 0; x < cols; x++) {
+            const c = corners[y][x];
+            if (!c?.ramp) continue;
+            c.groundHeight = eff[y][x] - c.layerHeight;
+          }
+        }
+      };
+      let cornersHooked = false;
+      try {
+        Object.defineProperty(this, 'corners', {
+          configurable: true,
+          enumerable: true,
+          get() {
+            return (this as any).__wc3Corners;
+          },
+          set(v: any[][]) {
+            (this as any).__wc3Corners = v;
+            if (!cornersHooked && v?.length) {
+              cornersHooked = true;
+              try {
+                smoothRampHeights(v);
+              } catch (e) {
+                console.warn('[wc3] ramp height smooth failed', e);
+              }
+            }
+          },
+        });
+      } catch (e) {
+        console.warn('[wc3] ramp corners hook skipped', e);
+      }
+      // --- AI 修改结束 [RAMP-HEIGHT-SMOOTH] ---
+
       // --- AI 修改开始 [TERRAIN-LIGHTING]：仅对悬崖垂直岩壁应用法线明暗阴影，保持悬崖水平裙边与相邻地面 1.0 等亮无缝衔接，彻底消除岩石周围方块色差 ---
       try {
         const viewer = this.viewer;
@@ -406,6 +755,19 @@ export function patchWar3MapViewerMap(deps: DoodadPatchDeps): void {
         ]);
       } catch (e) {
         console.warn('[wc3] loadTerrainCliffsAndWater failed', e);
+      }
+      // 还原 corners 为普通可写属性，避免后续逻辑踩到 hook getter
+      try {
+        const baked = (this as any).__wc3Corners ?? this.corners;
+        Object.defineProperty(this, 'corners', {
+          value: baked,
+          writable: true,
+          configurable: true,
+          enumerable: true,
+        });
+        delete (this as any).__wc3Corners;
+      } catch {
+        /* ignore */
       }
       if (!this.terrainReady) {
         // Should already be set before cliff awaits; keep safe.

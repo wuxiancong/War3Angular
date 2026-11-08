@@ -1,0 +1,1 @@
+extract "D:\Maps\DotA v6.83d.w3x" war3map.w3e "D:\Qt\workspace\War3Angular\scratch\dota683_w3e"
