@@ -62,9 +62,9 @@ export class Wc3MdxViewer {
   terrainReady = false;
   simEnabled = true;
   simUnitCount = 0;
-  // --- AI 修改开始 [SCENE-SIM]：支持倍速同步兵线/野怪/神符模拟器时钟 ---
-  simSpeed = 1;
-  // --- AI 修改结束 [SCENE-SIM]：支持倍速同步兵线/野怪/神符模拟器时钟 ---
+  // --- AI 修改开始 [SCENE-SIM]：默认 0，避免录像未就绪时墙钟空转刷兵；有 timeline 时由 syncSimGameTime 驱动 ---
+  simSpeed = 0;
+  // --- AI 修改结束 [SCENE-SIM] ---
   syncConfig?: SceneSyncConfig;
 
   private raf = 0;
@@ -276,10 +276,12 @@ export class Wc3MdxViewer {
   }
 
   async load(): Promise<void> {
+    // --- AI 修改开始 [BOOT-FAST-TERRAIN]：基础 SLK 与 named w3e 并行拉取；地图对象一出就清屏开环，地形 mesh 就绪立即真正开渲 ---
+    const namedPromise = loadDotaNamedMapFiles();
     await this.waitBaseFiles();
     this.patchMissingTilesets();
 
-    const named = await loadDotaNamedMapFiles();
+    const named = await namedPromise;
     const War3Map = (Wc3MdxViewer as any)._War3Map;
     installMemoryMapLoader(War3Map, named);
 
@@ -289,13 +291,6 @@ export class Wc3MdxViewer {
       throw new Error('War3MapViewer.loadMap 失败');
     }
 
-    // Terrain first — start rendering as soon as the heightmap exists.
-    await this.waitUntil(() => !!map.terrainReady, 60000, '地形网格');
-    if (!map.cliffsReady) {
-      map.cliffModels = (map.cliffModels || []).filter(Boolean);
-      map.cliffsReady = true;
-    }
-    this.terrainReady = true;
     this.scene = map.worldScene;
     if (this.scene?.color) {
       this.scene.color[0] = 0.05;
@@ -303,14 +298,24 @@ export class Wc3MdxViewer {
       this.scene.color[2] = 0.06;
     }
     this.onResize();
-
-    // Aim camera at radiant fountain — classic WC3 high angle.
+    // 先开渲染环（清色/空景），避免等地形时一直黑屏
     const spawn = this.options.heroSpawn || RADIANT_SPAWN;
-    const z0 = this.sampleHeight(spawn.x, spawn.y);
-    this.target = [spawn.x, spawn.y, z0 + 90];
+    this.target = [spawn.x, spawn.y, 900];
     this.applyWc3GameplayCamera();
     this.updateCamera();
     this.startLoop();
+
+    // Terrain first — flag ready as soon as the heightmap exists.
+    await this.waitUntil(() => !!map.terrainReady, 60000, '地形网格');
+    if (!map.cliffsReady) {
+      map.cliffModels = (map.cliffModels || []).filter(Boolean);
+      map.cliffsReady = true;
+    }
+    this.terrainReady = true;
+    const z0 = this.sampleHeight(spawn.x, spawn.y);
+    this.target = [spawn.x, spawn.y, z0 + 90];
+    this.updateCamera();
+    // --- AI 修改结束 [BOOT-FAST-TERRAIN] ---
 
     // Brief wait for trees; never block on whenAllLoaded (missing doodads hang forever).
     await Promise.race([
@@ -370,9 +375,10 @@ export class Wc3MdxViewer {
         scale: 1.1,
       },
       ancient: {
-        radiant: 'Buildings\\NightElf\\TreeofLife\\TreeofLife.mdx',
-        dire: 'Buildings\\Undead\\Necropolis\\Necropolis.mdx',
-        scale: 1.35,
+        // DotA 6.83d UnitUI: etol → war3mapImported\final_export（世界树），非原版 TreeofLife
+        radiant: 'war3mapImported\\final_export.mdx',
+        dire: 'Doodads\\Cinematic\\LichKing\\LichKing.mdx',
+        scale: 2, // radiant etol UnitUI modelScale；天灾 unpl 在 buildings.json 里为 6.6
       },
       rax: {
         radiant: 'Buildings\\Orc\\GreatHall\\GreatHall.mdx',
@@ -516,6 +522,8 @@ export class Wc3MdxViewer {
     this.sim.registerTowers(this.placedTowers);
     // --- AI 修改结束 [TOWER-COMBAT]：将场景中的防御塔注册到模拟器中参与索敌攻击与防穿模碰撞 ---
     await this.sim.bootstrap();
+    // 等录像号角时钟来再推进；禁止初始化后墙钟空转
+    this.simSpeed = 0;
     this.simUnitCount = this.sim.units.length;
   }
 
@@ -849,6 +857,11 @@ export class Wc3MdxViewer {
   setSimSpeed(speed: number): void {
     this.simSpeed = Math.max(0, speed);
   }
+
+  /** 对齐 DotA 场景模拟到录像「号角后」对局时钟；暂停时勿用墙钟空转刷兵 */
+  syncSimGameTime(gameTimeMs: number): void {
+    this.sim?.syncGameClock(gameTimeMs);
+  }
   // --- AI 修改结束 [HERO-SYNC]：新增动态切换英雄 3D 模型与获取兵线/野怪单位列表接口 ---
 
   moveHeroTo(_x: number, _y: number): void {
@@ -980,37 +993,50 @@ export class Wc3MdxViewer {
     }
   }
 
-  // --- AI 修改开始 [TERRAIN-BILINEAR]：双线性插值采样地面高度，避免坡度上单位阶梯式“贴地隆起” ---
+  // --- AI 修改开始 [TERRAIN-TRI-HEIGHT]：与 mdx-m3-viewer 地面四边形剖分一致的三角插值贴地（斜坡/高台不再用简单双线性错位） ---
   sampleHeight(x: number, y: number): number {
     const map = this.viewer.map;
     if (!map?.corners?.length || !map.centerOffset) return 0;
-    const fx = (x - map.centerOffset[0]) / 128;
-    const fy = (y - map.centerOffset[1]) / 128;
-    const col = Math.floor(fx);
-    const row = Math.floor(fy);
-    const tx = fx - col;
-    const ty = fy - row;
-    const h00 = this.cornerWorldZ(map, row, col);
-    const h10 = this.cornerWorldZ(map, row, col + 1);
-    const h01 = this.cornerWorldZ(map, row + 1, col);
-    const h11 = this.cornerWorldZ(map, row + 1, col + 1);
-    const hx0 = h00 * (1 - tx) + h10 * tx;
-    const hx1 = h01 * (1 - tx) + h11 * tx;
-    return hx0 * (1 - ty) + hx1 * ty;
+    const columns = map.mapSize?.[0] || map.corners[0]?.length || 0;
+    const rows = map.mapSize?.[1] || map.corners.length || 0;
+    if (columns < 2 || rows < 2) return 0;
+
+    // 与 map.js groundNormal / 注释 heightAt 同一套格子坐标
+    let fx = (x - map.centerOffset[0]) / 128;
+    let fy = (y - map.centerOffset[1]) / 128;
+    fx = Math.max(0, Math.min(columns - 1.0001, fx));
+    fy = Math.max(0, Math.min(rows - 1.0001, fy));
+    const col = fx | 0;
+    const row = fy | 0;
+    const sqX = fx - col;
+    const sqY = fy - row;
+
+    const h00 = this.cornerHeightUnits(map, row, col);
+    const h10 = this.cornerHeightUnits(map, row, col + 1);
+    const h01 = this.cornerHeightUnits(map, row + 1, col);
+    const h11 = this.cornerHeightUnits(map, row + 1, col + 1);
+
+    // face: (0,0)-(1,0)-(0,1) 与 (1,0)-(1,1)-(0,1)，与地面 index buffer 一致
+    let heightUnits: number;
+    if (sqX + sqY < 1) {
+      heightUnits = h00 + (h10 - h00) * sqX + (h01 - h00) * sqY;
+    } else {
+      heightUnits = h11 + (h10 - h11) * (1 - sqY) + (h01 - h11) * (1 - sqX);
+    }
+    return heightUnits * 128;
   }
 
-  private cornerWorldZ(map: any, row: number, col: number): number {
-    const corner = map.corners?.[row]?.[col];
-    if (!corner) {
-      const clampRow = Math.max(0, Math.min((map.corners?.length || 1) - 1, row));
-      const clampCol = Math.max(0, Math.min((map.corners?.[0]?.length || 1) - 1, col));
-      const c = map.corners?.[clampRow]?.[clampCol];
-      if (!c) return 0;
-      return (c.groundHeight + c.layerHeight - 2) * 128;
-    }
-    return (corner.groundHeight + corner.layerHeight - 2) * 128;
+  /** cornerHeights 编码：groundHeight + layerHeight - 2（与 heightMap 纹理一致） */
+  private cornerHeightUnits(map: any, row: number, col: number): number {
+    const maxR = (map.corners?.length || 1) - 1;
+    const maxC = (map.corners?.[0]?.length || 1) - 1;
+    const r = Math.max(0, Math.min(maxR, row));
+    const c = Math.max(0, Math.min(maxC, col));
+    const corner = map.corners?.[r]?.[c];
+    if (!corner) return 0;
+    return corner.groundHeight + corner.layerHeight - 2;
   }
-  // --- AI 修改结束 [TERRAIN-BILINEAR] ---
+  // --- AI 修改结束 [TERRAIN-TRI-HEIGHT] ---
 
 
   /** Approximate ground pick: ray vs z = sampleHeight plane near target. */
@@ -1142,8 +1168,14 @@ export class Wc3MdxViewer {
       p = 'Units/' + p.slice('units/'.length);
     }
     // --- AI 修改开始 [WC3-ASSETS-CASE]：规范化魔兽3模型与贴图路径大小写，修复小兵/商人/雕像/岩石因路径大小写不匹配变成白模的问题 ---
+    if (/^war3mapimported\//i.test(p)) {
+      p = 'war3mapImported/' + p.slice('war3mapImported/'.length);
+    }
     if (/^doodads\//i.test(p)) {
       p = 'Doodads/' + p.slice('doodads/'.length);
+      p = p.replace(/\/cinematic\//i, '/Cinematic/');
+      p = p.replace(/\/lichking\//gi, '/LichKing/');
+      p = p.replace(/\/LichKing\/lichking\.mdxbin$/i, '/LichKing/LichKing.mdxbin');
     }
     if (/^textures\//i.test(p)) {
       p = 'Textures/' + p.slice('textures/'.length);

@@ -6,7 +6,7 @@
   "creepMoveSpeed": 325,
   "neutralRefreshMs": 60000,
   "runeRefreshMs": 120000,
-  "startCreepsAtMs": 0,
+  "startCreepsAtMs": 90000,
   "startNeutralsAtMs": 30000,
   "lanes": [
     {

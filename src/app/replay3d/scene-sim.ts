@@ -164,7 +164,7 @@ const DEFAULT_CFG: SceneSyncConfig = {
   // --- AI 修改开始 [RUNE-SIM]：默认每 2 分钟（120000ms）刷新河道神符，并提供 war3map.j 标准神符点兜底 ---
   runeRefreshMs: 120000,
   // --- AI 修改结束 [RUNE-SIM]：默认每 2 分钟（120000ms）刷新河道神符，并提供 war3map.j 标准神符点兜底 ---
-  startCreepsAtMs: 0,
+  startCreepsAtMs: 90000,
   startNeutralsAtMs: 30000,
   lanes: [],
   neutralCamps: [],
@@ -407,14 +407,52 @@ export class DotaSceneSim {
 
   async bootstrap(): Promise<void> {
     if (!this.cfg.enabled) return;
-    await this.refreshEmptyNeutralCamps(true);
-    await this.spawnWave();
-    // --- AI 修改开始 [RUNE-SIM]：开局初始化 0:00 双赏金神符并设定下次刷新时间 ---
-    await this.refreshRunes(true);
-    this.nextWaveAt = this.cfg.creepWaveIntervalMs;
-    this.nextNeutralAt = this.cfg.neutralRefreshMs;
-    this.nextRuneAt = this.cfg.runeRefreshMs || 120000;
-    // --- AI 修改结束 [RUNE-SIM]：开局初始化 0:00 双赏金神符并设定下次刷新时间 ---
+    // --- AI 修改开始 [CREEP-AFTER-HORN]：号角后 90s 才出第一波兵；bootstrap 不再立刻 spawnWave，避免家门口开局堵兵 ---
+    this.nextWaveAt = Math.max(0, this.cfg.startCreepsAtMs ?? 90000);
+    this.nextNeutralAt = Math.max(0, this.cfg.startNeutralsAtMs ?? 30000);
+    this.nextRuneAt = 0;
+    // 野怪/神符可在对局时钟推进到点后再刷；此处不预刷兵线
+    // --- AI 修改结束 [CREEP-AFTER-HORN] ---
+  }
+
+  /**
+   * 将模拟对齐到录像「号角后」对局时间。
+   * 有录像时由 UI 每帧调用（墙钟 simSpeed=0），用 catch-up tick 推进，避免暂停仍刷兵。
+   */
+  syncGameClock(gameTimeMs: number): void {
+    const t = Math.max(0, gameTimeMs);
+    if (Math.abs(t - this.clockMs) < 0.5) return;
+    // 回退：清兵并重置刷兵计时
+    if (t + 50 < this.clockMs) {
+      for (const u of [...this.units]) {
+        try {
+          u.instance?.detach?.();
+          u.instance?.setScene?.(null);
+        } catch {
+          /* ignore */
+        }
+      }
+      this.units = [];
+      this.clockMs = t;
+      this.nextWaveAt = Math.max(t, this.cfg.startCreepsAtMs ?? 90000);
+      // 若已过首波时间，排到下一档 30s 周期，避免瞬间补刷多波
+      const interval = this.cfg.creepWaveIntervalMs || 30000;
+      const start = this.cfg.startCreepsAtMs ?? 90000;
+      if (t >= start) {
+        const n = Math.floor((t - start) / interval) + 1;
+        this.nextWaveAt = start + n * interval;
+      }
+      this.nextNeutralAt = Math.max(t, this.cfg.startNeutralsAtMs ?? 30000);
+      this.nextRuneAt = t <= 0 ? 0 : Math.max(t, this.cfg.runeRefreshMs || 120000);
+      return;
+    }
+    // 前进：分段 tick，触发出兵/移动
+    let remain = t - this.clockMs;
+    while (remain > 0) {
+      const step = Math.min(remain, 50);
+      this.tick(step);
+      remain -= step;
+    }
   }
 
   /** Per-frame update (sync). Spawns are kicked off without blocking the render loop. */

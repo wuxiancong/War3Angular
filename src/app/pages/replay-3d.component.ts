@@ -373,6 +373,9 @@ export interface CommandCardSlot {
         grid-template-rows: 1fr 1fr 1fr;
         gap: 2% 1.8%;
         padding: 1%;
+        /* --- AI 修改开始 [CMD-GRID-NUDGE]：12 宫格整体右下各移 2px，对齐控制台孔位视觉中心 --- */
+        transform: translate(2px, 2px);
+        /* --- AI 修改结束 [CMD-GRID-NUDGE] --- */
       }
       /* --- AI 修改结束 [ICON-FIT-COLOR] --- */
       /* --- AI 修改开始 [ICON-SLOT]：清掉 button 默认 padding；图标绝对铺满槽位（与 WC3 CommandButton 一致），不用 contain 留边 --- */
@@ -1787,10 +1790,8 @@ export class Replay3dComponent implements OnDestroy {
       icon: '/assets/wc3/ui/icons/cmd/BTNSkillz.png',
       unlearned: state.unspentSkillPoints === 0,
     };
-    // 正在走路但尚未记下指令时，按移动高亮（避免只播动画看不到绿框）
-    const cmd =
-      state.basicCommand ||
-      (state.isMoving ? 'move' : ('' as const));
+    // basicCommand 已在 timeline.sampleAt 按 isMoving 收敛（到达后不再锁死「移动」）
+    const cmd = state.basicCommand || '';
     const cmdLabels: Record<string, string> = {
       move: '移动',
       stop: '停止',
@@ -1839,8 +1840,8 @@ export class Replay3dComponent implements OnDestroy {
     }
   }
 
-  /** 等 flex 布局给出真实宽高，避免首帧 0 尺寸建 WebGL 导致黑屏 */
-  private async waitForViewport(canvas: HTMLCanvasElement, maxMs = 2500): Promise<void> {
+  /** 等 flex 布局给出真实宽高；已有尺寸则立刻返回 */
+  private async waitForViewport(canvas: HTMLCanvasElement, maxMs = 400): Promise<void> {
     const t0 = performance.now();
     while (performance.now() - t0 < maxMs) {
       const r = canvas.getBoundingClientRect();
@@ -1853,7 +1854,7 @@ export class Replay3dComponent implements OnDestroy {
   }
 
   private async boot(attempt = 0): Promise<void> {
-    // --- AI 修改开始 [BOOT-RETRY]：canvas/布局未就绪时短延迟重试，减少必须点「重新加载」 ---
+    // --- AI 修改开始 [BOOT-FAST-TERRAIN]：地形就绪即结束 loading 并开渲，不再等英雄/兵线全部加载完 ---
     const canvas = this.glCanvas()?.nativeElement;
     if (!canvas) {
       if (attempt < 30 && !this.disposed) {
@@ -1888,9 +1889,24 @@ export class Replay3dComponent implements OnDestroy {
         syncOverrides: this.syncOverridesFromQuery() as any,
       });
       this.mdx = mdx;
+
+      const loadPromise = mdx.load();
+      // 地形 mesh 一就绪就显示画面（startLoop 已在 load 内启动）
+      const terrainWaitStart = performance.now();
+      while (!mdx.terrainReady && performance.now() - terrainWaitStart < 60000 && !this.disposed) {
+        await new Promise<void>((r) => setTimeout(r, 30));
+      }
+      mdx.resizeToContainer();
+      this.pollSequence();
+      this.loading.set(false);
+
       try {
-        await mdx.load();
+        await loadPromise;
       } finally {
+        if (this.disposed) {
+          mdx.dispose();
+          return;
+        }
         this.modelName.set('HeroBladeMaster');
         this.sequences.set(mdx.sequences || []);
         this.buildingCount.set(mdx.buildings?.length || 0);
@@ -1899,24 +1915,15 @@ export class Replay3dComponent implements OnDestroy {
         this.simUnits.set(mdx.simUnitCount || 0);
         this.applyReplayFrame(this.currentMs());
         this.syncActiveSequence();
-        // --- AI 修改开始 [PORTRAIT-3D]：初始化底部控制台 3D 动态英雄对白肖像渲染 ---
         const pCanvas = this.portraitCanvas()?.nativeElement;
         if (pCanvas) {
           void mdx.attachPortraitCanvas(pCanvas);
         }
-        // --- AI 修改结束 [PORTRAIT-3D]：初始化底部控制台 3D 动态英雄对白肖像渲染 ---
-        // 布局可能在 load 结束后才稳定，连续两帧强制 resize
         mdx.resizeToContainer();
         requestAnimationFrame(() => {
           mdx.resizeToContainer();
           requestAnimationFrame(() => mdx.resizeToContainer());
         });
-        this.pollSequence();
-        this.loading.set(false);
-      }
-      if (this.disposed) {
-        mdx.dispose();
-        return;
       }
     } catch (e) {
       console.error(e);
@@ -1928,7 +1935,6 @@ export class Replay3dComponent implements OnDestroy {
             : JSON.stringify(e);
       this.error.set(msg || '未知错误');
       this.loading.set(false);
-      // 偶发 WebGL 首启失败：自动再试一次
       if (attempt < 1 && !this.disposed) {
         this.mdx?.dispose();
         this.mdx = undefined;
@@ -1936,7 +1942,7 @@ export class Replay3dComponent implements OnDestroy {
         return this.boot(attempt + 1);
       }
     }
-    // --- AI 修改结束 [BOOT-RETRY] ---
+    // --- AI 修改结束 [BOOT-FAST-TERRAIN] ---
   }
 
   private syncActiveSequence(): void {
@@ -1966,11 +1972,18 @@ export class Replay3dComponent implements OnDestroy {
       }
 
       this.syncActiveSequence();
-      // --- AI 修改开始 [SCENE-SIM-DOTA]：同步回放倍速与暂停状态至 3D 兵线/野怪/神符模拟器 ---
-      // --- AI 修改开始 [SCENE-SIM-ALWAYS]：回放暂停时仍以 1x 推进兵线/野怪模拟，便于验收攻击与掉血 ---
-      this.mdx?.setSimSpeed(this.isPlaying() ? this.playSpeed() : 1);
-      // --- AI 修改结束 [SCENE-SIM-ALWAYS] ---
-      // --- AI 修改结束 [SCENE-SIM-DOTA]：同步回放倍速与暂停状态至 3D 兵线/野怪/神符模拟器 ---
+      // --- AI 修改开始 [SCENE-SIM-HORN]：仅号角后时钟驱动；无 GameStart 时 gameT=0 绝不刷兵；有录像时墙钟恒为 0 ---
+      if (this.timeline) {
+        const horn = this.timeline.gameHornMs || 0;
+        // 未解析到战鼓号角前，对局时钟视为未开始（避免 firstMove 被误当成已开打）
+        const gameT = horn > 0 ? Math.max(0, this.currentMs() - horn) : 0;
+        this.mdx?.setSimSpeed(0);
+        this.mdx?.syncSimGameTime(gameT);
+      } else {
+        // 录像未到：保持模拟暂停，禁止墙钟空转出兵
+        this.mdx?.setSimSpeed(0);
+      }
+      // --- AI 修改结束 [SCENE-SIM-HORN] ---
       this.cameraMode.set(this.mdx?.cameraMode || this.cameraMode());
       this.simUnits.set(this.mdx?.simUnitCount || 0);
       this.updateMinimapMarker();

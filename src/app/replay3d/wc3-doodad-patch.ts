@@ -188,10 +188,19 @@ export function patchWar3MapViewerMap(deps: DoodadPatchDeps): void {
     }
     const corners = this.corners;
     if (!corners?.[row]?.[column] || !corners?.[row + 1]?.[column + 1]) return false;
-    const bottomLeft = corners[row][column].layerHeight;
-    const bottomRight = corners[row][column + 1].layerHeight;
-    const topLeft = corners[row + 1][column].layerHeight;
-    const topRight = corners[row + 1][column + 1].layerHeight;
+    const c00 = corners[row][column];
+    const c10 = corners[row][column + 1];
+    const c01 = corners[row + 1][column];
+    const c11 = corners[row + 1][column + 1];
+    // --- AI 修改开始 [RAMP-AS-SLOPE]：带 ramp 标记的层差格用地面网格三角坡表现，避免当成悬崖 mesh 后看起来「没坡度」 ---
+    if (c00.ramp || c10.ramp || c01.ramp || c11.ramp) {
+      return false;
+    }
+    // --- AI 修改结束 [RAMP-AS-SLOPE] ---
+    const bottomLeft = c00.layerHeight;
+    const bottomRight = c10.layerHeight;
+    const topLeft = c01.layerHeight;
+    const topRight = c11.layerHeight;
     return (
       bottomLeft !== bottomRight || bottomLeft !== topLeft || bottomLeft !== topRight
     );
@@ -204,7 +213,7 @@ export function patchWar3MapViewerMap(deps: DoodadPatchDeps): void {
     topRightLayer: number,
     base: number
   ): string {
-    // --- AI 修改开始 [CLIFF-HEIGHT]：层差放宽到 0..4（A..E）。过严 clamp 到 2 会在高台/坡缘生成过矮悬崖 mesh，视觉上像“坡度直接隆起” ---
+    // --- AI 修改开始 [CLIFF-HEIGHT]：层差 0..4（A..E）。原版多为 A..C；过严 clamp=2 会在高台缘生成过矮 mesh 呈“坡鼓包”，过高字母无模型会破洞 ---
     const clampChar = (layer: number) =>
       String.fromCharCode(65 + Math.max(0, Math.min(4, layer - base)));
     // --- AI 修改结束 [CLIFF-HEIGHT] ---
@@ -250,6 +259,74 @@ export function patchWar3MapViewerMap(deps: DoodadPatchDeps): void {
   const origLoadTerrain = War3MapViewerMap.prototype.loadTerrainCliffsAndWater;
   War3MapViewerMap.prototype.loadTerrainCliffsAndWater =
     async function loadTerrainCliffsAndWaterSafe(this: any) {
+      // --- AI 修改开始 [RAMP-HEIGHT-SMOOTH]：在 orig 赋值 this.corners 时原地平滑 ramp（须先于 heightMap 烘焙）。DotA 大量 AAAA 同层斜坡仅靠 ramp 标记，不做平滑则永远是平地 ---
+      const smoothRampHeights = (corners: any[][]) => {
+        if (!corners?.length) return;
+        const rows = corners.length;
+        const cols = corners[0]?.length || 0;
+        const eff: number[][] = new Array(rows);
+        for (let y = 0; y < rows; y++) {
+          eff[y] = new Array(cols);
+          for (let x = 0; x < cols; x++) {
+            const c = corners[y][x];
+            eff[y][x] = (c?.groundHeight || 0) + (c?.layerHeight || 0);
+          }
+        }
+        for (let iter = 0; iter < 5; iter++) {
+          const next = eff.map((r) => r.slice());
+          for (let y = 1; y < rows - 1; y++) {
+            for (let x = 1; x < cols - 1; x++) {
+              if (!corners[y][x]?.ramp) continue;
+              let s = 0;
+              let n = 0;
+              for (let dy = -1; dy <= 1; dy++) {
+                for (let dx = -1; dx <= 1; dx++) {
+                  s += eff[y + dy][x + dx];
+                  n++;
+                }
+              }
+              next[y][x] = s / n;
+            }
+          }
+          for (let y = 1; y < rows - 1; y++) {
+            for (let x = 1; x < cols - 1; x++) {
+              if (corners[y][x]?.ramp) eff[y][x] = next[y][x];
+            }
+          }
+        }
+        for (let y = 0; y < rows; y++) {
+          for (let x = 0; x < cols; x++) {
+            const c = corners[y][x];
+            if (!c?.ramp) continue;
+            c.groundHeight = eff[y][x] - c.layerHeight;
+          }
+        }
+      };
+      let cornersHooked = false;
+      try {
+        Object.defineProperty(this, 'corners', {
+          configurable: true,
+          enumerable: true,
+          get() {
+            return (this as any).__wc3Corners;
+          },
+          set(v: any[][]) {
+            (this as any).__wc3Corners = v;
+            if (!cornersHooked && v?.length) {
+              cornersHooked = true;
+              try {
+                smoothRampHeights(v);
+              } catch (e) {
+                console.warn('[wc3] ramp height smooth failed', e);
+              }
+            }
+          },
+        });
+      } catch (e) {
+        console.warn('[wc3] ramp corners hook skipped', e);
+      }
+      // --- AI 修改结束 [RAMP-HEIGHT-SMOOTH] ---
+
       // --- AI 修改开始 [TERRAIN-LIGHTING]：仅对悬崖垂直岩壁应用法线明暗阴影，保持悬崖水平裙边与相邻地面 1.0 等亮无缝衔接，彻底消除岩石周围方块色差 ---
       try {
         const viewer = this.viewer;
@@ -406,6 +483,19 @@ export function patchWar3MapViewerMap(deps: DoodadPatchDeps): void {
         ]);
       } catch (e) {
         console.warn('[wc3] loadTerrainCliffsAndWater failed', e);
+      }
+      // 还原 corners 为普通可写属性，避免后续逻辑踩到 hook getter
+      try {
+        const baked = (this as any).__wc3Corners ?? this.corners;
+        Object.defineProperty(this, 'corners', {
+          value: baked,
+          writable: true,
+          configurable: true,
+          enumerable: true,
+        });
+        delete (this as any).__wc3Corners;
+      } catch {
+        /* ignore */
       }
       if (!this.terrainReady) {
         // Should already be set before cliff awaits; keep safe.

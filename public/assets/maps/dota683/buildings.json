@@ -7,7 +7,7 @@
     "y1": 8192
   },
   "minimap": "/assets/dota/dota683_minimap.png",
-  "note": "源自 DotA v6.83d war3map.j CreateAllUnits 精确坐标：含近卫/天灾泉水、10个出生圈、20个基地商人/商店建筑、4个边路商店、2个神秘商店、全防御塔、兵营与主基地。",
+  "note": "源自 DotA v6.83d war3map.j CreateAllUnits/Sent_Buildings + Units\\UnitUI.slk：坐标/朝向以 CreateUnit 为准，模型与 modelScale 以 UnitUI 为准（近卫主基地 etol=war3mapImported\\final_export）。",
   "buildings": [
     {
       "id": "r_fountain",
@@ -17,8 +17,9 @@
       "x": -7296,
       "y": -7200,
       "facing": 270,
-      "scale": 1,
-      "model": "Buildings\\Other\\FountainOfLife\\FountainOfHealth.mdx"
+      "scale": 3,
+      "model": "Buildings\\Other\\FountainOfLife\\FountainOfHealth.mdx",
+      "unitId": "nfoh"
     },
     {
       "id": "r_cop_1",
@@ -28,8 +29,9 @@
       "x": -7424,
       "y": -6976,
       "facing": 270,
-      "scale": 1,
-      "model": "Buildings\\Other\\CircleOfPower\\CircleOfPower.mdx"
+      "scale": 3.5,
+      "model": "Buildings\\Other\\CircleOfPower\\CircleOfPower.mdx",
+      "unitId": "n01F"
     },
     {
       "id": "r_cop_2",
@@ -39,8 +41,9 @@
       "x": -7424,
       "y": -6848,
       "facing": 270,
-      "scale": 1,
-      "model": "Buildings\\Other\\CircleOfPower\\CircleOfPower.mdx"
+      "scale": 3.5,
+      "model": "Buildings\\Other\\CircleOfPower\\CircleOfPower.mdx",
+      "unitId": "n01F"
     },
     {
       "id": "r_cop_3",
@@ -50,8 +53,9 @@
       "x": -7424,
       "y": -6720,
       "facing": 270,
-      "scale": 1,
-      "model": "Buildings\\Other\\CircleOfPower\\CircleOfPower.mdx"
+      "scale": 3.5,
+      "model": "Buildings\\Other\\CircleOfPower\\CircleOfPower.mdx",
+      "unitId": "n01F"
     },
     {
       "id": "r_cop_4",
@@ -61,8 +65,9 @@
       "x": -7424,
       "y": -6592,
       "facing": 270,
-      "scale": 1,
-      "model": "Buildings\\Other\\CircleOfPower\\CircleOfPower.mdx"
+      "scale": 3.5,
+      "model": "Buildings\\Other\\CircleOfPower\\CircleOfPower.mdx",
+      "unitId": "n01F"
     },
     {
       "id": "r_cop_5",
@@ -72,19 +77,21 @@
       "x": -7424,
       "y": -6464,
       "facing": 270,
-      "scale": 1,
-      "model": "Buildings\\Other\\CircleOfPower\\CircleOfPower.mdx"
+      "scale": 3.5,
+      "model": "Buildings\\Other\\CircleOfPower\\CircleOfPower.mdx",
+      "unitId": "n01F"
     },
     {
-      "id": "r_shop_ arcane",
+      "id": "r_shop_arcane",
       "name": "奎尔瑟兰的密室",
       "team": 0,
       "kind": "shop",
       "x": -6944,
       "y": -7200,
-      "facing": 90,
-      "scale": 0.8,
-      "model": "Buildings\\Human\\ArcaneSanctum\\ArcaneSanctum.mdx"
+      "facing": 270,
+      "scale": 3.75,
+      "model": "Buildings\\Human\\ArcaneSanctum\\ArcaneSanctum.mdx",
+      "unitId": "hC95"
     },
     {
       "id": "r_shop_wonder",
@@ -93,9 +100,10 @@
       "kind": "shop",
       "x": -6624,
       "y": -7200,
-      "facing": 90,
-      "scale": 1,
-      "model": "Buildings\\NightElf\\AncientOfWonder\\AncientOfWonder.mdx"
+      "facing": 270,
+      "scale": 4,
+      "model": "Buildings\\NightElf\\AncientOfWonder\\AncientOfWonder.mdx",
+      "unitId": "e025"
     },
     {
       "id": "r_shop_sena",
@@ -104,9 +112,10 @@
       "kind": "shop",
       "x": -7264,
       "y": -6944,
-      "facing": 0,
-      "scale": 1.3,
-      "model": "Units\\Critters\\ElfVillagerWoman\\ElfVillagerWoman.mdx"
+      "facing": 270,
+      "scale": 1,
+      "model": "Units\\Critters\\ElfVillagerWoman\\ElfVillagerWoman.mdx",
+      "unitId": "nC38"
     },
     {
       "id": "r_shop_weapon",
@@ -115,9 +124,10 @@
       "kind": "shop",
       "x": -7264,
       "y": -6752,
-      "facing": 0,
-      "scale": 1.3,
-      "model": "Units\\Human\\Muradin\\Muradin.mdx"
+      "facing": 270,
+      "scale": 1,
+      "model": "Units\\Human\\Muradin\\Muradin.mdx",
+      "unitId": "n01K"
     },
     {
       "id": "r_shop_anc_weap",
@@ -126,9 +136,10 @@
       "kind": "shop",
       "x": -7264,
       "y": -6560,
-      "facing": 315,
-      "scale": 1.25,
-      "model": "Units\\Creeps\\Watcher\\Watcher.mdx"
+      "facing": 270,
+      "scale": 1.5,
+      "model": "Units\\Creeps\\Watcher\\Watcher.mdx",
+      "unitId": "n00W"
     },
     {
       "id": "r_shop_ench",
@@ -138,8 +149,9 @@
       "x": -7136,
       "y": -6496,
       "facing": 270,
-      "scale": 0.85,
-      "model": "Units\\NightElf\\Wisp\\Wisp.mdx"
+      "scale": 1.5,
+      "model": "Units\\NightElf\\Wisp\\Wisp.mdx",
+      "unitId": "n00X"
     },
     {
       "id": "r_shop_prot",
@@ -149,8 +161,9 @@
       "x": -7008,
       "y": -6496,
       "facing": 270,
-      "scale": 1.25,
-      "model": "Units\\Other\\BloodElfLieutenant\\BloodElfLieutenant.mdx"
+      "scale": 1.5,
+      "model": "Units\\Other\\BloodElfLieutenant\\BloodElfLieutenant.mdx",
+      "unitId": "n0HE"
     },
     {
       "id": "r_shop_sanctum",
@@ -160,8 +173,9 @@
       "x": -6880,
       "y": -6496,
       "facing": 270,
-      "scale": 1.25,
-      "model": "Units\\Creeps\\HumanMage\\HumanMage.mdx"
+      "scale": 1.5,
+      "model": "Units\\Creeps\\HumanMage\\HumanMage.mdx",
+      "unitId": "n00V"
     },
     {
       "id": "r_shop_vest",
@@ -171,8 +185,9 @@
       "x": -6752,
       "y": -6496,
       "facing": 270,
-      "scale": 1.25,
-      "model": "Units\\Critters\\HighElfPeasant\\HighElfPeasant.mdx"
+      "scale": 1.5,
+      "model": "Units\\Critters\\HighElfPeasant\\HighElfPeasant.mdx",
+      "unitId": "n002"
     },
     {
       "id": "r_shop_gateway",
@@ -181,9 +196,10 @@
       "kind": "shop",
       "x": -6624,
       "y": -6560,
-      "facing": 225,
-      "scale": 1.2,
-      "model": "Units\\Critters\\VillagerMan1\\VillagerMan1.mdx"
+      "facing": 270,
+      "scale": 1.5,
+      "model": "Units\\Critters\\VillagerMan1\\VillagerMan1.mdx",
+      "unitId": "n009"
     },
     {
       "id": "r_ancient",
@@ -193,8 +209,9 @@
       "x": -5632,
       "y": -6144,
       "facing": 270,
-      "scale": 1.2,
-      "model": "Buildings\\NightElf\\TreeofLife\\TreeofLife.mdx"
+      "scale": 2,
+      "model": "war3mapImported\\final_export.mdx",
+      "unitId": "etol"
     },
     {
       "id": "r_t4_a",
@@ -204,8 +221,9 @@
       "x": -5600,
       "y": -5728,
       "facing": 45,
-      "scale": 1,
-      "model": "Buildings\\NightElf\\AncientProtector\\AncientProtector.mdx"
+      "scale": 3,
+      "model": "Buildings\\NightElf\\AncientProtector\\AncientProtector.mdx",
+      "unitId": "e019"
     },
     {
       "id": "r_t4_b",
@@ -215,8 +233,9 @@
       "x": -5280,
       "y": -6112,
       "facing": 45,
-      "scale": 1,
-      "model": "Buildings\\NightElf\\AncientProtector\\AncientProtector.mdx"
+      "scale": 3,
+      "model": "Buildings\\NightElf\\AncientProtector\\AncientProtector.mdx",
+      "unitId": "e019"
     },
     {
       "id": "r_t3_top",
@@ -226,8 +245,9 @@
       "x": -6368,
       "y": -4256,
       "facing": 90,
-      "scale": 1,
-      "model": "Buildings\\NightElf\\AncientProtector\\AncientProtector.mdx"
+      "scale": 3,
+      "model": "Buildings\\NightElf\\AncientProtector\\AncientProtector.mdx",
+      "unitId": "e00S"
     },
     {
       "id": "r_t2_top",
@@ -237,8 +257,9 @@
       "x": -6112,
       "y": -1248,
       "facing": 90,
-      "scale": 1,
-      "model": "Buildings\\NightElf\\AncientProtector\\AncientProtector.mdx"
+      "scale": 3,
+      "model": "Buildings\\NightElf\\AncientProtector\\AncientProtector.mdx",
+      "unitId": "e00R"
     },
     {
       "id": "r_t1_top",
@@ -248,8 +269,9 @@
       "x": -6112,
       "y": 1568,
       "facing": 90,
-      "scale": 1,
-      "model": "Buildings\\NightElf\\AncientProtector\\AncientProtector.mdx"
+      "scale": 3,
+      "model": "Buildings\\NightElf\\AncientProtector\\AncientProtector.mdx",
+      "unitId": "e00R"
     },
     {
       "id": "r_rax_melee_top",
@@ -259,8 +281,9 @@
       "x": -6080,
       "y": -4480,
       "facing": 90,
-      "scale": 1,
-      "model": "Buildings\\NightElf\\AncientOfWar\\AncientOfWar.mdx"
+      "scale": 4,
+      "model": "Buildings\\NightElf\\AncientOfWar\\AncientOfWar.mdx",
+      "unitId": "eaom"
     },
     {
       "id": "r_rax_range_top",
@@ -270,8 +293,9 @@
       "x": -6656,
       "y": -4480,
       "facing": 90,
-      "scale": 1,
-      "model": "Buildings\\NightElf\\AncientOfLore\\AncientOfLore.mdx"
+      "scale": 4,
+      "model": "Buildings\\NightElf\\AncientOfLore\\AncientOfLore.mdx",
+      "unitId": "eaoe"
     },
     {
       "id": "r_t3_mid",
@@ -281,8 +305,9 @@
       "x": -4448,
       "y": -4960,
       "facing": 45,
-      "scale": 1,
-      "model": "Buildings\\NightElf\\AncientProtector\\AncientProtector.mdx"
+      "scale": 3,
+      "model": "Buildings\\NightElf\\AncientProtector\\AncientProtector.mdx",
+      "unitId": "e00S"
     },
     {
       "id": "r_t2_mid",
@@ -292,8 +317,9 @@
       "x": -3488,
       "y": -3296,
       "facing": 45,
-      "scale": 1,
-      "model": "Buildings\\NightElf\\AncientProtector\\AncientProtector.mdx"
+      "scale": 3,
+      "model": "Buildings\\NightElf\\AncientProtector\\AncientProtector.mdx",
+      "unitId": "e011"
     },
     {
       "id": "r_t1_mid",
@@ -303,8 +329,9 @@
       "x": -1504,
       "y": -1824,
       "facing": 45,
-      "scale": 1,
-      "model": "Buildings\\NightElf\\AncientProtector\\AncientProtector.mdx"
+      "scale": 3,
+      "model": "Buildings\\NightElf\\AncientProtector\\AncientProtector.mdx",
+      "unitId": "e011"
     },
     {
       "id": "r_rax_melee_mid",
@@ -314,8 +341,9 @@
       "x": -4416,
       "y": -5312,
       "facing": 45,
-      "scale": 1,
-      "model": "Buildings\\NightElf\\AncientOfWar\\AncientOfWar.mdx"
+      "scale": 4,
+      "model": "Buildings\\NightElf\\AncientOfWar\\AncientOfWar.mdx",
+      "unitId": "eaom"
     },
     {
       "id": "r_rax_range_mid",
@@ -325,8 +353,9 @@
       "x": -4864,
       "y": -4992,
       "facing": 45,
-      "scale": 1,
-      "model": "Buildings\\NightElf\\AncientOfLore\\AncientOfLore.mdx"
+      "scale": 4,
+      "model": "Buildings\\NightElf\\AncientOfLore\\AncientOfLore.mdx",
+      "unitId": "eaoe"
     },
     {
       "id": "r_t3_bot",
@@ -336,8 +365,9 @@
       "x": -3744,
       "y": -6816,
       "facing": 0,
-      "scale": 1,
-      "model": "Buildings\\NightElf\\AncientProtector\\AncientProtector.mdx"
+      "scale": 3,
+      "model": "Buildings\\NightElf\\AncientProtector\\AncientProtector.mdx",
+      "unitId": "e00S"
     },
     {
       "id": "r_t2_bot",
@@ -347,8 +377,9 @@
       "x": -544,
       "y": -6688,
       "facing": 0,
-      "scale": 1,
-      "model": "Buildings\\NightElf\\AncientProtector\\AncientProtector.mdx"
+      "scale": 3,
+      "model": "Buildings\\NightElf\\AncientProtector\\AncientProtector.mdx",
+      "unitId": "e00R"
     },
     {
       "id": "r_t1_bot",
@@ -358,8 +389,9 @@
       "x": 4960,
       "y": -6752,
       "facing": 0,
-      "scale": 1,
-      "model": "Buildings\\NightElf\\AncientProtector\\AncientProtector.mdx"
+      "scale": 3,
+      "model": "Buildings\\NightElf\\AncientProtector\\AncientProtector.mdx",
+      "unitId": "e011"
     },
     {
       "id": "r_rax_melee_bot",
@@ -369,8 +401,9 @@
       "x": -4032,
       "y": -7040,
       "facing": 0,
-      "scale": 1,
-      "model": "Buildings\\NightElf\\AncientOfWar\\AncientOfWar.mdx"
+      "scale": 4,
+      "model": "Buildings\\NightElf\\AncientOfWar\\AncientOfWar.mdx",
+      "unitId": "eaom"
     },
     {
       "id": "r_rax_range_bot",
@@ -380,8 +413,9 @@
       "x": -4032,
       "y": -6528,
       "facing": 0,
-      "scale": 1,
-      "model": "Buildings\\NightElf\\AncientOfLore\\AncientOfLore.mdx"
+      "scale": 4,
+      "model": "Buildings\\NightElf\\AncientOfLore\\AncientOfLore.mdx",
+      "unitId": "eaoe"
     },
     {
       "id": "r_mw_1",
@@ -391,8 +425,9 @@
       "x": -5792,
       "y": -5408,
       "facing": 270,
-      "scale": 1,
-      "model": "Buildings\\NightElf\\MoonWell\\MoonWell.mdx"
+      "scale": 3,
+      "model": "Buildings\\NightElf\\MoonWell\\MoonWell.mdx",
+      "unitId": "emow"
     },
     {
       "id": "r_mw_2",
@@ -402,8 +437,9 @@
       "x": -6624,
       "y": -5088,
       "facing": 270,
-      "scale": 1,
-      "model": "Buildings\\NightElf\\MoonWell\\MoonWell.mdx"
+      "scale": 3,
+      "model": "Buildings\\NightElf\\MoonWell\\MoonWell.mdx",
+      "unitId": "emow"
     },
     {
       "id": "r_mw_3",
@@ -413,8 +449,9 @@
       "x": -5088,
       "y": -5536,
       "facing": 270,
-      "scale": 1,
-      "model": "Buildings\\NightElf\\MoonWell\\MoonWell.mdx"
+      "scale": 3,
+      "model": "Buildings\\NightElf\\MoonWell\\MoonWell.mdx",
+      "unitId": "emow"
     },
     {
       "id": "r_mw_4",
@@ -424,8 +461,9 @@
       "x": -5344,
       "y": -3936,
       "facing": 270,
-      "scale": 1,
-      "model": "Buildings\\NightElf\\MoonWell\\MoonWell.mdx"
+      "scale": 3,
+      "model": "Buildings\\NightElf\\MoonWell\\MoonWell.mdx",
+      "unitId": "emow"
     },
     {
       "id": "r_mw_5",
@@ -435,8 +473,9 @@
       "x": -5088,
       "y": -4576,
       "facing": 270,
-      "scale": 1,
-      "model": "Buildings\\NightElf\\MoonWell\\MoonWell.mdx"
+      "scale": 3,
+      "model": "Buildings\\NightElf\\MoonWell\\MoonWell.mdx",
+      "unitId": "emow"
     },
     {
       "id": "r_mw_6",
@@ -446,8 +485,9 @@
       "x": -3936,
       "y": -5344,
       "facing": 270,
-      "scale": 1,
-      "model": "Buildings\\NightElf\\MoonWell\\MoonWell.mdx"
+      "scale": 3,
+      "model": "Buildings\\NightElf\\MoonWell\\MoonWell.mdx",
+      "unitId": "emow"
     },
     {
       "id": "r_mw_7",
@@ -457,8 +497,9 @@
       "x": -4512,
       "y": -7072,
       "facing": 270,
-      "scale": 1,
-      "model": "Buildings\\NightElf\\MoonWell\\MoonWell.mdx"
+      "scale": 3,
+      "model": "Buildings\\NightElf\\MoonWell\\MoonWell.mdx",
+      "unitId": "emow"
     },
     {
       "id": "r_mw_8",
@@ -468,8 +509,9 @@
       "x": -4896,
       "y": -6240,
       "facing": 270,
-      "scale": 1,
-      "model": "Buildings\\NightElf\\MoonWell\\MoonWell.mdx"
+      "scale": 3,
+      "model": "Buildings\\NightElf\\MoonWell\\MoonWell.mdx",
+      "unitId": "emow"
     },
     {
       "id": "r_mw_9",
@@ -479,8 +521,9 @@
       "x": -3808,
       "y": -5856,
       "facing": 270,
-      "scale": 1,
-      "model": "Buildings\\NightElf\\MoonWell\\MoonWell.mdx"
+      "scale": 3,
+      "model": "Buildings\\NightElf\\MoonWell\\MoonWell.mdx",
+      "unitId": "emow"
     },
     {
       "id": "r_mw_10",
@@ -490,8 +533,9 @@
       "x": -5472,
       "y": -4704,
       "facing": 270,
-      "scale": 1,
-      "model": "Buildings\\NightElf\\MoonWell\\MoonWell.mdx"
+      "scale": 3,
+      "model": "Buildings\\NightElf\\MoonWell\\MoonWell.mdx",
+      "unitId": "emow"
     },
     {
       "id": "r_mw_11",
@@ -501,8 +545,9 @@
       "x": -4512,
       "y": -5856,
       "facing": 270,
-      "scale": 1,
-      "model": "Buildings\\NightElf\\MoonWell\\MoonWell.mdx"
+      "scale": 3,
+      "model": "Buildings\\NightElf\\MoonWell\\MoonWell.mdx",
+      "unitId": "emow"
     },
     {
       "id": "r_aow_1",
@@ -512,8 +557,9 @@
       "x": -6080,
       "y": -5120,
       "facing": 270,
-      "scale": 1,
-      "model": "Buildings\\NightElf\\AncientOfWind\\AncientOfWind.mdx"
+      "scale": 4,
+      "model": "Buildings\\NightElf\\AncientOfWind\\AncientOfWind.mdx",
+      "unitId": "eaow"
     },
     {
       "id": "r_aow_2",
@@ -523,8 +569,9 @@
       "x": -4544,
       "y": -6528,
       "facing": 270,
-      "scale": 1,
-      "model": "Buildings\\NightElf\\AncientOfWind\\AncientOfWind.mdx"
+      "scale": 4,
+      "model": "Buildings\\NightElf\\AncientOfWind\\AncientOfWind.mdx",
+      "unitId": "eaow"
     },
     {
       "id": "r_hh_1",
@@ -534,8 +581,9 @@
       "x": -6400,
       "y": -5696,
       "facing": 270,
-      "scale": 1,
-      "model": "Buildings\\NightElf\\HuntersHall\\HuntersHall.mdx"
+      "scale": 4.2,
+      "model": "Buildings\\NightElf\\HuntersHall\\HuntersHall.mdx",
+      "unitId": "edob"
     },
     {
       "id": "r_hh_2",
@@ -545,8 +593,9 @@
       "x": -5248,
       "y": -6848,
       "facing": 270,
-      "scale": 1,
-      "model": "Buildings\\NightElf\\HuntersHall\\HuntersHall.mdx"
+      "scale": 4.2,
+      "model": "Buildings\\NightElf\\HuntersHall\\HuntersHall.mdx",
+      "unitId": "edob"
     },
     {
       "id": "d_fountain",
@@ -731,9 +780,10 @@
       "kind": "ancient",
       "x": 5184,
       "y": 4864,
-      "facing": 225,
-      "scale": 1.25,
-      "model": "Buildings\\Undead\\Necropolis\\Necropolis.mdx"
+      "facing": 270,
+      "scale": 6.6,
+      "model": "Doodads\\Cinematic\\LichKing\\LichKing.mdx",
+      "unitId": "unpl"
     },
     {
       "id": "d_t4_a",
@@ -1090,7 +1140,7 @@
     {
       "id": "shop_side_top_1",
       "name": "上路边路商店·地精商人",
-"team": 0,
+      "team": 0,
       "kind": "side_shop",
       "x": -7296,
       "y": 4416,
@@ -1101,7 +1151,7 @@
     {
       "id": "shop_side_top_2",
       "name": "上路边路商店·地精实验室",
-"team": 0,
+      "team": 0,
       "kind": "side_shop",
       "x": -7296,
       "y": 4224,
@@ -1112,7 +1162,7 @@
     {
       "id": "shop_side_bot_1",
       "name": "下路边路商店·地精商人",
-"team": 1,
+      "team": 1,
       "kind": "side_shop",
       "x": 7360,
       "y": -4224,
@@ -1123,7 +1173,7 @@
     {
       "id": "shop_side_bot_2",
       "name": "下路边路商店·地精实验室",
-"team": 1,
+      "team": 1,
       "kind": "side_shop",
       "x": 7360,
       "y": -4416,
@@ -1134,7 +1184,7 @@
     {
       "id": "shop_secret_r",
       "name": "近卫神秘商店·黑市商人雷拉格斯",
-"team": 0,
+      "team": 0,
       "kind": "secret_shop",
       "x": -4544,
       "y": 1152,
@@ -1145,7 +1195,7 @@
     {
       "id": "shop_secret_d",
       "name": "天灾神秘商店·黑市商人雷拉格斯",
-"team": 1,
+      "team": 1,
       "kind": "secret_shop",
       "x": 3200,
       "y": -64,

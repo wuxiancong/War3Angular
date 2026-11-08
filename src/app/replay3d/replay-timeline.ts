@@ -397,6 +397,18 @@ export class ReplayTimelineEngine {
       pushSnapshot(timeMs);
     };
 
+    /** 截断仍覆盖 timeMs 的行走关键帧（停止/新指令时必须切断，否则 isMoving 一直为 true） */
+    const cutMoveKeyframesAt = (timeMs: number) => {
+      for (const kf of this.moveKeyframes) {
+        if (timeMs > kf.t0 && timeMs < kf.t1) {
+          const r = (timeMs - kf.t0) / Math.max(1, kf.t1 - kf.t0);
+          kf.x1 = kf.x0 + (kf.x1 - kf.x0) * r;
+          kf.y1 = kf.y0 + (kf.y1 - kf.y0) * r;
+          kf.t1 = timeMs;
+        }
+      }
+    };
+
     const advanceHeroTo = (t: number) => {
       if (moveEndT > moveStartT && t > moveStartT) {
         const clampedT = Math.min(t, moveEndT);
@@ -494,6 +506,7 @@ export class ReplayTimelineEngine {
         if (pointCmd) setBasicCommand(t, pointCmd);
         if (Math.abs(ax) > 1 || Math.abs(ay) > 1) {
           advanceHeroTo(t);
+          cutMoveKeyframesAt(t);
           const dist = Math.hypot(ax - curX, ay - curY);
           if (dist > 8) {
             curFacing = Math.atan2(ay - curY, ax - curX);
@@ -513,7 +526,9 @@ export class ReplayTimelineEngine {
         if (immCmd) {
           if (immCmd === 'stop' || immCmd === 'hold') {
             advanceHeroTo(t);
+            cutMoveKeyframesAt(t);
             moveEndT = 0;
+            moveStartT = t;
           }
           setBasicCommand(t, immCmd);
           continue;
@@ -823,13 +838,13 @@ export class ReplayTimelineEngine {
         ) {
           trailPoints.push({ x, y });
         }
-      } else if (t >= kf.t0 && t <= kf.t1) {
+      } else if (t >= kf.t0 && t < kf.t1) {
         const r = (t - kf.t0) / Math.max(1, kf.t1 - kf.t0);
         x = kf.x0 + (kf.x1 - kf.x0) * r;
         y = kf.y0 + (kf.y1 - kf.y0) * r;
         facingRad = kf.facingRad;
         sequence = kf.anim;
-        isMoving = kf.anim === 'Walk';
+        isMoving = kf.anim === 'Walk' || kf.anim === 'Attack Walk Stand Spin';
         trailPoints.push({ x, y });
         break;
       } else {
@@ -944,7 +959,15 @@ export class ReplayTimelineEngine {
       facingRad,
       sequence,
       isMoving,
-      basicCommand: snap.basicCommand || '',
+      // 到达/站立时不再锁死「移动」：仅在真正行走/攻击移动中高亮 move/attack/patrol
+      basicCommand: (() => {
+        const raw = (snap.basicCommand || '') as BasicCommandId;
+        if (!isMoving && (raw === 'move' || raw === 'attack' || raw === 'patrol')) {
+          return 'stop';
+        }
+        if (isMoving && !raw) return 'move';
+        return raw;
+      })(),
       level: lv,
       // --- AI 修改开始 [XP-BAR-NATIVE]：录像无精确经验值时不再用时间伪造进度（旧公式 t%60000 会导致经验条一直走） ---
       xpPercent: lv >= 25 ? 100 : 0,
