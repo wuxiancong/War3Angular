@@ -4,7 +4,7 @@ export const hu: TranslationSchema = {
     theme: { dark: "Sötét", light: "Világos" },
     status: { uplink: "Kapcsolat Normál", bots: "Botok", signals: "Aktív Fiókok" },
     nav: { 
-        home: "KEZDŐLAP", matches: "STATISZTIKÁK", ladder: "RANGLISTA", team: "SQUAD", report: "JELENTÉS", 
+        home: "KEZDŐLAP", matches: "STATISZTIKÁK", replay: "REPLAY", ladder: "RANGLISTA", team: "SQUAD", report: "JELENTÉS", 
         reportList: "ÉRTESÍTÉSEK", ban: "BAN LISTA", download: "LETÖLTÉS", platformUpdates: "FRISSÍTÉSEK", 
         mapUpdates: "TÉRKÉPEK", faq: "GYIK", support: "TÁMOGATÁS", onlineSupport: "Online támogatás",
         myTeam: "Saját csapat", create: "Meccs létrehozása"

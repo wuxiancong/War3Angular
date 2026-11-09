@@ -24,11 +24,10 @@ export interface DotaBuilding {
   kind: DotaBuildingKind;
   x: number;
   y: number;
-  // --- AI 修改开始 [BUILDING-EXACT]：支持从 war3map.j 提取的独立模型路径、朝向与缩放 ---
+  // 支持从 war3map.j 提取的独立模型路径、朝向与缩放
   facing?: number;
   scale?: number;
   model?: string;
-  // --- AI 修改结束 [BUILDING-EXACT]：支持从 war3map.j 提取的独立模型路径、朝向与缩放 ---
 }
 
 export interface DotaMapConfig {
@@ -43,12 +42,7 @@ export const DEFAULT_DOTA_MAP_URL = '/assets/maps/dota683/buildings.json';
 export const DEFAULT_SCENE_SYNC_URL = '/assets/maps/dota683/scene-sync.json';
 
 /** Radiant fountain-adjacent spawn (spectator default look-at). */
-// --- AI 删除开始 [CAMERA-PERSPECTIVE]：删除偏离近卫泉水商店广场中心的旧坐标，原因：DotA 6.83d 近卫泉水广场中心为 (-6950, -6750) ---
-// export const RADIANT_SPAWN = { x: -7200, y: -6800 };
-// --- AI 删除结束 [CAMERA-PERSPECTIVE] ---
-// --- AI 修改开始 [CAMERA-PERSPECTIVE]：对准 DotA 6.83d 近卫泉水与10个商店围合的广场中心 ---
 export const RADIANT_SPAWN = { x: -6950, y: -6750 };
-// --- AI 修改结束 [CAMERA-PERSPECTIVE]：对准 DotA 6.83d 近卫泉水与10个商店围合的广场中心 ---
 
 export function mapCenter(bounds: DotaMapBounds): { x: number; y: number } {
   return {

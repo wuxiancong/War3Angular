@@ -15,7 +15,7 @@ import { ScrollService } from './core/scroll.service';
     <div class="flex-grow relative flex flex-col w-full">
       <div class="halo"></div>
       <app-header></app-header>
-      <div class="h-[64px]"></div> <!-- Adjusted spacer for header without status bar -->
+      <div class="w-full shrink-0" style="height: var(--app-header-height, 4.5rem)" aria-hidden="true"></div>
       <main class="relative z-10 flex flex-col flex-grow w-full">
         <router-outlet></router-outlet>
       </main>

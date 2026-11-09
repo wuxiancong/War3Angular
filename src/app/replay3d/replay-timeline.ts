@@ -1,4 +1,3 @@
-// --- AI 修改开始 [REPLAY-TIMELINE]：新增 War3Bot 玩家动作流（match_*.dat）完整时间轴与状态还原引擎 ---
 /**
  * 解析 War3Bot 保存的 wuxiancong 录像数据（match_*.dat），
  * 按时间轴实时还原英雄 3D 坐标、朝向、动画序列、等级、属性、6 格物品栏、4 技能等级、金钱与击杀补刀数据。
@@ -216,7 +215,6 @@ const HERO_MODEL_MAP: Record<string, { modelUrl: string; assetBaseUrl: string; c
     classTitle: '玛吉纳 · 近战敏捷',
     primary: 'agi',
   },
-  // --- AI 修改开始 [HERO-PA-MORTRED]：将幻影刺客（茉崔蒂 Ewrd/Ewar）精准映射至提取的守望者 HeroWarden 模型与肖像 ---
   Ewar: {
     modelUrl: '/assets/models/warden/HeroWarden.mdxbin',
     assetBaseUrl: '/assets/models/warden/',
@@ -229,14 +227,25 @@ const HERO_MODEL_MAP: Record<string, { modelUrl: string; assetBaseUrl: string; c
     classTitle: '茉崔蒂 · 近战敏捷',
     primary: 'agi',
   },
-  // --- AI 修改结束 [HERO-PA-MORTRED]：将幻影刺客（茉崔蒂 Ewrd/Ewar）精准映射至提取的守望者 HeroWarden 模型与肖像 ---
   Otch: {
+    modelUrl: '/assets/wc3/Units/Orc/Tauren/Tauren.mdxbin',
+    assetBaseUrl: '/assets/wc3/',
+    classTitle: '撼地神牛 · 近战力量',
+    primary: 'str',
+  },
+  O015: {
     modelUrl: '/assets/wc3/Units/Orc/HeroTaurenChieftain/HeroTaurenChieftain.mdxbin',
     assetBaseUrl: '/assets/wc3/',
     classTitle: '牛头人酋长 · 近战力量',
     primary: 'str',
   },
   H001: {
+    modelUrl: '/assets/wc3/Units/Demon/FelgaurdBlue/FelgaurdBlue.mdxbin',
+    assetBaseUrl: '/assets/wc3/',
+    classTitle: '流浪剑客 · 近战力量',
+    primary: 'str',
+  },
+  Harf: {
     modelUrl: '/assets/wc3/Units/Human/HeroPaladin/HeroPaladin.mdxbin',
     assetBaseUrl: '/assets/wc3/',
     classTitle: '全能骑士 · 近战力量',
@@ -248,7 +257,127 @@ const HERO_MODEL_MAP: Record<string, { modelUrl: string; assetBaseUrl: string; c
     classTitle: '巫妖 · 远程智力',
     primary: 'int',
   },
+ Hvwd: {
+    modelUrl: '/assets/wc3/Units/NightElf/Vengeance/Vengeance.mdxbin',
+    assetBaseUrl: '/assets/wc3/',
+    classTitle: '复仇之魂 · 远程敏捷',
+    primary: 'agi',
+  },
+  Hmbr: {
+    modelUrl: '/assets/wc3/Units/Human/HeroMountainKing/HeroMountainKing.mdxbin',
+    assetBaseUrl: '/assets/wc3/',
+    classTitle: '众神之王 · 远程智力',
+    primary: 'int',
+  },
+  Emoo: {
+    modelUrl: '/assets/wc3/Units/NightElf/Dryad/Dryad.mdxbin',
+    assetBaseUrl: '/assets/wc3/',
+    classTitle: '魅惑魔女 · 远程智力',
+    primary: 'int',
+  },
+  O00P: {
+    modelUrl: '/assets/wc3/Units/Creeps/SeaElemental/SeaElemental.mdxbin',
+    assetBaseUrl: '/assets/wc3/',
+    classTitle: '变体精灵 · 远程敏捷',
+    primary: 'agi',
+  },
+  Hjai: {
+    modelUrl: '/assets/wc3/Units/Human/Jaina/Jaina.mdxbin',
+    assetBaseUrl: '/assets/wc3/',
+    classTitle: '水晶室女 · 远程智力',
+    primary: 'int',
+  },
+  HC49: {
+    modelUrl: '/assets/wc3/Units/Naga/NagaSiren/NagaSiren.mdxbin',
+    assetBaseUrl: '/assets/wc3/',
+    classTitle: '娜迦海妖 · 近战敏捷',
+    primary: 'agi',
+  },
+  HC92: {
+    modelUrl: '/assets/wc3/Units/Creeps/SatyrTrickster/SatyrTrickster.mdxbin',
+    assetBaseUrl: '/assets/wc3/',
+    classTitle: '隐形刺客 · 近战敏捷',
+    primary: 'agi',
+  },
+  N01O: {
+    modelUrl: '/assets/wc3/Units/NightElf/DruidoftheClaw/DruidoftheClaw.mdxbin',
+    assetBaseUrl: '/assets/wc3/',
+    classTitle: '德鲁伊 · 远程敏捷',
+    primary: 'agi',
+  },
+  H004: {
+    modelUrl: '/assets/wc3/Units/Human/Sorceress/Sorceress.mdxbin',
+    assetBaseUrl: '/assets/wc3/',
+    classTitle: '秀逗魔导士 · 远程智力',
+    primary: 'int',
+  },
+  N01A: {
+    modelUrl: '/assets/wc3/Units/Human/BloodElfSpellThief/BloodElfSpellThief.mdxbin',
+    assetBaseUrl: '/assets/wc3/',
+    classTitle: '沉默术士 · 远程智力',
+    primary: 'int',
+  },
+  Hamg: {
+    modelUrl: '/assets/wc3/Buildings/NightElf/AncientProtector/AncientProtector.mdxbin',
+    assetBaseUrl: '/assets/wc3/',
+    classTitle: '树精卫士 · 近战力量',
+    primary: 'str',
+  },
+  Hblm: {
+    modelUrl: '/assets/wc3/Units/Human/HeroArchMage/HeroArchMage.mdxbin',
+    assetBaseUrl: '/assets/wc3/',
+    classTitle: '光之守卫 · 远程智力',
+    primary: 'int',
+  },
+  Huth: {
+    modelUrl: '/assets/wc3/Units/Creeps/FurbolgTracker/FurbolgTracker.mdxbin',
+    assetBaseUrl: '/assets/wc3/',
+    classTitle: '熊战士 · 近战敏捷',
+    primary: 'agi',
+  },
+  Hmkg: {
+    modelUrl: '/assets/wc3/Units/Creeps/OgreMagi/OgreMagi.mdxbin',
+    assetBaseUrl: '/assets/wc3/',
+    classTitle: '食人魔魔法师 · 近战智力',
+    primary: 'int',
+  },
+  Ntin: {
+    modelUrl: '/assets/wc3/Units/Creeps/HeroTinker/HeroTinker.mdxbin',
+    assetBaseUrl: '/assets/wc3/',
+    classTitle: '地精修补匠 · 远程智力',
+    primary: 'int',
+  },
+  Emns: {
+    modelUrl: '/assets/wc3/Units/NightElf/MalFurion/MalFurionNoStag.mdxbin',
+    assetBaseUrl: '/assets/wc3/',
+    classTitle: '先知 · 远程智力',
+    primary: 'int',
+  },
 };
+
+/** 优先手写映射；否则按英雄档案 modelFile 拼 /assets/wc3/…/*.mdxbin */
+function resolveHeroModelConfig(heroCode: string): {
+  modelUrl: string;
+  assetBaseUrl: string;
+  classTitle: string;
+  primary: 'str' | 'agi' | 'int';
+} {
+  const mapped = HERO_MODEL_MAP[heroCode];
+  if (mapped) return mapped;
+  const stats = getDotaHeroStats(heroCode);
+  if (stats?.modelFile) {
+    const rel = stats.modelFile.replace(/\\/g, '/');
+    return {
+      modelUrl: `/assets/wc3/${rel}.mdxbin`,
+      assetBaseUrl: '/assets/wc3/',
+      classTitle: `${stats.name} · ${stats.attackType === 'ranged' ? '远程' : '近战'}${
+        stats.primary === 'str' ? '力量' : stats.primary === 'agi' ? '敏捷' : '智力'
+      }`,
+      primary: stats.primary,
+    };
+  }
+  return HERO_MODEL_MAP['Nbbc'];
+}
 
 function intToFourCC(val: number | undefined): string {
   if (!val || val < 0x20202020 || val > 0x7a7a7a7a) return '';
@@ -668,7 +797,7 @@ export class ReplayTimelineEngine {
             const isArmletToggle = armlet && t - lastToggleTime < 800;
 
             let targetSlot = -1;
-            // --- AI 修改开始 [ARMLET-UNIQUE]：臂章开/关是同一件；合成后 PUI 再发一次不得占第二格 ---
+            // 臂章开/关是同一件；合成后 PUI 再发一次不得占第二格
             if (armlet) {
               targetSlot = inv.findIndex((s) => !!s && isArmletFamily(s.code));
               if (
@@ -685,7 +814,6 @@ export class ReplayTimelineEngine {
             if (targetSlot < 0 && itemDef && !itemDef.stackable) {
               targetSlot = inv.findIndex((s) => s?.code === realCode || s?.code === itemCode);
             }
-            // --- AI 修改结束 [ARMLET-UNIQUE] ---
             if (targetSlot < 0 && itemDef?.stackable) {
               targetSlot = inv.findIndex((s) => s?.code === realCode);
               if (targetSlot >= 0 && inv[targetSlot]) {
@@ -741,7 +869,7 @@ export class ReplayTimelineEngine {
             this.shopToRealItem.get(itemCode);
           const realCode = itemDef?.realCode || itemCode;
           let idx = -1;
-          // --- AI 修改开始 [ARMLET-UNIQUE]：DRI 任一侧形态都清掉栏内那一件臂章 ---
+          // DRI 任一侧形态都清掉栏内那一件臂章
           if (isArmletFamily(realCode) || isArmletFamily(itemCode)) {
             if (
               lastToggleSlot >= 0 &&
@@ -756,7 +884,6 @@ export class ReplayTimelineEngine {
           } else {
             idx = inv.findIndex((s) => s?.code === realCode || s?.code === itemCode);
           }
-          // --- AI 修改结束 [ARMLET-UNIQUE] ---
           if (idx >= 0) {
             inv[idx] = null;
             pushSnapshot(t);
@@ -860,9 +987,9 @@ export class ReplayTimelineEngine {
       else break;
     }
 
-    const heroCfg = HERO_MODEL_MAP[this.payload.heroCode] || HERO_MODEL_MAP['Nbbc'];
+    const heroCfg = resolveHeroModelConfig(this.payload.heroCode);
     const lv = snap.level;
-    // --- AI 修改开始 [HERO-STATS-ARCHIVE]：从 DotA 6.83d UnitBalance 档案取初始/成长，纠正写死主宰三维导致血蓝错误 ---
+    // 从 DotA 6.83d UnitBalance 档案取初始/成长，纠正写死主宰三维导致血蓝错误
     const heroStats = getDotaHeroStats(this.payload.heroCode) || getDotaHeroStats('Nbbc')!;
     const baseAttrs = heroAttrsAtLevel(heroStats, lv);
     const strBase = Math.round(baseAttrs.str);
@@ -911,7 +1038,6 @@ export class ReplayTimelineEngine {
       heroStats.attackDmgBase + heroStats.attackDice * heroStats.attackSides + primaryStat
     );
     const armor = Math.round((heroStats.baseArmor + agiTotal * 0.14) * 10) / 10;
-    // --- AI 修改结束 [HERO-STATS-ARCHIVE] ---
 
     // 3. 计算金钱（初始 825 + 出兵后每 0.6 秒 1 金 + 补刀/击杀奖励 - 购买花费）
     const passiveGold =
@@ -979,9 +1105,8 @@ export class ReplayTimelineEngine {
         return raw;
       })(),
       level: lv,
-      // --- AI 修改开始 [XP-BAR-NATIVE]：录像无精确经验值时不再用时间伪造进度（旧公式 t%60000 会导致经验条一直走） ---
+      // 录像无精确经验值时不再用时间伪造进度（旧公式 t%60000 会导致经验条一直走）
       xpPercent: lv >= 25 ? 100 : 0,
-      // --- AI 修改结束 [XP-BAR-NATIVE] ---
       unspentSkillPoints,
       hp: maxHp,
       maxHp,
@@ -1014,4 +1139,3 @@ export class ReplayTimelineEngine {
     };
   }
 }
-// --- AI 修改结束 [REPLAY-TIMELINE]：新增 War3Bot 玩家动作流（match_*.dat）完整时间轴与状态还原引擎 ---

@@ -40,10 +40,8 @@ export function loadWc3ViewerLibs() {
       }
     }
     return {
-      // --- AI 修改开始 [PORTRAIT-3D]：导出 ModelViewer 与 handlers 以渲染控制台 3D 动态英雄肖像 ---
       ModelViewer: viewerNs.ModelViewer,
       handlers: viewerNs.handlers,
-      // --- AI 修改结束 [PORTRAIT-3D]：导出 ModelViewer 与 handlers 以渲染控制台 3D 动态英雄肖像 ---
       War3MapViewer,
       War3Map: unwrap(war3MapMod),
       War3MapViewerMap: unwrap(war3MapViewerMapMod),
@@ -54,10 +52,8 @@ export function loadWc3ViewerLibs() {
     };
   }
   return {
-    // --- AI 修改开始 [PORTRAIT-3D]：导出 ModelViewer 与 handlers 以渲染控制台 3D 动态英雄肖像 ---
     ModelViewer: viewerNs.ModelViewer,
     handlers: viewerNs.handlers,
-    // --- AI 修改结束 [PORTRAIT-3D]：导出 ModelViewer 与 handlers 以渲染控制台 3D 动态英雄肖像 ---
     War3MapViewer,
     War3Map: unwrap(war3MapMod),
     War3MapViewerMap: unwrap(war3MapViewerMapMod),

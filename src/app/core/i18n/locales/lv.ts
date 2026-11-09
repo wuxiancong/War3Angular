@@ -4,7 +4,7 @@ export const lv: TranslationSchema = {
     theme: { dark: "Tumšs", light: "Gaišs" },
     status: { uplink: "Savienojums Normāls", bots: "Boti", signals: "Aktīvie Konti" },
     nav: { 
-        home: "SĀKUMS", matches: "STATISTIKA", ladder: "RANGLISTE", team: "SQUAD", report: "ZIŅOT", 
+        home: "SĀKUMS", matches: "STATISTIKA", replay: "REPLAY", ladder: "RANGLISTE", team: "SQUAD", report: "ZIŅOT", 
         reportList: "PAZIŅOJUMI", ban: "BAN LISTE", download: "LEJUPIELĀDĒT", platformUpdates: "ATJAUNINĀJUMI", 
         mapUpdates: "KARTES", faq: "BUJ", support: "ATBALSTS", onlineSupport: "Tiešsaistes atbalsts",
         myTeam: "Mana komanda", create: "Izveidot spēli"

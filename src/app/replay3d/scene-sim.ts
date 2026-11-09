@@ -9,20 +9,15 @@ export interface SceneLane {
 
 export interface NeutralCampCfg {
   id: string;
-  // --- AI 修改开始 [SCENE-SIM]：支持野怪营地名称、等级 tier 与缺省数量兜底 ---
   name?: string;
   x: number;
   y: number;
   count?: number;
   tier?: 'small' | 'medium' | 'large' | 'ancient' | 'roshan';
-  // --- AI 修改结束 [SCENE-SIM]：支持野怪营地名称、等级 tier 与缺省数量兜底 ---
   scale?: number;
-  // --- AI 修改开始 [NEUTRAL-COMPOSITION]：营地可配置异种单位组合（对齐 DotA 小/中/大/远古/肉山差异） ---
   composition?: string[];
-  // --- AI 修改结束 [NEUTRAL-COMPOSITION] ---
 }
 
-// --- AI 修改开始 [RUNE-SIM]：新增河道神符点配置与神符状态类型定义 ---
 export interface RuneSpotCfg {
   id: string;
   name: string;
@@ -45,12 +40,9 @@ export interface SimRune {
   spawnedAtMs: number;
   alive: boolean;
   yaw: number;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   instance: any;
 }
-// --- AI 修改结束 [RUNE-SIM]：新增河道神符点配置与神符状态类型定义 ---
 
-// --- AI 修改开始 [TOWER-COMBAT]：新增防御塔战斗实体定义，支持防御塔攻击小兵/英雄及小兵攻塔碰撞 ---
 export interface SimTower {
   id: string;
   name: string;
@@ -69,7 +61,6 @@ export interface SimTower {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   instance: any;
 }
-// --- AI 修改结束 [TOWER-COMBAT]：新增防御塔战斗实体定义，支持防御塔攻击小兵/英雄及小兵攻塔碰撞 ---
 
 export interface SceneSyncConfig {
   enabled: boolean;
@@ -78,16 +69,12 @@ export interface SceneSyncConfig {
   creepWaveSize: number;
   creepMoveSpeed: number;
   neutralRefreshMs: number;
-  // --- AI 修改开始 [RUNE-SIM]：新增神符刷新间隔与河道神符点数组配置 ---
   runeRefreshMs?: number;
-  // --- AI 修改结束 [RUNE-SIM]：新增神符刷新间隔与河道神符点数组配置 ---
   startCreepsAtMs: number;
   startNeutralsAtMs: number;
   lanes: SceneLane[];
   neutralCamps: NeutralCampCfg[];
-  // --- AI 修改开始 [RUNE-SIM]：河道神符点配置列表 ---
   runeSpots?: RuneSpotCfg[];
-  // --- AI 修改结束 [RUNE-SIM]：河道神符点配置列表 ---
 }
 
 export interface SimUnit {
@@ -101,11 +88,9 @@ export interface SimUnit {
   scale: number;
   waypoints: [number, number][];
   wpIndex: number;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   instance: any;
   alive: boolean;
   campId?: string;
-  // --- AI 修改开始 [SCENE-SIM]：新增兵线与野怪生命值、攻击力及动画序列索引，支持小兵交战与打野刷新 ---
   hp: number;
   maxHp: number;
   dps: number;
@@ -114,10 +99,8 @@ export interface SimUnit {
   attackSeq: number;
   deathSeq: number;
   inCombat?: boolean;
-  // --- AI 修改结束 [SCENE-SIM]：新增兵线与野怪生命值、攻击力及动画序列索引，支持小兵交战与打野刷新 ---
 }
 
-// --- AI 修改开始 [COMBAT-GOLD-SIM]：飘金数字与战斗血条实体接口定义 ---
 export interface SimFloatingText {
   id: number;
   text: string;
@@ -140,7 +123,6 @@ export interface SimHealthEntity {
   hp: number;
   maxHp: number;
 }
-// --- AI 修改结束 [COMBAT-GOLD-SIM]：飘金数字与战斗血条实体接口定义 ---
 
 export type HeightSampler = (x: number, y: number) => number;
 export type ModelSpawner = (opts: {
@@ -151,7 +133,6 @@ export type ModelSpawner = (opts: {
   teamColor: number;
   scale: number;
   sequenceHint?: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
 }) => Promise<any | null>;
 
 const DEFAULT_CFG: SceneSyncConfig = {
@@ -161,22 +142,17 @@ const DEFAULT_CFG: SceneSyncConfig = {
   creepWaveSize: 4,
   creepMoveSpeed: 270,
   neutralRefreshMs: 60000,
-  // --- AI 修改开始 [RUNE-SIM]：默认每 2 分钟（120000ms）刷新河道神符，并提供 war3map.j 标准神符点兜底 ---
   runeRefreshMs: 120000,
-  // --- AI 修改结束 [RUNE-SIM]：默认每 2 分钟（120000ms）刷新河道神符，并提供 war3map.j 标准神符点兜底 ---
   startCreepsAtMs: 90000,
   startNeutralsAtMs: 30000,
   lanes: [],
   neutralCamps: [],
-  // --- AI 修改开始 [RUNE-SIM]：DotA 6.83d 上/下河道神符点精确坐标（源自 war3map.j Rect G4/D4） ---
   runeSpots: [
     { id: 'rune_top', name: '上河道神符点', x: -2352, y: 1648 },
     { id: 'rune_bot', name: '下河道神符点', x: 3008, y: -2832 },
   ],
-  // --- AI 修改结束 [RUNE-SIM]：DotA 6.83d 上/下河道神符点精确坐标（源自 war3map.j Rect G4/D4） ---
 };
 
-// --- AI 修改开始 [RUNE-SIM]：DotA 6.83d 6 种神符元数据定义 ---
 const RUNE_SPECS: Record<
   RuneKind,
   { nameCn: string; teamColor: number; colorHex: string; scale: number }
@@ -199,9 +175,7 @@ function findSeqIndex(instance: any, hint: string, fallback = 0): number {
   const sub = seqs.findIndex((s) => String(s.name || '').toLowerCase().includes(h));
   return sub >= 0 ? sub : fallback;
 }
-// --- AI 修改结束 [RUNE-SIM]：DotA 6.83d 6 种神符元数据定义 ---
 
-// --- AI 修改开始 [NEUTRAL-COMPOSITION]：有限模型库下的 DotA 风格营地异种组合 ---
 type NeutralSpec = { path: string; scale: number; hp: number; dps: number };
 
 const NEUTRAL_SPECS: Record<string, NeutralSpec> = {
@@ -241,14 +215,11 @@ function resolveNeutralSpecs(camp: NeutralCampCfg): NeutralSpec[] {
     scale: camp.scale ?? base.scale,
   }));
 }
-// --- AI 修改结束 [NEUTRAL-COMPOSITION] ---
 
 export async function loadSceneSyncConfig(url = DEFAULT_SCENE_SYNC_URL): Promise<SceneSyncConfig> {
   try {
-    // --- AI 修改开始 [CACHE-BUST]：开发期给 scene-sync.json 加时间戳，避免浏览器一直用旧兵线/野怪配置 ---
     const bust = url.includes('?') ? `&_=${Date.now()}` : `?_=${Date.now()}`;
     const res = await fetch(url + bust, { cache: 'no-store' });
-    // --- AI 修改结束 [CACHE-BUST] ---
     if (!res.ok) return { ...DEFAULT_CFG };
     const raw = (await res.json()) as Partial<SceneSyncConfig>;
     return { ...DEFAULT_CFG, ...raw };
@@ -268,9 +239,7 @@ export function applySyncOverrides(
     ...overrides,
     lanes: overrides.lanes?.length ? overrides.lanes : base.lanes,
     neutralCamps: overrides.neutralCamps?.length ? overrides.neutralCamps : base.neutralCamps,
-    // --- AI 修改开始 [RUNE-SIM]：合并神符点覆盖配置 ---
     runeSpots: overrides.runeSpots?.length ? overrides.runeSpots : base.runeSpots,
-    // --- AI 修改结束 [RUNE-SIM]：合并神符点覆盖配置 ---
   };
 }
 
@@ -300,31 +269,24 @@ function moveToward(
 export class DotaSceneSim {
   cfg: SceneSyncConfig;
   units: SimUnit[] = [];
-  // --- AI 修改开始 [RUNE-SIM]：当前河道神符列表与神符刷新计时器 ---
   runes: SimRune[] = [];
   lastRunePickupMsg = '';
-  // --- AI 修改结束 [RUNE-SIM]：当前河道神符列表与神符刷新计时器 ---
-  // --- AI 修改开始 [TOWER-COMBAT]：当前场景防御塔列表 ---
   towers: SimTower[] = [];
-  // --- AI 修改结束 [TOWER-COMBAT]：当前场景防御塔列表 ---
   heroTarget: { x: number; y: number } | null = null;
   clockMs = 0;
   private nextWaveAt = 0;
   private nextNeutralAt = 0;
-  // --- AI 修改开始 [RUNE-SIM]：神符刷新时间戳与上一轮强化神符记录（对齐 war3map.j function CAO 不重复规则） ---
   private nextRuneAt = 0;
   private runeSerial = 0;
   private lastPowerupIdx = -1;
   private spawningWave = false;
   private refreshingNeutrals = false;
   private refreshingRunes = false;
-  // --- AI 修改结束 [RUNE-SIM]：神符刷新时间戳与上一轮强化神符记录（对齐 war3map.j function CAO 不重复规则） ---
   private waveSerial = 0;
   private creepModelPath = 'Units\\NightElf\\Wisp\\Wisp.mdx';
   private neutralModelPath = 'Units\\NightElf\\Wisp\\Wisp.mdx';
   private heroWalkSeq = -1;
   private heroStandSeq = -1;
-  // --- AI 修改开始 [COMBAT-GOLD-SIM]：英雄战斗属性、金钱统计与飘金粒子池 ---
   private heroAttackSeq = -1;
   heroHp = 680;
   heroMaxHp = 680;
@@ -333,7 +295,6 @@ export class DotaSceneSim {
   goldTotal = 603;
   floatingTexts: SimFloatingText[] = [];
   private floatingSerial = 0;
-  // --- AI 修改结束 [COMBAT-GOLD-SIM]：英雄战斗属性、金钱统计与飘金粒子池 ---
 
   constructor(
     cfg: SceneSyncConfig,
@@ -346,21 +307,16 @@ export class DotaSceneSim {
     this.cfg = cfg;
     this.heroWalkSeq = resolveHeroSeq('Walk');
     this.heroStandSeq = resolveHeroSeq('Stand');
-    // --- AI 修改开始 [COMBAT-GOLD-SIM]：解析英雄 Attack 攻击动作序列索引 ---
     this.heroAttackSeq = resolveHeroSeq('Attack');
-    // --- AI 修改结束 [COMBAT-GOLD-SIM]：解析英雄 Attack 攻击动作序列索引 ---
     this.nextWaveAt = cfg.startCreepsAtMs;
     this.nextNeutralAt = cfg.startNeutralsAtMs;
-    // --- AI 修改开始 [RUNE-SIM]：0:00 开局首次刷符，之后每 120000ms（2分钟）刷新 ---
     this.nextRuneAt = 0;
-    // --- AI 修改结束 [RUNE-SIM]：0:00 开局首次刷符，之后每 120000ms（2分钟）刷新 ---
   }
 
   setConfig(cfg: SceneSyncConfig): void {
     this.cfg = cfg;
   }
 
-  // --- AI 修改开始 [TOWER-COMBAT]：注册地图上的近卫与天灾防御塔实例以参与兵线战斗与碰撞阻挡 ---
   registerTowers(
     rawTowers: {
       id: string;
@@ -368,7 +324,6 @@ export class DotaSceneSim {
       team: 0 | 1;
       x: number;
       y: number;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       instance: any;
     }[]
   ): void {
@@ -390,7 +345,6 @@ export class DotaSceneSim {
       instance: t.instance,
     }));
   }
-  // --- AI 修改结束 [TOWER-COMBAT]：注册地图上的近卫与天灾防御塔实例以参与兵线战斗与碰撞阻挡 ---
 
   setHeroMoveTarget(x: number, y: number): void {
     this.heroTarget = { x, y };
@@ -407,12 +361,10 @@ export class DotaSceneSim {
 
   async bootstrap(): Promise<void> {
     if (!this.cfg.enabled) return;
-    // --- AI 修改开始 [CREEP-AFTER-HORN]：号角后 90s 才出第一波兵；bootstrap 不再立刻 spawnWave，避免家门口开局堵兵 ---
     this.nextWaveAt = Math.max(0, this.cfg.startCreepsAtMs ?? 90000);
     this.nextNeutralAt = Math.max(0, this.cfg.startNeutralsAtMs ?? 30000);
     this.nextRuneAt = 0;
     // 野怪/神符可在对局时钟推进到点后再刷；此处不预刷兵线
-    // --- AI 修改结束 [CREEP-AFTER-HORN] ---
   }
 
   /**
@@ -460,18 +412,11 @@ export class DotaSceneSim {
     if (!this.cfg.enabled) return;
     this.clockMs += dtMs;
     this.tickHero(dtMs / 1000);
-    // --- AI 修改开始 [COMBAT-GOLD-SIM]：每帧驱动英雄与敌方单位战斗及飘金粒子更新 ---
     this.tickHeroCombat(dtMs / 1000);
-    // --- AI 修改结束 [COMBAT-GOLD-SIM]：每帧驱动英雄与敌方单位战斗及飘金粒子更新 ---
-    // --- AI 修改开始 [TOWER-COMBAT]：每帧更新防御塔索敌攻击逻辑 ---
     this.tickTowers(dtMs / 1000);
-    // --- AI 修改结束 [TOWER-COMBAT]：每帧更新防御塔索敌攻击逻辑 ---
     this.tickUnits(dtMs / 1000);
-    // --- AI 修改开始 [RUNE-SIM]：每帧更新河道神符自转与英雄拾取判定，并按时触发自动出兵、自动刷野、自动刷符 ---
     this.tickRunes(dtMs / 1000);
-    // --- AI 修改开始 [COMBAT-GOLD-SIM]：更新飘金粒子上浮与淡出生命周期 ---
     this.tickFloatingTexts(dtMs);
-    // --- AI 修改结束 [COMBAT-GOLD-SIM]：更新飘金粒子上浮与淡出生命周期 ---
 
     if (this.clockMs >= this.nextWaveAt) {
       this.nextWaveAt = this.clockMs + (this.cfg.creepWaveIntervalMs || 30000);
@@ -486,7 +431,6 @@ export class DotaSceneSim {
       this.nextRuneAt = this.clockMs + runeInterval;
       void this.refreshRunes(false);
     }
-    // --- AI 修改结束 [RUNE-SIM]：每帧更新河道神符自转与英雄拾取判定，并按时触发自动出兵、自动刷野、自动刷符 ---
   }
 
   dispose(): void {
@@ -500,7 +444,6 @@ export class DotaSceneSim {
       u.alive = false;
     }
     this.units = [];
-    // --- AI 修改开始 [RUNE-SIM]：清理河道神符 3D 实例 ---
     for (const r of this.runes) {
       try {
         r.instance?.detach?.();
@@ -511,7 +454,6 @@ export class DotaSceneSim {
       r.alive = false;
     }
     this.runes = [];
-    // --- AI 修改结束 [RUNE-SIM]：清理河道神符 3D 实例 ---
   }
 
   private tickHero(dt: number): void {
@@ -526,13 +468,7 @@ export class DotaSceneSim {
     // Face movement direction (WC3 Z-up; facing around Z).
     const ang = Math.atan2(this.heroTarget.y - y0, this.heroTarget.x - x0);
     try {
-      // --- AI 删除开始 [SCENE-SIM]：删除错误的欧拉角 setRotation(0,0,ang) 与标量 face(ang)，原因：mdx-m3-viewer 的 setRotation 需要四元数数组且 face 需要三维目标向量，原写法会导致变换矩阵变为 NaN ---
-      // this.heroInstance.setRotation?.(0, 0, ang);
-      // this.heroInstance.face?.(ang);
-      // --- AI 删除结束 [SCENE-SIM] ---
-      // --- AI 修改开始 [SCENE-SIM]：使用绕 Z 轴四元数设置英雄朝向 ---
       this.heroInstance.setRotation?.([0, 0, Math.sin(ang / 2), Math.cos(ang / 2)]);
-      // --- AI 修改结束 [SCENE-SIM]：使用绕 Z 轴四元数设置英雄朝向 ---
     } catch {
       /* optional API */
     }
@@ -542,7 +478,6 @@ export class DotaSceneSim {
     }
   }
 
-  // --- AI 修改开始 [COMBAT-GOLD-SIM]：实现英雄与敌方小兵/野怪之间的双向普攻伤害与受击扣血 ---
   private tickHeroCombat(dt: number): void {
     const heroPos = this.getHeroPosition();
     if (!heroPos || !this.heroInstance) return;
@@ -581,9 +516,7 @@ export class DotaSceneSim {
       this.heroHp = Math.min(this.heroMaxHp, this.heroHp + 5.5 * dt);
     }
   }
-  // --- AI 修改结束 [COMBAT-GOLD-SIM]：实现英雄与敌方小兵/野怪之间的双向普攻伤害与受击扣血 ---
 
-  // --- AI 修改开始 [TOWER-COMBAT]：防御塔自动攻击射程（700码）内的敌方小兵与英雄 ---
   private tickTowers(dt: number): void {
     const heroPos = this.getHeroPosition();
     for (const tower of this.towers) {
@@ -641,10 +574,8 @@ export class DotaSceneSim {
       }
     }
   }
-  // --- AI 修改结束 [TOWER-COMBAT]：防御塔自动攻击射程（700码）内的敌方小兵与英雄 ---
 
   private tickUnits(dt: number): void {
-    // --- AI 修改开始 [SCENE-SIM]：实现近卫/天灾兵线相遇交战互砍、小兵攻击敌方防御塔与绕行防穿模、英雄刷野战斗及阵亡清理逻辑 ---
     const heroPos = this.getHeroPosition();
     for (const u of this.units) {
       if (!u.alive) continue;
@@ -756,7 +687,6 @@ export class DotaSceneSim {
       let nextX = moved.x;
       let nextY = moved.y;
       const arrived = moved.arrived;
-      // --- AI 修改开始 [TOWER-COMBAT]：小兵行进时对防御塔基座（半径 145 码）做碰撞排斥，防止小兵直接从防御塔模型中心穿过 ---
       if (u.kind === 'creep') {
         for (const tower of this.towers) {
           if (!tower.alive) continue;
@@ -772,7 +702,6 @@ export class DotaSceneSim {
           }
         }
       }
-      // --- AI 修改结束 [TOWER-COMBAT]：小兵行进时对防御塔基座（半径 145 码）做碰撞排斥，防止小兵直接从防御塔模型中心穿过 ---
       u.x = nextX;
       u.y = nextY;
       u.z = this.sampleHeight(u.x, u.y);
@@ -787,10 +716,8 @@ export class DotaSceneSim {
       if (arrived) u.wpIndex += 1;
     }
     this.units = this.units.filter((u) => u.alive);
-    // --- AI 修改结束 [SCENE-SIM]：实现近卫/天灾兵线相遇交战互砍、小兵攻击敌方防御塔与绕行防穿模、英雄刷野战斗及阵亡清理逻辑 ---
   }
 
-  // --- AI 修改开始 [COMBAT-DEATH]：统一阵亡：先切 Death 序列再移除，并按需飘金 ---
   private killUnit(unit: SimUnit, grantGold: boolean, bountyOverride?: number): void {
     if (!unit.alive) return;
     unit.alive = false;
@@ -824,23 +751,15 @@ export class DotaSceneSim {
       this.addFloatingText('+' + bounty, unit.x, unit.y, unit.z + 45, '#fbbf24');
     }
   }
-  // --- AI 修改结束 [COMBAT-DEATH] ---
 
   private async spawnWave(): Promise<void> {
     if (!this.cfg.lanes.length || this.spawningWave) return;
-    // --- AI 修改开始 [SCENE-SIM]：限制场上兵线单位总数上限，防止长时间运行堆积过多实例 ---
     const activeCreeps = this.units.filter((u) => u.alive && u.kind === 'creep').length;
     if (activeCreeps >= 72) return;
     this.spawningWave = true;
-    // --- AI 修改结束 [SCENE-SIM]：限制场上兵线单位总数上限，防止长时间运行堆积过多实例 ---
     try {
       this.waveSerial += 1;
       for (const lane of this.cfg.lanes) {
-        // --- AI 删除开始 [LANE-WAYPOINTS]：删除包含自身出生点与终点反向折返的原始路径，原因：原写法导致天灾上路小兵出生后先往天灾基地冰封王座方向乱跑再折返 ---
-        // const forward = lane.waypoints;
-        // const reverse = [...lane.waypoints].reverse();
-        // --- AI 删除结束 [LANE-WAYPOINTS] ---
-        // --- AI 修改开始 [LANE-WAYPOINTS]：跳过出生点自身；终点使用 buildings.json 天灾/近卫遗迹坐标 ---
         const forward: [number, number][] = [...lane.waypoints.slice(1)];
         const reverse: [number, number][] = [...[...lane.waypoints].reverse().slice(1)];
         if (!forward.length || forward[forward.length - 1][0] !== 5184) {
@@ -849,7 +768,6 @@ export class DotaSceneSim {
         if (!reverse.length || reverse[reverse.length - 1][0] !== -5632) {
           reverse.push([-5632, -6144]);
         }
-        // --- AI 修改结束 [LANE-WAYPOINTS] ---
         await this.spawnCreepGroup(lane.id, 0, lane.radiantSpawn, forward);
         await this.spawnCreepGroup(lane.id, 1, lane.direSpawn, reverse);
       }
@@ -865,7 +783,6 @@ export class DotaSceneSim {
     waypoints: [number, number][]
   ): Promise<void> {
     const n = this.cfg.creepWaveSize;
-    // --- AI 修改开始 [SCENE-SIM]：每第 7 波兵（每 3分30秒）额外生成攻城车（投刃车/绞肉车） ---
     const includeSiege = this.waveSerial % 7 === 0;
     const totalCount = includeSiege ? n + 1 : n;
     for (let i = 0; i < totalCount; i++) {
@@ -895,28 +812,16 @@ export class DotaSceneSim {
           : isRanged
             ? 0.82
             : 0.85;
-      // --- AI 修改结束 [SCENE-SIM]：每第 7 波兵（每 3分30秒）额外生成攻城车（投刃车/绞肉车） ---
       const inst = await this.spawnModel({
-        // --- AI 删除开始 [SCENE-SIM]：删除单调的 Wisp 小兵模型与缩放，原因：改为使用近卫/天灾真实近战与远程小兵模型 ---
-        // path: this.creepModelPath,
-        // x,
-        // y,
-        // z,
-        // teamColor: team,
-        // scale: 0.55 + (i % 2) * 0.08,
-        // --- AI 删除结束 [SCENE-SIM] ---
-        // --- AI 修改开始 [SCENE-SIM]：传入真实小兵模型路径与缩放 ---
         path: modelPath,
         x,
         y,
         z,
         teamColor: team,
         scale: unitScale,
-        // --- AI 修改结束 [SCENE-SIM]：传入真实小兵模型路径与缩放 ---
         sequenceHint: 'Walk',
       });
       if (!inst) continue;
-      // --- AI 修改开始 [SCENE-SIM]：初始化小兵生命值、攻击力与动画索引 ---
       const maxHp = isSiege ? 550 : isRanged ? 300 : 550;
       const dps = isSiege ? 40 : isRanged ? 26 : 21;
       this.units.push({
@@ -940,11 +845,9 @@ export class DotaSceneSim {
         attackSeq: findSeqIndex(inst, 'Attack', 0),
         deathSeq: findSeqIndex(inst, 'Death', 0),
       });
-      // --- AI 修改结束 [SCENE-SIM]：初始化小兵生命值、攻击力与动画索引 ---
     }
   }
 
-  // --- AI 修改开始 [SCENE-SIM]：实现 DotA 6.83d 整分钟野怪营地判定刷新（空营地且无英雄封野时自动刷野） ---
   private async refreshEmptyNeutralCamps(forceAll = false): Promise<void> {
     if (this.refreshingNeutrals) return;
     this.refreshingNeutrals = true;
@@ -976,7 +879,6 @@ export class DotaSceneSim {
           continue;
         }
 
-        // --- AI 修改开始 [NEUTRAL-COMPOSITION]：按 composition 刷异种野怪，避免全营同一模型 ---
         const specs = resolveNeutralSpecs(camp);
         for (let i = 0; i < specs.length; i++) {
           const spec = specs[i];
@@ -1020,15 +922,12 @@ export class DotaSceneSim {
             deathSeq: findSeqIndex(inst, 'Death', 0),
           });
         }
-        // --- AI 修改结束 [NEUTRAL-COMPOSITION] ---
       }
     } finally {
       this.refreshingNeutrals = false;
     }
   }
-  // --- AI 修改结束 [SCENE-SIM]：实现 DotA 6.83d 整分钟野怪营地判定刷新（空营地且无英雄封野时自动刷野） ---
 
-  // --- AI 修改开始 [RUNE-SIM]：实现 DotA 6.83d 河道双神符自动刷新（war3map.j function CBO 规则）与拾取逻辑 ---
   private pickNextPowerupRune(): RuneKind {
     this.runeSerial += 1;
     let idx = (this.runeSerial * 3 + 1) % POWERUP_RUNES.length;
@@ -1116,14 +1015,12 @@ export class DotaSceneSim {
       if (heroPos && dist2(r.x, r.y, heroPos.x, heroPos.y) <= 240) {
         r.alive = false;
         this.lastRunePickupMsg = `拾取 ${r.spotName}：${r.nameCn}`;
-        // --- AI 修改开始 [COMBAT-GOLD-SIM]：拾取赏金神符累加 250 金钱并在头顶弹出金色 +250 ---
         if (r.kind === 'bounty') {
           this.goldTotal += 250;
           this.addFloatingText('+250', r.x, r.y, r.z + 55, '#fbbf24');
         } else {
           this.addFloatingText(r.nameCn, r.x, r.y, r.z + 55, r.colorHex);
         }
-        // --- AI 修改结束 [COMBAT-GOLD-SIM] ---
         try {
           r.instance?.detach?.();
           r.instance?.setScene?.(null);
@@ -1134,9 +1031,7 @@ export class DotaSceneSim {
     }
     this.runes = this.runes.filter((r) => r.alive);
   }
-  // --- AI 修改结束 [RUNE-SIM]：实现 DotA 6.83d 河道双神符自动刷新（war3map.j function CBO 规则）与拾取逻辑 ---
-
-  // --- AI 修改开始 [COMBAT-GOLD-SIM]：飘金粒子池管理、金钱总数统计与实时血条实体查询 ---
+  
   addFloatingText(
     text: string,
     x: number,
@@ -1222,5 +1117,4 @@ export class DotaSceneSim {
     }
     return list;
   }
-  // --- AI 修改结束 [COMBAT-GOLD-SIM]：飘金粒子池管理、金钱总数统计与实时血条实体查询 ---
 }

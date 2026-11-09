@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { afterNextRender, Component, ElementRef, inject, OnDestroy, signal, viewChild } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { Router } from '@angular/router';
 import { TranslatePipe } from '../core/i18n/translate.pipe';
@@ -21,7 +21,7 @@ import { NgClass } from '@angular/common';
   template: `
     <div class="flex flex-col w-screen z-[100]">
       <!-- 导航栏 -->
-      <nav class="w-full px-4 md:px-8 py-4 flex justify-between items-center bg-[var(--bg-header)] backdrop-blur-xl border-b border-white/5 relative z-50">
+      <nav #siteNav class="w-full px-4 md:px-8 py-4 flex justify-between items-center bg-[var(--bg-header)] backdrop-blur-xl border-b border-white/5 relative z-50">
           <!-- Logo区 -->
           <div class="flex items-center space-x-4 cursor-pointer group" routerLink="/">
               <div class="w-8 h-8 md:w-10 md:h-10 flex-none aspect-square transition-transform group-hover:scale-110 flex items-center justify-center text-[24px] md:text-[32px] drop-shadow-[0_0_15px_var(--accent-glow)] leading-none" style="font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', sans-serif;">
@@ -37,6 +37,7 @@ import { NgClass } from '@angular/common';
           <div class="hidden 2xl:flex items-center space-x-6 xl:space-x-10 text-[15px] font-black uppercase h-full">
               <a routerLink="/" routerLinkActive="text-accent border-b-3 border-accent opacity-100" [routerLinkActiveOptions]="{exact: true}" class="transition-all px-2 opacity-30 hover:opacity-100 hover:text-accent">{{ 'nav.home' | t }}</a>
               <a routerLink="/matches" routerLinkActive="text-accent border-b-3 border-accent opacity-100" class="transition-all px-2 opacity-30 hover:opacity-100 hover:text-accent">{{ 'nav.matches' | t }}</a>
+              <a routerLink="/replay-3d" routerLinkActive="text-accent border-b-3 border-accent opacity-100" class="transition-all px-2 opacity-30 hover:opacity-100 hover:text-accent">{{ 'nav.replay' | t }}</a>
               <a routerLink="/ladder" routerLinkActive="text-accent border-b-3 border-accent opacity-100" class="transition-all px-2 opacity-30 hover:opacity-100 hover:text-accent">{{ 'nav.ladder' | t }}</a>
               
               <!-- 战队预约 下拉菜单 -->
@@ -246,6 +247,10 @@ import { NgClass } from '@angular/common';
                       <span class="material-icons text-accent group-active:!text-white">sports_esports</span>
                       <span class="group-active:!text-white">{{ 'nav.matches' | t }}</span>
                   </a>
+                  <a routerLink="/replay-3d" (click)="closeMenu()" routerLinkActive="!text-white bg-accent" class="px-4 py-4 rounded-xl text-lg font-bold text-[var(--text-main)] flex items-center gap-4 group active:bg-accent active:!text-white transition-all border border-white/5">
+                      <span class="material-icons text-accent group-active:!text-white">movie</span>
+                      <span class="group-active:!text-white">{{ 'nav.replay' | t }}</span>
+                  </a>
                   <a routerLink="/ladder" (click)="closeMenu()" routerLinkActive="!text-white bg-accent" class="px-4 py-4 rounded-xl text-lg font-bold text-[var(--text-main)] flex items-center gap-4 group active:bg-accent active:!text-white transition-all border border-white/5">
                       <span class="material-icons text-accent group-active:!text-white">leaderboard</span>
                       <span class="group-active:!text-white">{{ 'nav.ladder' | t }}</span>
@@ -436,13 +441,46 @@ import { NgClass } from '@angular/common';
     }
   `
 })
-export class HeaderComponent {
+export class HeaderComponent implements OnDestroy {
   i18n = inject(I18nService);
   themeService = inject(ThemeService);
   scrollService = inject(ScrollService);
   regionService = inject(RegionService);
   authService = inject(AuthService);
   router = inject(Router);
+
+  private readonly siteNav = viewChild<ElementRef<HTMLElement>>('siteNav');
+  private headerResizeObserver?: ResizeObserver;
+
+  constructor() {
+    // 把真实顶栏高度写入 CSS 变量，供 spacer / sticky 工具条严丝合缝贴齐（桌面/移动/缩放都自适应）
+    afterNextRender(() => {
+      const nav = this.siteNav()?.nativeElement;
+      if (!nav || typeof ResizeObserver === 'undefined') {
+        this.syncHeaderHeightVar(nav?.getBoundingClientRect().height || 73);
+        return;
+      }
+      const apply = () => this.syncHeaderHeightVar(nav.getBoundingClientRect().height);
+      this.headerResizeObserver = new ResizeObserver(apply);
+      this.headerResizeObserver.observe(nav);
+      apply();
+      window.addEventListener('resize', apply);
+      this.headerResizeCleanup = () => window.removeEventListener('resize', apply);
+    });
+  }
+
+  private headerResizeCleanup?: () => void;
+
+  private syncHeaderHeightVar(heightPx: number): void {
+    const h = Math.max(0, Math.round(heightPx));
+    document.documentElement.style.setProperty('--app-header-height', `${h}px`);
+  }
+
+  ngOnDestroy(): void {
+    this.headerResizeObserver?.disconnect();
+    this.headerResizeCleanup?.();
+  }
+
   isMenuOpen = signal(false);
   isSquadDropdownOpen = signal(false);
   isReportDropdownOpen = signal(false);

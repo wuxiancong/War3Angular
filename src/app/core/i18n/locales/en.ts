@@ -4,7 +4,7 @@ export const en: TranslationSchema = {
     theme: { dark: "Dark", light: "Light" },
     status: { uplink: "Uplink Normal", bots: "Bots", signals: "Active Accounts" },
     nav: { 
-        home: "HOME", matches: "STATS", ladder: "LADDER", team: "SQUAD", report: "REPORT", 
+        home: "HOME", matches: "STATS", replay: "REPLAY", ladder: "LADDER", team: "SQUAD", report: "REPORT", 
         reportList: "NOTICES", ban: "BAN LIST", download: "DOWNLOAD", platformUpdates: "UPDATES", 
         mapUpdates: "MAPS", faq: "FAQ", support: "SUPPORT", onlineSupport: "Online Support",
         myTeam: "My Team", create: "Create Match"

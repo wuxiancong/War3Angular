@@ -4,7 +4,7 @@ export const ca: TranslationSchema = {
     theme: { dark: "Fosc", light: "Clar" },
     status: { uplink: "Connexió Normal", bots: "Bots", signals: "Comptes Actius" },
     nav: { 
-        home: "INICI", matches: "ESTADÍSTIQUES", ladder: "RÀNQUING", team: "SQUAD", report: "INFORMAR", 
+        home: "INICI", matches: "ESTADÍSTIQUES", replay: "REPLAY", ladder: "RÀNQUING", team: "SQUAD", report: "INFORMAR", 
         reportList: "AVISOS", ban: "LLISTA DE BANS", download: "DESCARREGAR", platformUpdates: "ACTUALITZACIONS", 
         mapUpdates: "MAPES", faq: "FAQ", support: "SUPORT", onlineSupport: "Suport en línia",
         myTeam: "El meu equip", create: "Crear partida"

@@ -6,20 +6,18 @@ import {
 } from '@angular/ssr/node';
 import express from 'express';
 import { join } from 'node:path';
-// --- AI 修改开始 [REPLAY-API]：引入文件系统与 zlib 解压缩模块用于解析 War3Bot 玩家录像数据 ---
+// 引入文件系统与 zlib 解压缩模块用于解析 War3Bot 玩家录像数据
 import * as fs from 'node:fs';
 import * as zlib from 'node:zlib';
-// --- AI 修改结束 [REPLAY-API]：引入文件系统与 zlib 解压缩模块用于解析 War3Bot 玩家录像数据 ---
 import { GoogleGenAI } from '@google/genai';
 
 const browserDistFolder = join(import.meta.dirname, '../browser');
 
 const app = express();
-// --- AI 修改开始 [SSR-ALLOWED-HOSTS]：配置 SSR 允许的主机名白名单，避免 localhost 与 127.0.0.1 访问被判定为 SSRF 拦截并报 400 错误 ---
+// 配置 SSR 允许的主机名白名单，避免 localhost 与 127.0.0.1 访问被判定为 SSRF 拦截并报 400 错误
 const angularApp = new AngularNodeAppEngine({
   allowedHosts: ['localhost', '127.0.0.1', '0.0.0.0'],
 });
-// --- AI 修改结束 [SSR-ALLOWED-HOSTS] ---
 
 app.use(express.json());
 
@@ -183,7 +181,7 @@ const chatHandler: express.RequestHandler = async (req, res) => {
 app.post('/api/chat', chatHandler);
 app.post('/api/chat.php', chatHandler);
 
-// --- AI 修改开始 [REPLAY-API]：挂载 War3Bot DotA 图标静态资源与 wuxiancong 录像同步 API ---
+// 挂载 War3Bot DotA 图标静态资源与 wuxiancong 录像同步 API
 const WAR3BOT_ROOT = 'D:/Qt/workspace/War3Bot';
 const WAR3BOT_BUILD_ROOT = `${WAR3BOT_ROOT}/build/Desktop_Qt_5_15_2_VSCode_MSVC_32bit_Release`;
 const PLAYER_ACTIONS_DIR = `${WAR3BOT_BUILD_ROOT}/data/player_actions`;
@@ -419,9 +417,8 @@ app.get('/api/replay/match', (req, res) => {
     actions: data.actions || [],
   });
 });
-// --- AI 修改结束 [REPLAY-API]：挂载 War3Bot DotA 图标静态资源与 wuxiancong 录像同步 API ---
 
-// --- AI 修改开始 [LADDER-API]：注册天梯数据查询与特权安全结算路由 ---
+// 注册天梯数据查询与特权安全结算路由
 import { verifyBotSignature, rateLimit } from './server/security.middleware.js';
 import { LadderService } from './server/ladder.service.js';
 
@@ -503,7 +500,6 @@ app.post('/api/ladder/settle', verifyBotSignature, async (req, res) => {
     return res.status(500).json({ success: false, error: '天梯结算落库失败: ' + (err.message || String(err)) });
   }
 });
-// --- AI 修改结束 [LADDER-API]：注册天梯数据查询与特权安全结算路由 ---
 
 /**
  * Serve static files from /browser

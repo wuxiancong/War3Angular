@@ -4,7 +4,7 @@ export const he: TranslationSchema = {
     theme: { dark: "כהה", light: "בהיר" },
     status: { uplink: "חיבור תקין", bots: "בוטים", signals: "חשבונות פעילים" },
     nav: { 
-        home: "בית", matches: "סטטיסטיקות", ladder: "דירוג", team: "סקוואד", report: "דיווח", 
+        home: "בית", matches: "סטטיסטיקות", replay: "REPLAY", ladder: "דירוג", team: "סקוואד", report: "דיווח", 
         reportList: "הודעות", ban: "רשימת חסימות", download: "הורדה", platformUpdates: "עדכונים", 
         mapUpdates: "מפות", faq: "שאלות נפוצות", support: "תמיכה", onlineSupport: "תמיכה מקוונת",
         myTeam: "הקבוצה שלי", create: "צור משחק"

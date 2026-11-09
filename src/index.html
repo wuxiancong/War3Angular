@@ -18,12 +18,7 @@
       browser: true,
       version: '',
       versions: {},
-      // --- AI 删除开始 [SHIM-FIX]：删除会导致语法错误的非法语句 queue 0，原因：非法的 JS 语法导致整个全局 process/global 垫片脚本执行失败 ---
-      // nextTick: function (cb) { queue 0; setTimeout(cb, 0); },
-      // --- AI 删除结束 [SHIM-FIX] ---
-      // --- AI 修改开始 [SHIM-FIX]：修正 process.nextTick 实现 ---
       nextTick: function (cb) { setTimeout(cb, 0); },
-      // --- AI 修改结束 [SHIM-FIX]：修正 process.nextTick 实现 ---
       cwd: function () { return '/'; }
     };
     globalThis.global = globalThis.global || globalThis;

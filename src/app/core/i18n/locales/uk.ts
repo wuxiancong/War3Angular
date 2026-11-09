@@ -4,7 +4,7 @@ export const uk: TranslationSchema = {
     theme: { dark: "Темна", light: "Світла" },
     status: { uplink: "Зв'язок Нормальний", bots: "Боти", signals: "Активні Акаунти" },
     nav: { 
-        home: "ГОЛОВНА", matches: "СТАТИСТИКА", ladder: "РЕЙТИНГ", team: "SQUAD", report: "ПОВІДОМИТИ", 
+        home: "ГОЛОВНА", matches: "СТАТИСТИКА", replay: "REPLAY", ladder: "РЕЙТИНГ", team: "SQUAD", report: "ПОВІДОМИТИ", 
         reportList: "ОГОЛОШЕННЯ", ban: "БАН-ЛИСТ", download: "ЗАВАНТАЖИТИ", platformUpdates: "ОНОВЛЕННЯ", 
         mapUpdates: "КАРТИ", faq: "FAQ", support: "ПІДТРИМКА", onlineSupport: "Онлайн-підтримка",
         myTeam: "Моя Команда", create: "Створити Матч"

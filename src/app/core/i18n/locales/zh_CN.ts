@@ -4,7 +4,7 @@ export const zh_CN: TranslationSchema = {
     theme: { dark: "深色", light: "浅色" },
     status: { uplink: "网关连接正常", bots: "机器人", signals: "活跃账号" },
     nav: { 
-        home: "首页", matches: "个人战绩", ladder: "天梯排行", team: "战队预约", report: "玩家举报", 
+        home: "首页", matches: "个人战绩", replay: "观看录像", ladder: "天梯排行", team: "战队预约", report: "玩家举报", 
         reportList: "公示信息", ban: "封号名单", download: "下载中心", platformUpdates: "平台更新", 
         mapUpdates: "地图更新", faq: "常见问题", support: "联系客服", onlineSupport: "在线咨询",
         myTeam: "我的战队", create: "发起约战"

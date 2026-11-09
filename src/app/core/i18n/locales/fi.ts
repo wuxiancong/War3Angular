@@ -4,7 +4,7 @@ export const fi: TranslationSchema = {
     theme: { dark: "Tumma", light: "Vaalea" },
     status: { uplink: "Yhteys Normaali", bots: "Botit", signals: "Aktiiviset Tilit" },
     nav: { 
-        home: "KOTI", matches: "TILASTOT", ladder: "RANKING", team: "SQUAD", report: "ILMOITA", 
+        home: "KOTI", matches: "TILASTOT", replay: "REPLAY", ladder: "RANKING", team: "SQUAD", report: "ILMOITA", 
         reportList: "ILMOITUKSET", ban: "BANNILISTA", download: "LATAA", platformUpdates: "PÄIVITYKSET", 
         mapUpdates: "KARTAT", faq: "UKK", support: "TUKI", onlineSupport: "Verkkotuki",
         myTeam: "Oma tiimi", create: "Luo ottelu"

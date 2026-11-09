@@ -1,4 +1,3 @@
-// --- AI 修改开始 [LADDER-API]：天梯业务逻辑、结算引擎与事务落库服务 ---
 import { pool, query } from './db.js';
 
 export interface PlayerReportItem {
@@ -488,4 +487,3 @@ export class LadderService {
     };
   }
 }
-// --- AI 修改结束 [LADDER-API]：天梯业务逻辑、结算引擎与事务落库服务 ---

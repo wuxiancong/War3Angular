@@ -1,0 +1,10 @@
+const fs = require('fs');
+const p = 'src/app/pages/replay-3d.component.ts';
+let s = fs.readFileSync(p, 'utf8');
+s = s.replace(/readonly heroNameCn = signal\('[^']*'\);/, "readonly heroNameCn = signal('芙莉莲');");
+s = s.replace(/readonly basicCommandLabel = signal\('[^']*'\);/, "readonly basicCommandLabel = signal('无');");
+s = s.replace(/\{ value: '', label: '[^']*' \}/, "{ value: '', label: '镜头跳转' }");
+fs.writeFileSync(p, s);
+console.log(s.match(/readonly heroNameCn[^\n]+/)[0]);
+console.log(s.match(/readonly basicCommandLabel[^\n]+/)[0]);
+console.log([...s.matchAll(/\{ value: '', label: '[^']*' \}/g)].map((m) => m[0]));

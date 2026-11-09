@@ -1,4 +1,3 @@
-// --- AI 修改开始 [LADDER-API]：安全签名鉴权、防重放攻击与速率限制中间件 ---
 import { Request, Response, NextFunction } from 'express';
 import crypto from 'node:crypto';
 
@@ -115,5 +114,4 @@ export function rateLimit(maxRequests = 60, windowSeconds = 60) {
     next();
   };
 }
-// --- AI 修改结束 [LADDER-API]：安全签名鉴权、防重放攻击与速率限制中间件 ---
 

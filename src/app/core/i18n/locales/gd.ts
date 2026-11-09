@@ -4,7 +4,7 @@ export const gd: TranslationSchema = {
     theme: { dark: "Dorch", light: "Solas" },
     status: { uplink: "Ceangal àbhaisteach", bots: "Bots", signals: "Cunntasan gnìomhach" },
     nav: { 
-        home: "DACHAIGH", matches: "STATAIDHEAN", ladder: "RÀNKING", team: "SQUAD", report: "AITHRIS", 
+        home: "DACHAIGH", matches: "STATAIDHEAN", replay: "REPLAY", ladder: "RÀNKING", team: "SQUAD", report: "AITHRIS", 
         reportList: "SGRÌOBHAIDHEAN", ban: "BAN LIST", download: "LÀRAICH", platformUpdates: "ÙRACHAIDHEAN", 
         mapUpdates: "MAPAICHAN", faq: "FAQ", support: "TAIC", onlineSupport: "Taic air-loidhne",
         myTeam: "An sgioba agam", create: "Cruthaich geama"

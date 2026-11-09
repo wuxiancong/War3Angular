@@ -1,4 +1,4 @@
-// --- AI 修改开始 [LADDER-API]：Angular 前端天梯网络客户端服务 ---
+// Angular 前端天梯网络客户端服务
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, map } from 'rxjs';
@@ -101,5 +101,4 @@ export class LadderService {
     }
   }
 }
-// --- AI 修改结束 [LADDER-API]：Angular 前端天梯网络客户端服务 ---
 

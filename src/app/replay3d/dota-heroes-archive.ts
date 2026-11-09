@@ -2653,7 +2653,7 @@ export const DOTA_HERO_STATS: Record<string, DotaHeroStats> = {
     "modelFile": "units\\creeps\\FurbolgTracker\\FurbolgTracker"
   },
   "Ntin": {
-    "name": "修补匠",
+    "name": "地精修补匠",
     "primary": "int",
     "attackType": "ranged",
     "strBase": 17,

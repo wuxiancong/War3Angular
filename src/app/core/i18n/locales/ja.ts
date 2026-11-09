@@ -4,7 +4,7 @@ export const ja: TranslationSchema = {
     theme: { dark: "ダーク", light: "ライト" },
     status: { uplink: "接続正常", bots: "ボット", signals: "アクティブアカウント" },
     nav: { 
-        home: "ホーム", matches: "統計", ladder: "ランキング", team: "スクワッド", report: "通報", 
+        home: "ホーム", matches: "統計", replay: "リプレイ", ladder: "ランキング", team: "スクワッド", report: "通報", 
         reportList: "お知らせ", ban: "BANリスト", download: "ダウンロード", platformUpdates: "更新情報", 
         mapUpdates: "マップ", faq: "FAQ", support: "サポート", onlineSupport: "オンラインサポート",
         myTeam: "マイチーム", create: "マッチ作成"

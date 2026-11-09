@@ -4,7 +4,7 @@ export const da: TranslationSchema = {
     theme: { dark: "Mørk", light: "Lys" },
     status: { uplink: "Forbindelse Normal", bots: "Bots", signals: "Aktive Konti" },
     nav: { 
-        home: "HJEM", matches: "STATISTIK", ladder: "RANGLISTE", team: "SQUAD", report: "RAPPORTER", 
+        home: "HJEM", matches: "STATISTIK", replay: "REPLAY", ladder: "RANGLISTE", team: "SQUAD", report: "RAPPORTER", 
         reportList: "MEDDELELSER", ban: "BANLISTE", download: "DOWNLOAD", platformUpdates: "OPDATERINGER", 
         mapUpdates: "KORT", faq: "FAQ", support: "SUPPORT", onlineSupport: "Online Support",
         myTeam: "Mit Team", create: "Opret Kamp"

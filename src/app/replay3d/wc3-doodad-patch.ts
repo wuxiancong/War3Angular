@@ -85,13 +85,8 @@ export function patchWar3MapViewerMap(deps: DoodadPatchDeps): void {
         : dir;
 
       let leaf = stem;
-      // --- AI 删除开始 [DOODAD-PATH]：避免向本身已带数字后缀的模型名（如 Obelisk2）再次追加变体编号 ---
-      // if (numVar > 1) leaf += Math.min(variation, numVar - 1);
-      // --- AI 删除结束 [DOODAD-PATH] ---
-      // --- AI 修改开始 [DOODAD-PATH]：仅当模型基础名末尾不含数字时才追加变体编号 ---
       const canAppendVar = numVar > 1 && !/\d$/.test(stem);
       if (canAppendVar) leaf += Math.min(variation, numVar - 1);
-      // --- AI 修改结束 [DOODAD-PATH]：仅当模型基础名末尾不含数字时才追加变体编号 ---
       leaf += '.mdx';
 
       const paths: string[] = [];
@@ -103,22 +98,14 @@ export function patchWar3MapViewerMap(deps: DoodadPatchDeps): void {
         // full path without variation folder tricks
         let full = normalized;
         if (!full.toLowerCase().endsWith('.mdx')) {
-          // --- AI 删除开始 [DOODAD-PATH]：避免向末尾已有数字的完整路径再次追加变体号 ---
-          // full = numVar > 1 ? `${full}${Math.min(variation, numVar - 1)}.mdx` : `${full}.mdx`;
-          // --- AI 删除结束 [DOODAD-PATH] ---
-          // --- AI 修改开始 [DOODAD-PATH]：完整路径仅在末尾无数字时追加变体号 ---
           full = canAppendVar ? `${full}${Math.min(variation, numVar - 1)}.mdx` : `${full}.mdx`;
-          // --- AI 修改结束 [DOODAD-PATH]：完整路径仅在末尾无数字时追加变体号 ---
         }
         paths.unshift(full);
       }
       paths.push(leaf);
-      // --- AI 修改开始 [DOODAD-PATH]：去重候选模型路径，避免重复请求同一路径 ---
       return Array.from(new Set(paths));
-      // --- AI 修改结束 [DOODAD-PATH]：去重候选模型路径，避免重复请求同一路径 ---
     };
 
-    // --- AI 修改开始 [DOODAD-FILTER-V3]：去掉泉水/基地灌木矮树（ZPsh/APbs 等）、花丛蘑菇芦苇、技能特效与路径块；保留主树 ATtr 与岩石图腾 ---
     const shouldSkipDoodad = (id: string, row: any, file: string): boolean => {
       const id4 = String(id || '').replace(/\0/g, '').trim();
       const cat = String(row.string?.('category') || row.string?.('doodClass') || '');
@@ -149,7 +136,6 @@ export function patchWar3MapViewerMap(deps: DoodadPatchDeps): void {
       if (/SkullPile|Bones|Bush|Shrub|Flower|Shroom|CatTail|CanopyTree/i.test(fileNorm)) return true;
       return false;
     };
-    // --- AI 修改结束 [DOODAD-FILTER-V3] ---
 
     for (const doodad of parser.doodads) {
       try {
@@ -208,7 +194,6 @@ export function patchWar3MapViewerMap(deps: DoodadPatchDeps): void {
     this.anyReady = true;
   };
 
-  // --- AI 修改开始 [CLIFF-SAFE]：限制悬崖层级差在 0..2（A..C）内，并确保悬崖边缘裙边与地面亮度和贴图严丝合缝消除方块感 ---
   War3MapViewerMap.prototype.isCliff = function isCliffSafe(
     this: any,
     column: number,
@@ -223,11 +208,9 @@ export function patchWar3MapViewerMap(deps: DoodadPatchDeps): void {
     const c10 = corners[row][column + 1];
     const c01 = corners[row + 1][column];
     const c11 = corners[row + 1][column + 1];
-    // --- AI 修改开始 [RAMP-AS-SLOPE]：带 ramp 标记的层差格用地面网格三角坡表现，避免当成悬崖 mesh 后看起来「没坡度」 ---
     if (c00.ramp || c10.ramp || c01.ramp || c11.ramp) {
       return false;
     }
-    // --- AI 修改结束 [RAMP-AS-SLOPE] ---
     const bottomLeft = c00.layerHeight;
     const bottomRight = c10.layerHeight;
     const topLeft = c01.layerHeight;
@@ -244,10 +227,8 @@ export function patchWar3MapViewerMap(deps: DoodadPatchDeps): void {
     topRightLayer: number,
     base: number
   ): string {
-    // --- AI 修改开始 [CLIFF-HEIGHT]：层差 0..4（A..E）。原版多为 A..C；过严 clamp=2 会在高台缘生成过矮 mesh 呈“坡鼓包”，过高字母无模型会破洞 ---
     const clampChar = (layer: number) =>
       String.fromCharCode(65 + Math.max(0, Math.min(4, layer - base)));
-    // --- AI 修改结束 [CLIFF-HEIGHT] ---
     return (
       clampChar(bottomLeftLayer) +
       clampChar(topLeftLayer) +
@@ -258,7 +239,6 @@ export function patchWar3MapViewerMap(deps: DoodadPatchDeps): void {
 
   const origCliffGroundIndex = War3MapViewerMap.prototype.cliffGroundIndex;
 
-  // --- AI 修改开始 [CORNER-TEXTURE-MARBLE]：
   // 绿方块根因有两层：
   // 1) CCgr.groundTile=Cgrs，悬崖邻格强制刷亮绿草；
   // 2) 高台内部 w3e 仍写着 Cgrs/Zvin，邻居也是草皮，marbleNear 数不到 Clvg（边缘才被悬崖逻辑盖成大理石）。
@@ -520,8 +500,6 @@ export function patchWar3MapViewerMap(deps: DoodadPatchDeps): void {
     }
     return tex;
   };
-  // --- AI 修改结束 [CORNER-TEXTURE-MARBLE] ---
-  // --- AI 修改结束 [CLIFF-SAFE] ---
 
   /**
    * Cliff MDX loads can hang / reject (missing geoset, path case). Without
@@ -531,7 +509,6 @@ export function patchWar3MapViewerMap(deps: DoodadPatchDeps): void {
   const origLoadTerrain = War3MapViewerMap.prototype.loadTerrainCliffsAndWater;
   War3MapViewerMap.prototype.loadTerrainCliffsAndWater =
     async function loadTerrainCliffsAndWaterSafe(this: any) {
-      // --- AI 修改开始 [RAMP-HEIGHT-SMOOTH]：在 orig 赋值 this.corners 时原地平滑 ramp（须先于 heightMap 烘焙）。DotA 大量 AAAA 同层斜坡仅靠 ramp 标记，不做平滑则永远是平地 ---
       const smoothRampHeights = (corners: any[][]) => {
         if (!corners?.length) return;
         const rows = corners.length;
@@ -597,9 +574,7 @@ export function patchWar3MapViewerMap(deps: DoodadPatchDeps): void {
       } catch (e) {
         console.warn('[wc3] ramp corners hook skipped', e);
       }
-      // --- AI 修改结束 [RAMP-HEIGHT-SMOOTH] ---
 
-      // --- AI 修改开始 [TERRAIN-LIGHTING]：仅对悬崖垂直岩壁应用法线明暗阴影，保持悬崖水平裙边与相邻地面 1.0 等亮无缝衔接，彻底消除岩石周围方块色差 ---
       try {
         const viewer = this.viewer;
         if (viewer?.webgl && !viewer.__wc3LitShadersApplied) {
@@ -747,7 +722,6 @@ export function patchWar3MapViewerMap(deps: DoodadPatchDeps): void {
       } catch (e) {
         console.warn('[wc3] lit terrain shader init skipped', e);
       }
-      // --- AI 修改结束 [TERRAIN-LIGHTING]：仅对悬崖垂直岩壁应用法线明暗阴影，保持悬崖水平裙边与相邻地面 1.0 等亮无缝衔接，彻底消除岩石周围方块色差 ---
       try {
         await Promise.race([
           origLoadTerrain.call(this),
