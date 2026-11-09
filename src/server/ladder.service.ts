@@ -1,18 +1,9 @@
-<<<<<<< HEAD
-=======
-// --- AI 修改开始 [LADDER-API]：天梯业务逻辑、结算引擎与事务落库服务 ---
->>>>>>> 952f8d2564fdeef192a7ab847a3fd571379ad7b5
 import { pool, query } from './db.js';
 
 export interface PlayerReportItem {
   userName: string;
-<<<<<<< HEAD
   team: number; // 1: 近卫, 2: 天灾
   slot: number; // 0~9
-=======
-  team: number;      // 1: 近卫, 2: 天灾
-  slot: number;      // 0~9
->>>>>>> 952f8d2564fdeef192a7ab847a3fd571379ad7b5
   heroCode: string;
   heroName?: string;
   kills: number;
@@ -81,7 +72,6 @@ export function rankLevelToTitle(level: number): string {
   return RANK_TITLES[level] || '见习新手';
 }
 
-<<<<<<< HEAD
 /** 与 War3Bot LadderScoreEngine::calculateKFactor 对齐 */
 function calculateKFactor(score: number): number {
   if (score < 1200) return 36;
@@ -103,8 +93,6 @@ function evaluatePerformance(
   return Math.max(2.0, Math.min(10.0, Math.round(raw * 10) / 10));
 }
 
-=======
->>>>>>> 952f8d2564fdeef192a7ab847a3fd571379ad7b5
 export class LadderService {
   /**
    * 1. 验证上报比赛合法性 (数据防伪、时长合规、人头守恒)
@@ -120,24 +108,17 @@ export class LadderService {
       return { valid: false, reason: '比赛时长过短 (小于3分钟)，判定为无效局不计入天梯积分' };
     }
 
-<<<<<<< HEAD
-=======
     // 人头数与死亡数守恒检查
->>>>>>> 952f8d2564fdeef192a7ab847a3fd571379ad7b5
     let sentinelKills = 0;
     let sentinelDeaths = 0;
     let scourgeKills = 0;
     let scourgeDeaths = 0;
 
     for (const p of payload.players) {
-<<<<<<< HEAD
       if (p.kills < 0 || p.deaths < 0 || p.assists < 0 || p.lastHits < 0 || p.denies < 0 || p.gold < 0) {
         return { valid: false, reason: `玩家 ${p.userName} 战绩数据包含非法负数` };
       }
       if (p.kills > 100 || p.deaths > 50 || p.gold > 99999) {
-=======
-      if (p.kills < 0 || p.deaths < 0 || p.kills > 100 || p.deaths > 50) {
->>>>>>> 952f8d2564fdeef192a7ab847a3fd571379ad7b5
         return { valid: false, reason: `玩家 ${p.userName} 战绩数据超出合理范围` };
       }
       if (p.team === 1) {
@@ -149,10 +130,7 @@ export class LadderService {
       }
     }
 
-<<<<<<< HEAD
-=======
     // 近卫击杀与天灾死亡差值校验 (允许少量野怪/防御塔自杀，误差不可过大)
->>>>>>> 952f8d2564fdeef192a7ab847a3fd571379ad7b5
     if (Math.abs(sentinelKills - scourgeDeaths) > 10 || Math.abs(scourgeKills - sentinelDeaths) > 10) {
       return { valid: false, reason: '战斗数据不符合人头守恒定律，涉嫌伪造注入' };
     }
@@ -175,10 +153,6 @@ export class LadderService {
     );
 
     if (!rows || rows.length === 0) {
-<<<<<<< HEAD
-=======
-      // 默认初始档案
->>>>>>> 952f8d2564fdeef192a7ab847a3fd571379ad7b5
       return {
         userName: cleanUser,
         score: 1000,
@@ -200,39 +174,7 @@ export class LadderService {
       };
     }
 
-<<<<<<< HEAD
     return this.mapLadderRow(rows[0]);
-=======
-    const r = rows[0];
-    const totalGames = (r.wins || 0) + (r.losses || 0);
-    const winRate = totalGames > 0 ? Math.round(((r.wins || 0) / totalGames) * 1000) / 10 : 0;
-    const kda =
-      (r.total_deaths || 0) > 0
-        ? Math.round((((r.total_kills || 0) + (r.total_assists || 0) * 0.7) / r.total_deaths) * 10) / 10
-        : (r.total_kills || 0) + (r.total_assists || 0);
-
-    const level = r.rank_level ?? scoreToRankLevel(r.score || 1000);
-
-    return {
-      userName: r.userName,
-      score: r.score || 1000,
-      rank_level: level,
-      rank_code: rankLevelToCode(level),
-      rank_title: rankLevelToTitle(level),
-      wins: r.wins || 0,
-      losses: r.losses || 0,
-      escapes: r.escapes || 0,
-      winRate,
-      total_kills: r.total_kills || 0,
-      total_deaths: r.total_deaths || 0,
-      total_assists: r.total_assists || 0,
-      kda,
-      mvp_count: r.mvp_count || 0,
-      current_win_streak: r.current_win_streak || 0,
-      max_win_streak: r.max_win_streak || 0,
-      total_play_time_mins: r.total_play_time_mins || 0,
-    };
->>>>>>> 952f8d2564fdeef192a7ab847a3fd571379ad7b5
   }
 
   /**
@@ -254,41 +196,7 @@ export class LadderService {
       [safeLimit, safeOffset]
     );
 
-<<<<<<< HEAD
     return { total, list: rows.map((r: any) => this.mapLadderRow(r)) };
-=======
-    const list: LadderUserRecord[] = rows.map((r: any) => {
-      const totalGames = (r.wins || 0) + (r.losses || 0);
-      const winRate = totalGames > 0 ? Math.round(((r.wins || 0) / totalGames) * 1000) / 10 : 0;
-      const kda =
-        (r.total_deaths || 0) > 0
-          ? Math.round((((r.total_kills || 0) + (r.total_assists || 0) * 0.7) / r.total_deaths) * 10) / 10
-          : (r.total_kills || 0) + (r.total_assists || 0);
-      const level = r.rank_level ?? scoreToRankLevel(r.score || 1000);
-
-      return {
-        userName: r.userName,
-        score: r.score || 1000,
-        rank_level: level,
-        rank_code: rankLevelToCode(level),
-        rank_title: rankLevelToTitle(level),
-        wins: r.wins || 0,
-        losses: r.losses || 0,
-        escapes: r.escapes || 0,
-        winRate,
-        total_kills: r.total_kills || 0,
-        total_deaths: r.total_deaths || 0,
-        total_assists: r.total_assists || 0,
-        kda,
-        mvp_count: r.mvp_count || 0,
-        current_win_streak: r.current_win_streak || 0,
-        max_win_streak: r.max_win_streak || 0,
-        total_play_time_mins: r.total_play_time_mins || 0,
-      };
-    });
-
-    return { total, list };
->>>>>>> 952f8d2564fdeef192a7ab847a3fd571379ad7b5
   }
 
   /**
@@ -310,119 +218,13 @@ export class LadderService {
   }
 
   /**
-<<<<<<< HEAD
    * 5. 核心事务落库：幂等防重 + 与 War3Bot 对齐的 Elo/K/KP/MVP/SVP 结算
    */
   static async settleMatch(payload: MatchReportPayload): Promise<{ success: boolean; message: string; data?: any }> {
-=======
-   * 5. 核心事务落库：处理游戏结束战绩结算上报 (防重、Elo计算、原子写入)
-   */
-  static async settleMatch(payload: MatchReportPayload): Promise<{ success: boolean; message: string; data?: any }> {
-    // A. 幂等性校验：如果该 matchId 已经结算过，直接返回已有记录，杜绝重复加分
-    const existing = await query<any>('SELECT match_id FROM matches WHERE match_id = ? LIMIT 1', [payload.matchId]);
-    if (existing && existing.length > 0) {
-      return { success: true, message: '比赛已被处理过，无需重复结算 (Idempotent OK)' };
-    }
-
-    // B. 获取这 10 名玩家当前在库内的天梯积分
-    const playerNames = payload.players.map((p) => p.userName);
-    const scoreMap = new Map<string, number>();
-
-    if (playerNames.length > 0) {
-      const placeholders = playerNames.map(() => '?').join(',');
-      const currentRows = await query<any>(
-        `SELECT userName, score FROM ladder_stats WHERE userName IN (${placeholders})`,
-        playerNames
-      );
-      for (const row of currentRows) {
-        scoreMap.set(row.userName, Number(row.score || 1000));
-      }
-    }
-
-    // C. 计算胜率期望与个人变动分
-    let sentinelSum = 0;
-    let sentinelCount = 0;
-    let scourgeSum = 0;
-    let scourgeCount = 0;
-
-    for (const p of payload.players) {
-      const s = scoreMap.get(p.userName) ?? 1000;
-      if (p.team === 1) {
-        sentinelSum += s;
-        sentinelCount++;
-      } else {
-        scourgeSum += s;
-        scourgeCount++;
-      }
-    }
-
-    const avgSentinel = sentinelCount > 0 ? sentinelSum / sentinelCount : 1000;
-    const avgScourge = scourgeCount > 0 ? scourgeSum / scourgeCount : 1000;
-    const expectedSentinel = 1 / (1 + Math.pow(10, (avgScourge - avgSentinel) / 400));
-    const expectedScourge = 1 - expectedSentinel;
-
-    // 计算 MVP
-    let bestWinnerScore = -1;
-    let bestWinnerUser = '';
-
-    const calculatedPlayers = payload.players.map((p) => {
-      const isWinner = p.team === payload.winnerTeam;
-      const oldScore = scoreMap.get(p.userName) ?? 1000;
-
-      // 综合战力评分
-      const kdaWeight = p.kills * 3.0 + p.assists * 1.5 - p.deaths * 2.0;
-      const farmScore = p.lastHits * 0.04 + p.denies * 0.06;
-      const perfScore = Math.max(2.0, Math.min(10.0, Math.round((5.0 + kdaWeight * 0.3 + farmScore) * 10) / 10));
-
-      if (isWinner && perfScore > bestWinnerScore) {
-        bestWinnerScore = perfScore;
-        bestWinnerUser = p.userName;
-      }
-
-      return {
-        ...p,
-        isWinner,
-        oldScore,
-        performanceScore: perfScore,
-        deltaScore: 0,
-        newScore: oldScore,
-        isMvp: false,
-      };
-    });
-
-    for (const p of calculatedPlayers) {
-      if (p.userName === bestWinnerUser) {
-        p.isMvp = true;
-      }
-
-      if (p.isAbandon) {
-        p.deltaScore = -45;
-        p.newScore = Math.max(100, p.oldScore - 45);
-        continue;
-      }
-
-      const k = p.oldScore < 1200 ? 36 : p.oldScore < 1800 ? 30 : 22;
-      const exp = p.team === 1 ? expectedSentinel : expectedScourge;
-      const actual = p.isWinner ? 1 : 0;
-      let delta = k * (actual - exp);
-
-      if (p.isWinner) {
-        delta += (p.performanceScore - 6.0) * 0.8 + (p.isMvp ? 3.0 : 0.0);
-        p.deltaScore = Math.max(8, Math.round(delta));
-      } else {
-        delta += Math.max(-2.0, (p.performanceScore - 6.0) * 0.5);
-        p.deltaScore = Math.min(-8, Math.round(delta));
-      }
-      p.newScore = Math.max(100, p.oldScore + p.deltaScore);
-    }
-
-    // D. 开启 MySQL 单一事务原子入库
->>>>>>> 952f8d2564fdeef192a7ab847a3fd571379ad7b5
     const conn = await pool.getConnection();
     try {
       await conn.beginTransaction();
 
-<<<<<<< HEAD
       // A. 事务内幂等：已结算直接返回
       const [existingRaw] = await conn.execute(
         'SELECT match_id FROM matches WHERE match_id = ? LIMIT 1 FOR UPDATE',
@@ -554,11 +356,6 @@ export class LadderService {
       // D. 原子写入 matches / match_results / ladder_stats
       await conn.execute(
         `INSERT INTO matches (match_id, map_name, game_mode, winner_team, start_time, duration_seconds, match_type)
-=======
-      // 1. 插入 matches
-      await conn.execute(
-        `REPLACE INTO matches (match_id, map_name, game_mode, winner_team, start_time, duration_seconds, match_type)
->>>>>>> 952f8d2564fdeef192a7ab847a3fd571379ad7b5
          VALUES (?, ?, ?, ?, ?, ?, 1)`,
         [
           payload.matchId,
@@ -570,10 +367,6 @@ export class LadderService {
         ]
       );
 
-<<<<<<< HEAD
-=======
-      // 2. 批量写入 match_results & 更新 ladder_stats
->>>>>>> 952f8d2564fdeef192a7ab847a3fd571379ad7b5
       for (const p of calculatedPlayers) {
         await conn.execute(
           `INSERT INTO match_results (match_id, userName, team_id, is_winner, hero_name, hero_level, kills, deaths, assists,
@@ -598,20 +391,12 @@ export class LadderService {
         );
 
         const newRank = scoreToRankLevel(p.newScore);
-<<<<<<< HEAD
         const winInc = p.isWinner && !p.isAbandon ? 1 : 0;
-=======
-        const winInc = p.isWinner ? 1 : 0;
->>>>>>> 952f8d2564fdeef192a7ab847a3fd571379ad7b5
         const lossInc = !p.isWinner && !p.isAbandon ? 1 : 0;
         const escInc = p.isAbandon ? 1 : 0;
         const mvpInc = p.isMvp ? 1 : 0;
         const playTimeInc = Math.floor(payload.durationSeconds / 60);
 
-<<<<<<< HEAD
-=======
-        // 使用 ON DUPLICATE KEY UPDATE 确保并发安全
->>>>>>> 952f8d2564fdeef192a7ab847a3fd571379ad7b5
         await conn.execute(
           `INSERT INTO ladder_stats (userName, score, rank_level, wins, losses, escapes, total_kills, total_deaths,
                                      total_assists, mvp_count, current_win_streak, max_win_streak, total_play_time_mins)
@@ -661,10 +446,7 @@ export class LadderService {
             deltaScore: p.deltaScore,
             newScore: p.newScore,
             isMvp: p.isMvp,
-<<<<<<< HEAD
             isSvp: p.isSvp,
-=======
->>>>>>> 952f8d2564fdeef192a7ab847a3fd571379ad7b5
             performanceScore: p.performanceScore,
           })),
         },
@@ -676,7 +458,6 @@ export class LadderService {
       conn.release();
     }
   }
-<<<<<<< HEAD
 
   private static mapLadderRow(r: any): LadderUserRecord {
     const totalGames = (r.wins || 0) + (r.losses || 0);
@@ -708,8 +489,3 @@ export class LadderService {
     };
   }
 }
-=======
-}
-// --- AI 修改结束 [LADDER-API]：天梯业务逻辑、结算引擎与事务落库服务 ---
-
->>>>>>> 952f8d2564fdeef192a7ab847a3fd571379ad7b5

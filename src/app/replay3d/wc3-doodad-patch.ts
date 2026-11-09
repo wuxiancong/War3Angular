@@ -208,17 +208,11 @@ export function patchWar3MapViewerMap(deps: DoodadPatchDeps): void {
     const c10 = corners[row][column + 1];
     const c01 = corners[row + 1][column];
     const c11 = corners[row + 1][column + 1];
-<<<<<<< HEAD
-    if (c00.ramp || c10.ramp || c01.ramp || c11.ramp) {
-      return false;
-    }
-=======
     // --- AI 修改开始 [RAMP-AS-SLOPE]：带 ramp 标记的层差格用地面网格三角坡表现，避免当成悬崖 mesh 后看起来「没坡度」 ---
     if (c00.ramp || c10.ramp || c01.ramp || c11.ramp) {
       return false;
     }
     // --- AI 修改结束 [RAMP-AS-SLOPE] ---
->>>>>>> 952f8d2564fdeef192a7ab847a3fd571379ad7b5
     const bottomLeft = c00.layerHeight;
     const bottomRight = c10.layerHeight;
     const topLeft = c01.layerHeight;
@@ -235,10 +229,7 @@ export function patchWar3MapViewerMap(deps: DoodadPatchDeps): void {
     topRightLayer: number,
     base: number
   ): string {
-<<<<<<< HEAD
-=======
     // --- AI 修改开始 [CLIFF-HEIGHT]：层差 0..4（A..E）。原版多为 A..C；过严 clamp=2 会在高台缘生成过矮 mesh 呈“坡鼓包”，过高字母无模型会破洞 ---
->>>>>>> 952f8d2564fdeef192a7ab847a3fd571379ad7b5
     const clampChar = (layer: number) =>
       String.fromCharCode(65 + Math.max(0, Math.min(4, layer - base)));
     return (
@@ -521,10 +512,7 @@ export function patchWar3MapViewerMap(deps: DoodadPatchDeps): void {
   const origLoadTerrain = War3MapViewerMap.prototype.loadTerrainCliffsAndWater;
   War3MapViewerMap.prototype.loadTerrainCliffsAndWater =
     async function loadTerrainCliffsAndWaterSafe(this: any) {
-<<<<<<< HEAD
-=======
       // --- AI 修改开始 [RAMP-HEIGHT-SMOOTH]：在 orig 赋值 this.corners 时原地平滑 ramp（须先于 heightMap 烘焙）。DotA 大量 AAAA 同层斜坡仅靠 ramp 标记，不做平滑则永远是平地 ---
->>>>>>> 952f8d2564fdeef192a7ab847a3fd571379ad7b5
       const smoothRampHeights = (corners: any[][]) => {
         if (!corners?.length) return;
         const rows = corners.length;
@@ -590,13 +578,9 @@ export function patchWar3MapViewerMap(deps: DoodadPatchDeps): void {
       } catch (e) {
         console.warn('[wc3] ramp corners hook skipped', e);
       }
-<<<<<<< HEAD
-
-=======
       // --- AI 修改结束 [RAMP-HEIGHT-SMOOTH] ---
 
       // --- AI 修改开始 [TERRAIN-LIGHTING]：仅对悬崖垂直岩壁应用法线明暗阴影，保持悬崖水平裙边与相邻地面 1.0 等亮无缝衔接，彻底消除岩石周围方块色差 ---
->>>>>>> 952f8d2564fdeef192a7ab847a3fd571379ad7b5
       try {
         const viewer = this.viewer;
         if (viewer?.webgl && !viewer.__wc3LitShadersApplied) {

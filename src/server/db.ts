@@ -1,7 +1,3 @@
-<<<<<<< HEAD
-=======
-// --- AI 修改开始 [LADDER-API]：MySQL 数据库连接池与异步查询模块 ---
->>>>>>> 952f8d2564fdeef192a7ab847a3fd571379ad7b5
 import mysql from 'mysql2/promise';
 import dotenv from 'dotenv';
 
@@ -33,8 +29,3 @@ export async function query<T = any>(sql: string, params: any[] = []): Promise<T
   const [rows] = await pool.execute(sql, params);
   return rows as T[];
 }
-<<<<<<< HEAD
-=======
-// --- AI 修改结束 [LADDER-API]：MySQL 数据库连接池与异步查询模块 ---
->>>>>>> 952f8d2564fdeef192a7ab847a3fd571379ad7b5
-

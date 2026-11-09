@@ -1,0 +1,47 @@
+> Building...
+√ Building...
+Prerendered 0 static routes.
+Application bundle generation failed. [5.878 seconds] - 2026-11-09T04:44:43.228Z
+
+X [ERROR] TS2300: Duplicate identifier 'verifyBotSignature'. [plugin angular-compiler]
+
+    src/server.ts:422:9:
+      422 │ import { verifyBotSignature, rateLimit } from './server/security....
+          ╵          ~~~~~~~~~~~~~~~~~~
+
+
+X [ERROR] TS2300: Duplicate identifier 'rateLimit'. [plugin angular-compiler]
+
+    src/server.ts:422:29:
+      422 │ import { verifyBotSignature, rateLimit } from './server/security....
+          ╵                              ~~~~~~~~~
+
+
+X [ERROR] TS2300: Duplicate identifier 'LadderService'. [plugin angular-compiler]
+
+    src/server.ts:423:9:
+      423 │ import { LadderService } from './server/ladder.service.js';
+          ╵          ~~~~~~~~~~~~~
+
+
+X [ERROR] TS2300: Duplicate identifier 'verifyBotSignature'. [plugin angular-compiler]
+
+    src/server.ts:505:9:
+      505 │ import { verifyBotSignature, rateLimit } from './server/security....
+          ╵          ~~~~~~~~~~~~~~~~~~
+
+
+X [ERROR] TS2300: Duplicate identifier 'rateLimit'. [plugin angular-compiler]
+
+    src/server.ts:505:29:
+      505 │ import { verifyBotSignature, rateLimit } from './server/security....
+          ╵                              ~~~~~~~~~
+
+
+X [ERROR] TS2300: Duplicate identifier 'LadderService'. [plugin angular-compiler]
+
+    src/server.ts:506:9:
+      506 │ import { LadderService } from './server/ladder.service.js';
+          ╵          ~~~~~~~~~~~~~
+
+

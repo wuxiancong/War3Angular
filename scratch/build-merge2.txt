@@ -1,0 +1,43 @@
+> Building...
+[dotenv@17.3.1] injecting env (5) from .env -- tip: ⚡️ secrets for agents: https://dotenvx.com/as2
+[dotenv@17.3.1] injecting env (5) from .env -- tip: ⚙️  suppress all logs with { quiet: true }
+[dotenv@17.3.1] injecting env (5) from .env -- tip: ⚙️  override existing env vars with { override: true }
+[dotenv@17.3.1] injecting env (5) from .env -- tip: ⚙️  suppress all logs with { quiet: true }
+[dotenv@17.3.1] injecting env (5) from .env -- tip: ⚙️  override existing env vars with { override: true }
+√ Building...
+Browser bundles     
+Initial chunk files  | Names            |  Raw size
+main.js              | main             |   3.56 MB | 
+styles.css           | styles           | 120.96 kB | 
+chunk-V2EQBRUP.js    | -                |   2.95 kB | 
+
+                     | Initial total    |   3.68 MB
+
+Lazy chunk files     | Names            |  Raw size
+chunk-AQDMLV5L.js    | wc3-viewer-libs  |   1.08 MB | 
+
+
+Server bundles      
+Initial chunk files  | Names            |  Raw size
+main.server.mjs      | main.server      |   4.47 MB | 
+server.mjs           | server           |   2.76 MB | 
+polyfills.server.mjs | polyfills.server | 427.85 kB | 
+chunk-TB3YAHZW.mjs   | -                |   3.42 kB | 
+chunk-FWXW57WI.mjs   | -                |   2.85 kB | 
+
+Lazy chunk files     | Names            |  Raw size
+chunk-FIGYWKEW.mjs   | wc3-viewer-libs  |   1.07 MB | 
+chunk-4WG7G3J3.mjs   | xhr2             |  40.17 kB | 
+chunk-HUJFJODC.mjs   | xhr2             |  40.06 kB | 
+
+Prerendered 22 static routes.
+Application bundle generation complete. [9.957 seconds] - 2026-11-09T04:45:52.794Z
+
+Output location: D:\Qt\workspace\War3Angular\dist\app
+
+NG02801: Angular detected that `HttpClient` is not configured to use `fetch` APIs. It's strongly recommended to enable `fetch` for applications that use Server-Side Rendering for better performance and compatibility. To enable `fetch`, add the `withFetch()` to the `provideHttpClient()` call at the root of the application.
+NG02801: Angular detected that `HttpClient` is not configured to use `fetch` APIs. It's strongly recommended to enable `fetch` for applications that use Server-Side Rendering for better performance and compatibility. To enable `fetch`, add the `withFetch()` to the `provideHttpClient()` call at the root of the application.
+(node:32760) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+NG02801: Angular detected that `HttpClient` is not configured to use `fetch` APIs. It's strongly recommended to enable `fetch` for applications that use Server-Side Rendering for better performance and compatibility. To enable `fetch`, add the `withFetch()` to the `provideHttpClient()` call at the root of the application.
+NG02801: Angular detected that `HttpClient` is not configured to use `fetch` APIs. It's strongly recommended to enable `fetch` for applications that use Server-Side Rendering for better performance and compatibility. To enable `fetch`, add the `withFetch()` to the `provideHttpClient()` call at the root of the application.
