@@ -525,7 +525,13 @@ export interface CommandCardSlot {
         grid-template-rows: 1fr 1fr 1fr;
         gap: 2% 1.8%;
         padding: 1%;
+<<<<<<< HEAD
         transform: translate(2px, 2px);
+=======
+        /* --- AI 修改开始 [CMD-GRID-NUDGE]：12 宫格整体右下各移 2px，对齐控制台孔位视觉中心 --- */
+        transform: translate(2px, 2px);
+        /* --- AI 修改结束 [CMD-GRID-NUDGE] --- */
+>>>>>>> 952f8d2564fdeef192a7ab847a3fd571379ad7b5
       }
       .wc3-slot {
         position: relative;
@@ -2241,7 +2247,11 @@ export class Replay3dComponent implements OnDestroy {
       icon: '/assets/wc3/ui/icons/cmd/BTNSkillz.png',
       unlearned: state.unspentSkillPoints === 0,
     };
+<<<<<<< HEAD
     // basicCommand 已在 timeline.sampleAt 与 isMoving 收敛（到达后不再锁死「移动」）
+=======
+    // basicCommand 已在 timeline.sampleAt 按 isMoving 收敛（到达后不再锁死「移动」）
+>>>>>>> 952f8d2564fdeef192a7ab847a3fd571379ad7b5
     const cmd = state.basicCommand || '';
     const cmdLabels: Record<string, string> = {
       move: '移动',
@@ -2327,8 +2337,13 @@ export class Replay3dComponent implements OnDestroy {
     }
   }
 
+<<<<<<< HEAD
     private async boot(attempt = 0): Promise<void> {
     // 地形就绪即结束 loading 并开渲，不再等英雄/兵线全部加载完
+=======
+  private async boot(attempt = 0): Promise<void> {
+    // --- AI 修改开始 [BOOT-FAST-TERRAIN]：地形就绪即结束 loading 并开渲，不再等英雄/兵线全部加载完 ---
+>>>>>>> 952f8d2564fdeef192a7ab847a3fd571379ad7b5
     const canvas = this.glCanvas()?.nativeElement;
     if (!canvas) {
       if (attempt < 30 && !this.disposed) {
@@ -2370,7 +2385,10 @@ export class Replay3dComponent implements OnDestroy {
         syncOverrides: this.syncOverridesFromQuery() as any,
       });
       this.mdx = mdx;
+<<<<<<< HEAD
       this.currentHeroModelUrl = modelUrl;
+=======
+>>>>>>> 952f8d2564fdeef192a7ab847a3fd571379ad7b5
 
       const loadPromise = mdx.load();
       // 地形 mesh 一就绪就显示画面（startLoop 已在 load 内启动）
@@ -2389,6 +2407,7 @@ export class Replay3dComponent implements OnDestroy {
           mdx.dispose();
           return;
         }
+<<<<<<< HEAD
         // 启动时 HUD 同步为先知（ZH 序 20）
         if (furion) this.applyHeroRosterEntry(furion, true);
         else {
@@ -2399,6 +2418,9 @@ export class Replay3dComponent implements OnDestroy {
           this.heroTitle.set('先知 · 远程智力');
         }
         this.spiritBearSummoned = false;
+=======
+        this.modelName.set('HeroBladeMaster');
+>>>>>>> 952f8d2564fdeef192a7ab847a3fd571379ad7b5
         this.sequences.set(mdx.sequences || []);
         this.buildingCount.set(mdx.buildings?.length || 0);
         this.cameraMode.set(mdx.cameraMode || 'hero');
@@ -2433,6 +2455,10 @@ export class Replay3dComponent implements OnDestroy {
         return this.boot(attempt + 1);
       }
     }
+<<<<<<< HEAD
+=======
+    // --- AI 修改结束 [BOOT-FAST-TERRAIN] ---
+>>>>>>> 952f8d2564fdeef192a7ab847a3fd571379ad7b5
   }
 
   private syncActiveSequence(): void {
@@ -2462,7 +2488,11 @@ export class Replay3dComponent implements OnDestroy {
       }
 
       this.syncActiveSequence();
+<<<<<<< HEAD
       // 仅号角后时钟驱动；无 GameStart 时 gameT=0 绝不刷兵；有录像时墙钟恒为 0
+=======
+      // --- AI 修改开始 [SCENE-SIM-HORN]：仅号角后时钟驱动；无 GameStart 时 gameT=0 绝不刷兵；有录像时墙钟恒为 0 ---
+>>>>>>> 952f8d2564fdeef192a7ab847a3fd571379ad7b5
       if (this.timeline) {
         const horn = this.timeline.gameHornMs || 0;
         // 未解析到战鼓号角前，对局时钟视为未开始（避免 firstMove 被误当成已开打）
@@ -2473,6 +2503,10 @@ export class Replay3dComponent implements OnDestroy {
         // 录像未到：保持模拟暂停，禁止墙钟空转出兵
         this.mdx?.setSimSpeed(0);
       }
+<<<<<<< HEAD
+=======
+      // --- AI 修改结束 [SCENE-SIM-HORN] ---
+>>>>>>> 952f8d2564fdeef192a7ab847a3fd571379ad7b5
       this.cameraMode.set(this.mdx?.cameraMode || this.cameraMode());
       this.simUnits.set(this.mdx?.simUnitCount || 0);
       this.updateMinimapMarker();

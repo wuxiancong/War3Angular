@@ -57,7 +57,13 @@ export class Wc3MdxViewer {
   terrainReady = false;
   simEnabled = true;
   simUnitCount = 0;
+<<<<<<< HEAD
   simSpeed = 0;
+=======
+  // --- AI 修改开始 [SCENE-SIM]：默认 0，避免录像未就绪时墙钟空转刷兵；有 timeline 时由 syncSimGameTime 驱动 ---
+  simSpeed = 0;
+  // --- AI 修改结束 [SCENE-SIM] ---
+>>>>>>> 952f8d2564fdeef192a7ab847a3fd571379ad7b5
   syncConfig?: SceneSyncConfig;
 
   private raf = 0;
@@ -245,6 +251,10 @@ export class Wc3MdxViewer {
   }
 
   async load(): Promise<void> {
+<<<<<<< HEAD
+=======
+    // --- AI 修改开始 [BOOT-FAST-TERRAIN]：基础 SLK 与 named w3e 并行拉取；地图对象一出就清屏开环，地形 mesh 就绪立即真正开渲 ---
+>>>>>>> 952f8d2564fdeef192a7ab847a3fd571379ad7b5
     const namedPromise = loadDotaNamedMapFiles();
     await this.waitBaseFiles();
     this.patchMissingTilesets();
@@ -283,6 +293,7 @@ export class Wc3MdxViewer {
     const z0 = this.sampleHeight(spawn.x, spawn.y);
     this.target = [spawn.x, spawn.y, z0 + 90];
     this.updateCamera();
+<<<<<<< HEAD
 
     // 英雄优先：避免装饰物/建筑队列占满加载槽导致英雄 MDX 迟迟不请求
     const z = this.sampleHeight(spawn.x, spawn.y);
@@ -320,6 +331,11 @@ export class Wc3MdxViewer {
     }
 
     // 树木/建筑后置，避免占满加载队列拖死英雄模型
+=======
+    // --- AI 修改结束 [BOOT-FAST-TERRAIN] ---
+
+    // Brief wait for trees; never block on whenAllLoaded (missing doodads hang forever).
+>>>>>>> 952f8d2564fdeef192a7ab847a3fd571379ad7b5
     await Promise.race([
       this.waitUntil(() => (map.doodads?.length || 0) > 50, 4000, '树木装饰'),
       new Promise((r) => setTimeout(r, 2500)),
@@ -350,7 +366,11 @@ export class Wc3MdxViewer {
         // DotA 6.83d UnitUI: etol → war3mapImported\final_export（世界树），非原版 TreeofLife
         radiant: 'war3mapImported\\final_export.mdx',
         dire: 'Doodads\\Cinematic\\LichKing\\LichKing.mdx',
+<<<<<<< HEAD
         scale: 1.35,
+=======
+        scale: 2, // radiant etol UnitUI modelScale；天灾 unpl 在 buildings.json 里为 6.6
+>>>>>>> 952f8d2564fdeef192a7ab847a3fd571379ad7b5
       },
       rax: {
         radiant: 'Buildings\\Orc\\GreatHall\\GreatHall.mdx',
@@ -893,6 +913,10 @@ export class Wc3MdxViewer {
   syncSimGameTime(gameTimeMs: number): void {
     this.sim?.syncGameClock(gameTimeMs);
   }
+<<<<<<< HEAD
+=======
+  // --- AI 修改结束 [HERO-SYNC]：新增动态切换英雄 3D 模型与获取兵线/野怪单位列表接口 ---
+>>>>>>> 952f8d2564fdeef192a7ab847a3fd571379ad7b5
 
   moveHeroTo(_x: number, _y: number): void {
     // Disabled in spectator/replay mode.
@@ -1011,6 +1035,10 @@ export class Wc3MdxViewer {
     }
   }
 
+<<<<<<< HEAD
+=======
+  // --- AI 修改开始 [TERRAIN-TRI-HEIGHT]：与 mdx-m3-viewer 地面四边形剖分一致的三角插值贴地（斜坡/高台不再用简单双线性错位） ---
+>>>>>>> 952f8d2564fdeef192a7ab847a3fd571379ad7b5
   sampleHeight(x: number, y: number): number {
     const map = this.viewer.map;
     if (!map?.corners?.length || !map.centerOffset) return 0;
@@ -1053,6 +1081,10 @@ export class Wc3MdxViewer {
     if (!corner) return 0;
     return corner.groundHeight + corner.layerHeight - 2;
   }
+<<<<<<< HEAD
+=======
+  // --- AI 修改结束 [TERRAIN-TRI-HEIGHT] ---
+>>>>>>> 952f8d2564fdeef192a7ab847a3fd571379ad7b5
 
 
   /** Approximate ground pick: ray vs z = sampleHeight plane near target. */
@@ -1171,6 +1203,10 @@ export class Wc3MdxViewer {
     if (/^units\//i.test(p)) {
       p = 'Units/' + p.slice('units/'.length);
     }
+<<<<<<< HEAD
+=======
+    // --- AI 修改开始 [WC3-ASSETS-CASE]：规范化魔兽3模型与贴图路径大小写，修复小兵/商人/雕像/岩石因路径大小写不匹配变成白模的问题 ---
+>>>>>>> 952f8d2564fdeef192a7ab847a3fd571379ad7b5
     if (/^war3mapimported\//i.test(p)) {
       p = 'war3mapImported/' + p.slice('war3mapImported/'.length);
     }

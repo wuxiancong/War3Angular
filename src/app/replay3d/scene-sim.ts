@@ -143,6 +143,10 @@ const DEFAULT_CFG: SceneSyncConfig = {
   creepMoveSpeed: 270,
   neutralRefreshMs: 60000,
   runeRefreshMs: 120000,
+<<<<<<< HEAD
+=======
+  // --- AI 修改结束 [RUNE-SIM]：默认每 2 分钟（120000ms）刷新河道神符，并提供 war3map.j 标准神符点兜底 ---
+>>>>>>> 952f8d2564fdeef192a7ab847a3fd571379ad7b5
   startCreepsAtMs: 90000,
   startNeutralsAtMs: 30000,
   lanes: [],
@@ -361,10 +365,18 @@ export class DotaSceneSim {
 
   async bootstrap(): Promise<void> {
     if (!this.cfg.enabled) return;
+<<<<<<< HEAD
+=======
+    // --- AI 修改开始 [CREEP-AFTER-HORN]：号角后 90s 才出第一波兵；bootstrap 不再立刻 spawnWave，避免家门口开局堵兵 ---
+>>>>>>> 952f8d2564fdeef192a7ab847a3fd571379ad7b5
     this.nextWaveAt = Math.max(0, this.cfg.startCreepsAtMs ?? 90000);
     this.nextNeutralAt = Math.max(0, this.cfg.startNeutralsAtMs ?? 30000);
     this.nextRuneAt = 0;
     // 野怪/神符可在对局时钟推进到点后再刷；此处不预刷兵线
+<<<<<<< HEAD
+=======
+    // --- AI 修改结束 [CREEP-AFTER-HORN] ---
+>>>>>>> 952f8d2564fdeef192a7ab847a3fd571379ad7b5
   }
 
   /**
