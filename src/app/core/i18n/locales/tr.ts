@@ -4,7 +4,7 @@ export const tr: TranslationSchema = {
     theme: { dark: "Karanlık", light: "Aydınlık" },
     status: { uplink: "Bağlantı Normal", bots: "Botlar", signals: "Aktif Hesaplar" },
     nav: { 
-        home: "ANA SAYFA", matches: "İSTATİSTİKLER", replay: "REPLAY", ladder: "SIRALAMA", team: "SQUAD", report: "İHBAR", 
+        home: "ANA SAYFA", matches: "İSTATİSTİKLER", replay: "REPLAY", online: "PLAY ONLINE", play: "WEB MATCH", ladder: "SIRALAMA", team: "SQUAD", report: "İHBAR", 
         reportList: "BİLDİRİMLER", ban: "BAN LİSTESİ", download: "İNDİR", platformUpdates: "GÜNCELLEMELER", 
         mapUpdates: "HARİTALAR", faq: "SSS", support: "DESTEK", onlineSupport: "Çevrimiçi Destek",
         myTeam: "Takımım", create: "Maç Oluştur"

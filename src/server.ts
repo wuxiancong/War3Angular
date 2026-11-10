@@ -418,6 +418,10 @@ app.get('/api/replay/match', (req, res) => {
   });
 });
 
+// 注册网页对战房间（锁步指令中继：SSE 下行 + POST 上行）
+import { registerGameRoomRoutes } from './server/game-rooms.js';
+registerGameRoomRoutes(app);
+
 // 注册天梯数据查询与特权安全结算路由
 import { verifyBotSignature, rateLimit } from './server/security.middleware.js';
 import { LadderService } from './server/ladder.service.js';

@@ -29,6 +29,8 @@ export const routes: Routes = [
   { path: 'forgot-password', component: ForgotPasswordComponent },
   { path: 'matches', component: StatsComponent },
   { path: 'replay-3d', component: Replay3dComponent },
+  // 在线对战：网页对战（懒加载，避免把 3D 引擎打进首屏包）
+  { path: 'play', loadComponent: () => import('./pages/play-3d.component').then((m) => m.Play3dComponent) },
   { path: 'ladder', component: LadderComponent },
   { path: 'squad', component: SquadComponent },
   { path: 'my-squad', component: MySquadComponent },

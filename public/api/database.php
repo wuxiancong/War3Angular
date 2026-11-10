@@ -82,7 +82,9 @@ class Database {
                 deleted_time DATETIME DEFAULT NULL COMMENT '注销时间(软删除)',
 
                 role TINYINT DEFAULT 0 COMMENT '0玩家, 1管理, 2超管',
-                status TINYINT DEFAULT 0 COMMENT '0离线, 1大厅, 2房间, 3战斗',
+                status TINYINT DEFAULT 0 COMMENT '0离线 1在线 2房间 3匹配 4启动 5游戏 6结算',
+                current_room VARCHAR(128) DEFAULT '' COMMENT '当前房间名',
+                current_host VARCHAR(32) DEFAULT '' COMMENT '当前房主',
                 total_online_time INT DEFAULT 0 COMMENT '累计在线分钟',
                 avatar_url VARCHAR(255) DEFAULT '' COMMENT '用户头像路径',
                 banned_until DATETIME DEFAULT NULL COMMENT 'Web端封禁截止时间',
@@ -203,6 +205,45 @@ class Database {
                 INDEX idx_user_match (username, match_id)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
+            // i. API 会话表 (api_sessions) — Launcher/Web 好友等接口鉴权
+            $this->pdo->exec("CREATE TABLE IF NOT EXISTS api_sessions (
+                token CHAR(64) PRIMARY KEY,
+                username VARCHAR(32) NOT NULL,
+                source VARCHAR(20) DEFAULT 'launcher',
+                expires_at DATETIME NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                KEY idx_api_session_user (username),
+                KEY idx_api_session_exp (expires_at)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+            // j. 好友关系表 (friendships)
+            $this->pdo->exec("CREATE TABLE IF NOT EXISTS friendships (
+                user_id VARCHAR(32) NOT NULL,
+                friend_id VARCHAR(32) NOT NULL,
+                status TINYINT NOT NULL DEFAULT 0 COMMENT '0申请中 1已是好友 2黑名单 3已拒绝',
+                initiated_by VARCHAR(32) NOT NULL COMMENT '谁发起的申请',
+                remark VARCHAR(64) DEFAULT '' COMMENT '备注名',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                PRIMARY KEY (user_id, friend_id),
+                KEY idx_friend_status (friend_id, status),
+                KEY idx_user_status (user_id, status),
+                FOREIGN KEY (user_id) REFERENCES users(username) ON DELETE CASCADE,
+                FOREIGN KEY (friend_id) REFERENCES users(username) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+            // k. 好友私聊消息表 (friend_messages)
+            $this->pdo->exec("CREATE TABLE IF NOT EXISTS friend_messages (
+                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                sender VARCHAR(32) NOT NULL,
+                receiver VARCHAR(32) NOT NULL,
+                message TEXT NOT NULL,
+                is_read TINYINT(1) DEFAULT 0,
+                sent_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                KEY idx_pair_time (sender, receiver, sent_at),
+                KEY idx_recv_unread (receiver, is_read, sent_at)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
             // 自动检查并为 users 表增加临时邮箱字段 (如果不存在)
             try {
                 $cols = $this->pdo->query("SHOW COLUMNS FROM users LIKE 'temp_email'")->fetchAll();
@@ -216,6 +257,48 @@ class Database {
             } catch (Exception $e) {
                 // 表结构已存在或临时异常，忽略
             }
+
+            // friendships 旧表兼容：补齐 initiated_by / remark / updated_at
+            try {
+                $fsCols = $this->pdo->query("SHOW COLUMNS FROM friendships")->fetchAll(PDO::FETCH_COLUMN);
+                if ($fsCols && !in_array('initiated_by', $fsCols, true)) {
+                    $this->pdo->exec("ALTER TABLE friendships ADD COLUMN initiated_by VARCHAR(32) NOT NULL DEFAULT '' COMMENT '谁发起的申请' AFTER status");
+                    $this->pdo->exec("UPDATE friendships SET initiated_by = user_id WHERE initiated_by = '' OR initiated_by IS NULL");
+                }
+                if ($fsCols && !in_array('remark', $fsCols, true)) {
+                    $this->pdo->exec("ALTER TABLE friendships ADD COLUMN remark VARCHAR(64) DEFAULT '' COMMENT '备注名' AFTER initiated_by");
+                }
+                if ($fsCols && !in_array('updated_at', $fsCols, true)) {
+                    $this->pdo->exec("ALTER TABLE friendships ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER created_at");
+                }
+            } catch (Exception $e) {
+                // 忽略兼容迁移异常
+            }
+
+            // users 在线态房间字段
+            try {
+                $uCols = $this->pdo->query("SHOW COLUMNS FROM users")->fetchAll(PDO::FETCH_COLUMN);
+                if ($uCols && !in_array('current_room', $uCols, true)) {
+                    $this->pdo->exec("ALTER TABLE users ADD COLUMN current_room VARCHAR(128) DEFAULT '' COMMENT '当前房间名'");
+                }
+                if ($uCols && !in_array('current_host', $uCols, true)) {
+                    $this->pdo->exec("ALTER TABLE users ADD COLUMN current_host VARCHAR(32) DEFAULT '' COMMENT '当前房主'");
+                }
+            } catch (Exception $e) {
+            }
+
+            // 好友房间邀请
+            $this->pdo->exec("CREATE TABLE IF NOT EXISTS friend_invites (
+                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                inviter VARCHAR(32) NOT NULL,
+                invitee VARCHAR(32) NOT NULL,
+                room_name VARCHAR(128) NOT NULL,
+                host_name VARCHAR(32) DEFAULT '',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                expires_at DATETIME NOT NULL,
+                KEY idx_invitee_exp (invitee, expires_at),
+                KEY idx_inviter (inviter)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
         } catch (PDOException $e) {
             // 在实际生产环境中，不要把详细的数据库错误暴露给前端，记录到日志即可
@@ -913,6 +996,504 @@ class Database {
             'username' => $user['username'],
             'temp_email' => $user['temp_email'],
             'message' => '临时邮箱激活成功'
+        ];
+    }
+
+    // ======================== 好友系统 / API Session ========================
+
+    /** 创建 API 会话，返回 token */
+    public function createApiSession($username, $source = 'launcher', $ttlHours = 168) {
+        $username = trim($username);
+        $token = bin2hex(random_bytes(32));
+        $expires = date('Y-m-d H:i:s', time() + max(1, (int)$ttlHours) * 3600);
+        $stmt = $this->pdo->prepare("INSERT INTO api_sessions (token, username, source, expires_at) VALUES (?, ?, ?, ?)");
+        $stmt->execute([$token, $username, $source, $expires]);
+        return ['token' => $token, 'expires_at' => $expires];
+    }
+
+    /** 校验 token，成功返回 username，失败返回 null */
+    public function validateApiSession($token) {
+        $token = trim((string)$token);
+        if ($token === '' || strlen($token) < 32) {
+            return null;
+        }
+        $stmt = $this->pdo->prepare("SELECT username, expires_at FROM api_sessions WHERE token = ? LIMIT 1");
+        $stmt->execute([$token]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$row) {
+            return null;
+        }
+        if (strtotime($row['expires_at']) < time()) {
+            $del = $this->pdo->prepare("DELETE FROM api_sessions WHERE token = ?");
+            $del->execute([$token]);
+            return null;
+        }
+        return $row['username'];
+    }
+
+    public function deleteApiSession($token) {
+        $stmt = $this->pdo->prepare("DELETE FROM api_sessions WHERE token = ?");
+        return $stmt->execute([trim((string)$token)]);
+    }
+
+    /** 好友列表（status=1），附带对方在线状态 */
+    public function listFriends($username) {
+        $sql = "SELECT f.friend_id, f.remark, u.nickname, u.avatar_url, u.status,
+                       COALESCE(u.status, 0) AS user_status,
+                       COALESCE(u.current_room, '') AS current_room,
+                       COALESCE(u.current_host, '') AS current_host
+                FROM friendships f
+                LEFT JOIN users u ON u.username = f.friend_id
+                WHERE f.user_id = ? AND f.status = 1
+                ORDER BY (COALESCE(u.status, 0) > 0) DESC, f.friend_id ASC";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([$username]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $friends = [];
+        foreach ($rows as $row) {
+            $st = (int)($row['user_status'] ?? 0);
+            // 超时兜底：status>0 但很久没活动可在后续加 heartbeat；此处仅按库值展示
+            $friends[] = [
+                'id' => $row['friend_id'],
+                'name' => $row['friend_id'],
+                'nickname' => $row['nickname'] ?? '',
+                'avatar' => $row['avatar_url'] ?? '',
+                'remark' => $row['remark'] ?? '',
+                'online' => $st >= 1,
+                'status' => $st,
+                'room' => ($st >= 2 && $st !== 3) ? ($row['current_room'] ?? '') : '',
+                'host' => ($st >= 2 && $st !== 3) ? ($row['current_host'] ?? '') : ''
+            ];
+        }
+        return $friends;
+    }
+
+    public function createFriendInvite($inviter, $invitee, $roomName, $hostName = '', $ttlSec = 120) {
+        $inviter = trim($inviter);
+        $invitee = trim($invitee);
+        $roomName = trim($roomName);
+        $hostName = trim($hostName);
+        if ($inviter === '' || $invitee === '' || $roomName === '') {
+            return ['success' => false, 'error_code' => 'ERR_MISSING_FIELDS', 'message' => '邀请参数不完整'];
+        }
+        if (!$this->areFriends($inviter, $invitee)) {
+            return ['success' => false, 'error_code' => 'ERR_NOT_FRIENDS', 'message' => '只能邀请好友'];
+        }
+        // 清理过期邀请
+        $this->pdo->prepare("DELETE FROM friend_invites WHERE expires_at < NOW()")->execute();
+        // 限制频率：同一对 30 秒内不重复
+        $chk = $this->pdo->prepare(
+            "SELECT COUNT(*) FROM friend_invites
+             WHERE inviter = ? AND invitee = ? AND created_at > DATE_SUB(NOW(), INTERVAL 30 SECOND)"
+        );
+        $chk->execute([$inviter, $invitee]);
+        if ((int)$chk->fetchColumn() > 0) {
+            return ['success' => false, 'error_code' => 'ERR_TOO_MANY_REQUESTS', 'message' => '邀请发送过于频繁'];
+        }
+        $expires = date('Y-m-d H:i:s', time() + max(30, (int)$ttlSec));
+        $ins = $this->pdo->prepare(
+            "INSERT INTO friend_invites (inviter, invitee, room_name, host_name, expires_at)
+             VALUES (?, ?, ?, ?, ?)"
+        );
+        $ins->execute([$inviter, $invitee, $roomName, $hostName, $expires]);
+        return [
+            'success' => true,
+            'error_code' => 'SUCCESS',
+            'message' => '邀请已发送',
+            'data' => [
+                'id' => (int)$this->pdo->lastInsertId(),
+                'room' => $roomName,
+                'host' => $hostName,
+                'expires_at' => $expires
+            ]
+        ];
+    }
+
+    public function listFriendInvites($username) {
+        $this->pdo->prepare("DELETE FROM friend_invites WHERE expires_at < NOW()")->execute();
+        $stmt = $this->pdo->prepare(
+            "SELECT id, inviter, room_name, host_name, created_at, expires_at
+             FROM friend_invites
+             WHERE invitee = ? AND expires_at >= NOW()
+             ORDER BY created_at DESC LIMIT 20"
+        );
+        $stmt->execute([$username]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $list = [];
+        foreach ($rows as $r) {
+            $list[] = [
+                'id' => (int)$r['id'],
+                'from' => $r['inviter'],
+                'name' => $r['inviter'],
+                'room' => $r['room_name'],
+                'host' => $r['host_name'] ?? '',
+                'expires_at' => $r['expires_at']
+            ];
+        }
+        return $list;
+    }
+
+    public function consumeFriendInvite($username, $inviteId) {
+        $stmt = $this->pdo->prepare(
+            "SELECT id, inviter, room_name, host_name FROM friend_invites
+             WHERE id = ? AND invitee = ? AND expires_at >= NOW() LIMIT 1"
+        );
+        $stmt->execute([(int)$inviteId, $username]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$row) {
+            return ['success' => false, 'error_code' => 'ERR_NO_INVITE', 'message' => '邀请不存在或已过期'];
+        }
+        $del = $this->pdo->prepare("DELETE FROM friend_invites WHERE id = ?");
+        $del->execute([(int)$inviteId]);
+        return [
+            'success' => true,
+            'data' => [
+                'from' => $row['inviter'],
+                'room' => $row['room_name'],
+                'host' => $row['host_name'] ?? ''
+            ]
+        ];
+    }
+
+    public function countIncomingFriendRequests($username) {
+        $stmt = $this->pdo->prepare(
+            "SELECT COUNT(*) FROM friendships
+             WHERE friend_id = ? AND status = 0 AND initiated_by <> ?"
+        );
+        $stmt->execute([$username, $username]);
+        return (int)$stmt->fetchColumn();
+    }
+
+    public function listIncomingFriendRequests($username) {
+        $sql = "SELECT f.user_id, f.initiated_by, f.created_at, u.nickname, u.avatar_url, u.status
+                FROM friendships f
+                LEFT JOIN users u ON u.username = f.user_id
+                WHERE f.friend_id = ? AND f.status = 0 AND f.initiated_by <> ?
+                ORDER BY f.created_at DESC";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([$username, $username]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $list = [];
+        foreach ($rows as $row) {
+            $st = (int)($row['status'] ?? 0);
+            $list[] = [
+                'id' => $row['user_id'],
+                'name' => $row['user_id'],
+                'nickname' => $row['nickname'] ?? '',
+                'avatar' => $row['avatar_url'] ?? '',
+                'online' => $st >= 1,
+                'status' => $st,
+                'created_at' => $row['created_at']
+            ];
+        }
+        return $list;
+    }
+
+    /** 搜索用户（排除自己）；附带与自己的关系摘要 */
+    public function searchUsersForFriend($username, $keyword, $limit = 20) {
+        $keyword = trim($keyword);
+        if ($keyword === '') {
+            return [];
+        }
+        $limit = max(1, min(50, (int)$limit));
+        $like = '%' . $keyword . '%';
+        $sql = "SELECT u.username, u.nickname, u.avatar_url, u.status
+                FROM users u
+                WHERE LOWER(u.username) LIKE LOWER(?)
+                  AND LOWER(u.username) <> LOWER(?)
+                  AND (u.deleted_time IS NULL)
+                ORDER BY u.username ASC
+                LIMIT {$limit}";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([$like, $username]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $result = [];
+        foreach ($rows as $row) {
+            $other = $row['username'];
+            $rel = $this->getFriendshipRelation($username, $other);
+            // 被对方拉黑时不出现在搜索结果
+            if ($rel['blocked_by_them']) {
+                continue;
+            }
+            $st = (int)($row['status'] ?? 0);
+            $result[] = [
+                'id' => $other,
+                'name' => $other,
+                'nickname' => $row['nickname'] ?? '',
+                'avatar' => $row['avatar_url'] ?? '',
+                'online' => $st >= 1,
+                'status' => $st,
+                'relation' => $rel['label'], // none | pending_out | pending_in | friends | blocked
+                'can_add' => ($rel['label'] === 'none')
+            ];
+        }
+        return $result;
+    }
+
+    public function getFriendshipRelation($me, $other) {
+        $stmt = $this->pdo->prepare(
+            "SELECT user_id, friend_id, status, initiated_by FROM friendships
+             WHERE (user_id = ? AND friend_id = ?) OR (user_id = ? AND friend_id = ?)"
+        );
+        $stmt->execute([$me, $other, $other, $me]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $blockedByMe = false;
+        $blockedByThem = false;
+        $friends = false;
+        $pendingOut = false;
+        $pendingIn = false;
+
+        foreach ($rows as $r) {
+            $st = (int)$r['status'];
+            if ($st === 2) {
+                if (strcasecmp($r['user_id'], $me) === 0) $blockedByMe = true;
+                if (strcasecmp($r['user_id'], $other) === 0) $blockedByThem = true;
+            } elseif ($st === 1) {
+                $friends = true;
+            } elseif ($st === 0) {
+                if (strcasecmp($r['initiated_by'], $me) === 0) $pendingOut = true;
+                else $pendingIn = true;
+            }
+        }
+
+        $label = 'none';
+        if ($blockedByMe) $label = 'blocked';
+        elseif ($friends) $label = 'friends';
+        elseif ($pendingOut) $label = 'pending_out';
+        elseif ($pendingIn) $label = 'pending_in';
+
+        return [
+            'label' => $label,
+            'blocked_by_me' => $blockedByMe,
+            'blocked_by_them' => $blockedByThem,
+            'friends' => $friends,
+            'pending_out' => $pendingOut,
+            'pending_in' => $pendingIn
+        ];
+    }
+
+    public function sendFriendRequest($from, $to) {
+        $from = trim($from);
+        $to = trim($to);
+        if ($from === '' || $to === '' || strcasecmp($from, $to) === 0) {
+            return ['success' => false, 'error_code' => 'ERR_INVALID_TARGET', 'message' => '无效的目标用户'];
+        }
+        // 解析为目标库中的规范用户名（大小写不敏感）
+        $stmtCanon = $this->pdo->prepare("SELECT username FROM users WHERE LOWER(username) = LOWER(?) LIMIT 1");
+        $stmtCanon->execute([$to]);
+        $canon = $stmtCanon->fetchColumn();
+        if (!$canon) {
+            return ['success' => false, 'error_code' => 'ERR_USER_NOT_FOUND', 'message' => '用户不存在'];
+        }
+        $to = $canon;
+
+        $rel = $this->getFriendshipRelation($from, $to);
+        if ($rel['blocked_by_them'] || $rel['blocked_by_me']) {
+            return ['success' => false, 'error_code' => 'ERR_BLOCKED', 'message' => '无法添加该用户'];
+        }
+        if ($rel['friends']) {
+            return ['success' => false, 'error_code' => 'ERR_ALREADY_FRIENDS', 'message' => '你们已经是好友'];
+        }
+        if ($rel['pending_out']) {
+            return ['success' => false, 'error_code' => 'ERR_PENDING', 'message' => '已发送过申请，请等待对方处理'];
+        }
+        if ($rel['pending_in']) {
+            // 对方已向我申请：直接同意
+            return $this->respondFriendRequest($from, $to, true);
+        }
+
+        try {
+            $stmt = $this->pdo->prepare(
+                "INSERT INTO friendships (user_id, friend_id, status, initiated_by)
+                 VALUES (?, ?, 0, ?)
+                 ON DUPLICATE KEY UPDATE status = 0, initiated_by = VALUES(initiated_by), updated_at = CURRENT_TIMESTAMP"
+            );
+            $stmt->execute([$from, $to, $from]);
+            return ['success' => true, 'error_code' => 'SUCCESS', 'message' => '好友申请已发送'];
+        } catch (PDOException $e) {
+            error_log('sendFriendRequest: ' . $e->getMessage());
+            return ['success' => false, 'error_code' => 'ERR_SYSTEM_ERROR', 'message' => '发送申请失败'];
+        }
+    }
+
+    public function respondFriendRequest($me, $fromUser, $accept) {
+        $me = trim($me);
+        $fromUser = trim($fromUser);
+
+        $stmt = $this->pdo->prepare(
+            "SELECT status, initiated_by FROM friendships
+             WHERE user_id = ? AND friend_id = ? AND status = 0 LIMIT 1"
+        );
+        $stmt->execute([$fromUser, $me]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$row) {
+            return ['success' => false, 'error_code' => 'ERR_NO_REQUEST', 'message' => '没有待处理的好友申请'];
+        }
+
+        try {
+            $this->pdo->beginTransaction();
+            if ($accept) {
+                // 双向好友
+                $up = $this->pdo->prepare(
+                    "INSERT INTO friendships (user_id, friend_id, status, initiated_by)
+                     VALUES (?, ?, 1, ?)
+                     ON DUPLICATE KEY UPDATE status = 1, initiated_by = VALUES(initiated_by), updated_at = CURRENT_TIMESTAMP"
+                );
+                $up->execute([$fromUser, $me, $fromUser]);
+                $up->execute([$me, $fromUser, $fromUser]);
+                $this->pdo->commit();
+                return ['success' => true, 'error_code' => 'SUCCESS', 'message' => '已添加好友'];
+            } else {
+                $up = $this->pdo->prepare(
+                    "UPDATE friendships SET status = 3, updated_at = CURRENT_TIMESTAMP
+                     WHERE user_id = ? AND friend_id = ? AND status = 0"
+                );
+                $up->execute([$fromUser, $me]);
+                $this->pdo->commit();
+                return ['success' => true, 'error_code' => 'SUCCESS', 'message' => '已拒绝申请'];
+            }
+        } catch (PDOException $e) {
+            if ($this->pdo->inTransaction()) $this->pdo->rollBack();
+            error_log('respondFriendRequest: ' . $e->getMessage());
+            return ['success' => false, 'error_code' => 'ERR_SYSTEM_ERROR', 'message' => '处理申请失败'];
+        }
+    }
+
+    public function removeFriend($me, $other) {
+        $me = trim($me);
+        $other = trim($other);
+        try {
+            $stmt = $this->pdo->prepare(
+                "DELETE FROM friendships
+                 WHERE status = 1 AND (
+                    (user_id = ? AND friend_id = ?) OR (user_id = ? AND friend_id = ?)
+                 )"
+            );
+            $stmt->execute([$me, $other, $other, $me]);
+            if ($stmt->rowCount() === 0) {
+                return ['success' => false, 'error_code' => 'ERR_NOT_FRIENDS', 'message' => '对方不是你的好友'];
+            }
+            return ['success' => true, 'error_code' => 'SUCCESS', 'message' => '已删除好友'];
+        } catch (PDOException $e) {
+            error_log('removeFriend: ' . $e->getMessage());
+            return ['success' => false, 'error_code' => 'ERR_SYSTEM_ERROR', 'message' => '删除失败'];
+        }
+    }
+
+    public function blockUser($me, $other, $block = true) {
+        $me = trim($me);
+        $other = trim($other);
+        if (!$this->userExists($other)) {
+            return ['success' => false, 'error_code' => 'ERR_USER_NOT_FOUND', 'message' => '用户不存在'];
+        }
+        try {
+            if ($block) {
+                // 清除对方指向我的关系，并写黑名单
+                $del = $this->pdo->prepare(
+                    "DELETE FROM friendships WHERE
+                     (user_id = ? AND friend_id = ?) OR (user_id = ? AND friend_id = ?)"
+                );
+                $del->execute([$me, $other, $other, $me]);
+                $ins = $this->pdo->prepare(
+                    "INSERT INTO friendships (user_id, friend_id, status, initiated_by)
+                     VALUES (?, ?, 2, ?)
+                     ON DUPLICATE KEY UPDATE status = 2, updated_at = CURRENT_TIMESTAMP"
+                );
+                $ins->execute([$me, $other, $me]);
+                return ['success' => true, 'error_code' => 'SUCCESS', 'message' => '已拉黑'];
+            } else {
+                $del = $this->pdo->prepare(
+                    "DELETE FROM friendships WHERE user_id = ? AND friend_id = ? AND status = 2"
+                );
+                $del->execute([$me, $other]);
+                return ['success' => true, 'error_code' => 'SUCCESS', 'message' => '已取消拉黑'];
+            }
+        } catch (PDOException $e) {
+            error_log('blockUser: ' . $e->getMessage());
+            return ['success' => false, 'error_code' => 'ERR_SYSTEM_ERROR', 'message' => '操作失败'];
+        }
+    }
+
+    public function areFriends($a, $b) {
+        $stmt = $this->pdo->prepare(
+            "SELECT COUNT(*) FROM friendships WHERE user_id = ? AND friend_id = ? AND status = 1"
+        );
+        $stmt->execute([$a, $b]);
+        return (int)$stmt->fetchColumn() > 0;
+    }
+
+    public function getFriendChatHistory($me, $other, $limit = 50, $beforeId = 0) {
+        if (!$this->areFriends($me, $other)) {
+            return ['success' => false, 'error_code' => 'ERR_NOT_FRIENDS', 'message' => '仅好友可查看私聊'];
+        }
+        $limit = max(1, min(100, (int)$limit));
+        if ($beforeId > 0) {
+            $stmt = $this->pdo->prepare(
+                "SELECT id, sender, receiver, message, is_read, sent_at FROM friend_messages
+                 WHERE ((sender = ? AND receiver = ?) OR (sender = ? AND receiver = ?))
+                   AND id < ?
+                 ORDER BY id DESC LIMIT {$limit}"
+            );
+            $stmt->execute([$me, $other, $other, $me, $beforeId]);
+        } else {
+            $stmt = $this->pdo->prepare(
+                "SELECT id, sender, receiver, message, is_read, sent_at FROM friend_messages
+                 WHERE (sender = ? AND receiver = ?) OR (sender = ? AND receiver = ?)
+                 ORDER BY id DESC LIMIT {$limit}"
+            );
+            $stmt->execute([$me, $other, $other, $me]);
+        }
+        $rows = array_reverse($stmt->fetchAll(PDO::FETCH_ASSOC));
+
+        // 标记已读
+        $mark = $this->pdo->prepare(
+            "UPDATE friend_messages SET is_read = 1
+             WHERE sender = ? AND receiver = ? AND is_read = 0"
+        );
+        $mark->execute([$other, $me]);
+
+        $messages = [];
+        foreach ($rows as $r) {
+            $messages[] = [
+                'id' => (int)$r['id'],
+                'sender' => $r['sender'],
+                'receiver' => $r['receiver'],
+                'message' => $r['message'],
+                'is_mine' => strcasecmp($r['sender'], $me) === 0,
+                'sent_at' => $r['sent_at']
+            ];
+        }
+        return ['success' => true, 'data' => ['messages' => $messages]];
+    }
+
+    public function sendFriendChatMessage($me, $other, $message) {
+        $message = trim($message);
+        if ($message === '') {
+            return ['success' => false, 'error_code' => 'ERR_EMPTY_MESSAGE', 'message' => '消息不能为空'];
+        }
+        if (mb_strlen($message) > 1000) {
+            return ['success' => false, 'error_code' => 'ERR_MESSAGE_TOO_LONG', 'message' => '消息过长'];
+        }
+        if (!$this->areFriends($me, $other)) {
+            return ['success' => false, 'error_code' => 'ERR_NOT_FRIENDS', 'message' => '仅好友可私聊'];
+        }
+        $stmt = $this->pdo->prepare(
+            "INSERT INTO friend_messages (sender, receiver, message) VALUES (?, ?, ?)"
+        );
+        $stmt->execute([$me, $other, $message]);
+        $id = (int)$this->pdo->lastInsertId();
+        return [
+            'success' => true,
+            'data' => [
+                'id' => $id,
+                'sender' => $me,
+                'receiver' => $other,
+                'message' => $message,
+                'is_mine' => true,
+                'sent_at' => date('Y-m-d H:i:s')
+            ]
         ];
     }
 }

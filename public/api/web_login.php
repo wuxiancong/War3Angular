@@ -56,15 +56,17 @@ if (password_verify($password, $user['web_password_hash'])) {
         exit;
     }
 
-    // 生成一个简单的 Token (实际应用中应使用 JWT)
-    $token = bin2hex(random_bytes(16));
-    
-    // 可以在这里将 Token 存入数据库或 Redis 关联用户
-    
+    // 落库 API Session，供好友等接口鉴权
+    $session = $db->createApiSession($user['username'] ?? $username, $source, 168);
+    $token = $session['token'];
+
     $response = [
         'success' => true,
+        'success_code' => 'SUCCESS_LOGIN',
         'error_code' => 'SUCCESS',
         'token' => $token,
+        'expires_at' => $session['expires_at'],
+        'userName' => $user['username'] ?? $username,
         'message' => '登录成功',
         'source' => $source
     ];
@@ -73,7 +75,7 @@ if (password_verify($password, $user['web_password_hash'])) {
     if ($source === 'launcher' || $source === 'game') {
         $response['next_step'] = 'pvpgn_login';
     }
-    
+
     echo json_encode($response);
 } else {
     echo json_encode(['success' => false, 'error_code' => 'ERR_INVALID_PASSWORD', 'message' => '密码错误']);

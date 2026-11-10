@@ -37,7 +37,23 @@ import { NgClass } from '@angular/common';
           <div class="hidden 2xl:flex items-center space-x-6 xl:space-x-10 text-[15px] font-black uppercase h-full">
               <a routerLink="/" routerLinkActive="text-accent border-b-3 border-accent opacity-100" [routerLinkActiveOptions]="{exact: true}" class="transition-all px-2 opacity-30 hover:opacity-100 hover:text-accent">{{ 'nav.home' | t }}</a>
               <a routerLink="/matches" routerLinkActive="text-accent border-b-3 border-accent opacity-100" class="transition-all px-2 opacity-30 hover:opacity-100 hover:text-accent">{{ 'nav.matches' | t }}</a>
-              <a routerLink="/replay-3d" routerLinkActive="text-accent border-b-3 border-accent opacity-100" class="transition-all px-2 opacity-30 hover:opacity-100 hover:text-accent">{{ 'nav.replay' | t }}</a>
+              <!-- 在线对战 下拉菜单（网页对战 / 录像回放） -->
+              <div class="relative group h-full flex items-center" (mouseenter)="isOnlineDropdownOpen.set(true)" (mouseleave)="isOnlineDropdownOpen.set(false)">
+                  <a routerLink="/play" routerLinkActive="text-accent border-b-3 border-accent opacity-100" class="transition-all px-2 opacity-30 group-hover:opacity-100 group-hover:text-accent flex items-center gap-1 h-full">
+                      {{ 'nav.online' | t }}
+                      <span class="material-icons text-[14px] transition-transform" [class.rotate-180]="isOnlineDropdownOpen()">expand_more</span>
+                  </a>
+                  <div class="absolute top-[calc(100%-1px)] left-0 w-48 dropdown-blur border border-[var(--border)] rounded-b-lg shadow-2xl py-2 transition-all duration-200 transform z-[110]"
+                       [class.opacity-100]="isOnlineDropdownOpen()"
+                       [class.visible]="isOnlineDropdownOpen()"
+                       [class.translate-y-0]="isOnlineDropdownOpen()"
+                       [class.opacity-0]="!isOnlineDropdownOpen()"
+                       [class.invisible]="!isOnlineDropdownOpen()"
+                       [class.translate-y-2]="!isOnlineDropdownOpen()">
+                      <a routerLink="/play" (click)="isOnlineDropdownOpen.set(false)" class="block px-4 py-2 text-sm text-[var(--text-muted)] hover:text-accent hover:bg-[var(--border)] transition-colors">{{ 'nav.play' | t }}</a>
+                      <a routerLink="/replay-3d" (click)="isOnlineDropdownOpen.set(false)" class="block px-4 py-2 text-sm text-[var(--text-muted)] hover:text-accent hover:bg-[var(--border)] transition-colors">{{ 'nav.replay' | t }}</a>
+                  </div>
+              </div>
               <a routerLink="/ladder" routerLinkActive="text-accent border-b-3 border-accent opacity-100" class="transition-all px-2 opacity-30 hover:opacity-100 hover:text-accent">{{ 'nav.ladder' | t }}</a>
               
               <!-- 战队预约 下拉菜单 -->
@@ -247,10 +263,23 @@ import { NgClass } from '@angular/common';
                       <span class="material-icons text-accent group-active:!text-white">sports_esports</span>
                       <span class="group-active:!text-white">{{ 'nav.matches' | t }}</span>
                   </a>
-                  <a routerLink="/replay-3d" (click)="closeMenu()" routerLinkActive="!text-white bg-accent" class="px-4 py-4 rounded-xl text-lg font-bold text-[var(--text-main)] flex items-center gap-4 group active:bg-accent active:!text-white transition-all border border-white/5">
-                      <span class="material-icons text-accent group-active:!text-white">movie</span>
-                      <span class="group-active:!text-white">{{ 'nav.replay' | t }}</span>
-                  </a>
+                  <!-- 移动端 在线对战 -->
+                  <div class="pt-4 pb-2">
+                      <a routerLink="/play" (click)="closeMenu()" routerLinkActive="!text-white bg-accent" class="px-4 py-4 rounded-xl text-lg font-bold text-[var(--text-main)] flex items-center gap-4 group active:bg-accent active:!text-white transition-all border border-white/5">
+                          <span class="material-icons text-accent group-active:!text-white">sports_esports</span>
+                          <span class="group-active:!text-white">{{ 'nav.online' | t }}</span>
+                      </a>
+                      <div class="space-y-1 pl-4">
+                          <a routerLink="/play" (click)="closeMenu()" routerLinkActive="!text-white bg-accent" class="px-4 py-3 rounded-xl text-md font-bold text-[var(--text-main)] flex items-center gap-3 active:bg-accent active:!text-white transition-all">
+                              <span class="material-icons text-accent text-sm group-active:!text-white">videogame_asset</span>
+                              {{ 'nav.play' | t }}
+                          </a>
+                          <a routerLink="/replay-3d" (click)="closeMenu()" routerLinkActive="!text-white bg-accent" class="px-4 py-3 rounded-xl text-md font-bold text-[var(--text-main)] flex items-center gap-3 active:bg-accent active:!text-white transition-all">
+                              <span class="material-icons text-accent text-sm group-active:!text-white">movie</span>
+                              {{ 'nav.replay' | t }}
+                          </a>
+                      </div>
+                  </div>
                   <a routerLink="/ladder" (click)="closeMenu()" routerLinkActive="!text-white bg-accent" class="px-4 py-4 rounded-xl text-lg font-bold text-[var(--text-main)] flex items-center gap-4 group active:bg-accent active:!text-white transition-all border border-white/5">
                       <span class="material-icons text-accent group-active:!text-white">leaderboard</span>
                       <span class="group-active:!text-white">{{ 'nav.ladder' | t }}</span>
@@ -483,6 +512,8 @@ export class HeaderComponent implements OnDestroy {
 
   isMenuOpen = signal(false);
   isSquadDropdownOpen = signal(false);
+  // 「在线对战」父级菜单展开状态（子项：网页对战 / 录像回放）
+  isOnlineDropdownOpen = signal(false);
   isReportDropdownOpen = signal(false);
   isSupportDropdownOpen = signal(false);
   isDownloadDropdownOpen = signal(false);

@@ -4,7 +4,7 @@ export const ko: TranslationSchema = {
     theme: { dark: "다크", light: "라이트" },
     status: { uplink: "연결 정상", bots: "봇", signals: "활성 계정" },
     nav: { 
-        home: "홈", matches: "통계", replay: "리플레이", ladder: "랭킹", team: "스쿼드", report: "신고", 
+        home: "홈", matches: "통계", replay: "리플레이", online: "온라인 대전", play: "웹 대전", ladder: "랭킹", team: "스쿼드", report: "신고", 
         reportList: "공지사항", ban: "밴 리스트", download: "다운로드", platformUpdates: "업데이트", 
         mapUpdates: "맵", faq: "FAQ", support: "고객지원", onlineSupport: "온라인 지원",
         myTeam: "내 팀", create: "매치 생성"

@@ -4,7 +4,7 @@ export const zh_TW: TranslationSchema = {
     theme: { dark: "深色", light: "淺色" },
     status: { uplink: "網關連接正常", bots: "機器人", signals: "活躍帳號" },
     nav: { 
-        home: "首頁", matches: "個人戰績", replay: "觀看錄像", ladder: "天梯排行", team: "戰隊預約", report: "玩家舉報", 
+        home: "首頁", matches: "個人戰績", replay: "觀看錄像", online: "線上對戰", play: "網頁對戰", ladder: "天梯排行", team: "戰隊預約", report: "玩家舉報", 
         reportList: "公示信息", ban: "封號名單", download: "下載中心", platformUpdates: "平台更新", 
         mapUpdates: "地圖更新", faq: "常見問題", support: "聯繫客服", onlineSupport: "線上諮詢",
         myTeam: "我的戰隊", create: "發起約戰"

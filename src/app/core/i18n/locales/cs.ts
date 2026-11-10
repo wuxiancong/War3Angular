@@ -4,7 +4,7 @@ export const cs: TranslationSchema = {
     theme: { dark: "Tmavý", light: "Světlý" },
     status: { uplink: "Spojení Normální", bots: "Boti", signals: "Aktivní Účty" },
     nav: { 
-        home: "DOMŮ", matches: "STATISTIKY", replay: "REPLAY", ladder: "ŽEBŘÍČEK", team: "SQUAD", report: "NAHLÁSIT", 
+        home: "DOMŮ", matches: "STATISTIKY", replay: "REPLAY", online: "PLAY ONLINE", play: "WEB MATCH", ladder: "ŽEBŘÍČEK", team: "SQUAD", report: "NAHLÁSIT", 
         reportList: "OZNÁMENÍ", ban: "BAN LIST", download: "STÁHNOUT", platformUpdates: "AKTUALIZACE", 
         mapUpdates: "MAPY", faq: "FAQ", support: "PODPORA", onlineSupport: "Online podpora",
         myTeam: "Můj tým", create: "Vytvořit zápas"

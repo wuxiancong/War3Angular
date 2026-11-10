@@ -34,6 +34,13 @@ export interface Wc3MdxViewerOptions {
   heroSpawn?: { x: number; y: number };
   /** Optional overrides for scene-sync.json (live / query). */
   syncOverrides?: Partial<SceneSyncConfig> | null;
+  /**
+   * 网页对战模式：不加载录像英雄与 DotaSceneSim，单位全部由外部 GameEngine 通过 spawnUnit 驱动；
+   * 左/右键交给页面处理（选中/下达指令），仅中键拖动、方向键与边缘滚屏移动镜头。
+   */
+  gameplay?: boolean;
+  /** 每帧渲染前回调（对战模式用于推进逻辑帧与同步模型位置） */
+  onFrame?: (dtMs: number) => void;
 }
 
 type DragMode = 'pan' | 'orbit' | null;
@@ -111,6 +118,17 @@ export class Wc3MdxViewer {
     this.scene = this.viewer.worldScene || this.viewer.scenes?.[0];
 
     this.onPointerDown = (e) => {
+      if (this.options.gameplay) {
+        // 对战模式：左键选中、右键指令由页面处理，这里只保留中键拖动镜头
+        if (e.button === 1) {
+          this.dragMode = 'pan';
+          this.cameraMode = 'free';
+          this.lastX = e.clientX;
+          this.lastY = e.clientY;
+          this.inputEl.setPointerCapture(e.pointerId);
+        }
+        return;
+      }
       // Spectator/replay: never issue hero orders. Left/middle drag pans camera.
       if (e.button === 0 || e.button === 1) {
         this.dragMode = 'pan';
@@ -193,6 +211,15 @@ export class Wc3MdxViewer {
     }
     this.onKeyDown = (e) => {
       const k = e.key.toLowerCase();
+      if (this.options.gameplay) {
+        // 对战模式字母键全部留给技能/指令热键，镜头只响应方向键
+        if (k.startsWith('arrow')) {
+          this.keys.add(k);
+          this.cameraMode = 'free';
+          e.preventDefault();
+        }
+        return;
+      }
       if (['w', 'a', 's', 'd'].includes(k)) {
         this.keys.add(k);
         this.cameraMode = 'free';
@@ -287,6 +314,16 @@ export class Wc3MdxViewer {
     this.target = [spawn.x, spawn.y, z0 + 90];
     this.updateCamera();
     // --- AI 修改结束 [BOOT-FAST-TERRAIN] ---
+
+    if (this.options.gameplay) {
+      // 对战模式：只铺建筑，英雄/小兵/野怪由 GameEngine 渲染层按需 spawnUnit
+      await Promise.race([
+        this.placeDotaBuildings(),
+        new Promise((r) => setTimeout(r, 8000)),
+      ]);
+      this.cameraMode = 'free';
+      return;
+    }
 
     // 英雄优先：避免装饰物/建筑队列占满加载槽导致英雄 MDX 迟迟不请求
     const z = this.sampleHeight(spawn.x, spawn.y);
@@ -580,6 +617,99 @@ export class Wc3MdxViewer {
       inst.setSequence(idx);
     }
     return inst;
+  }
+
+  // ---------------- 网页对战模式公开接口 ----------------
+  private readonly failedModels = new Set<string>();
+  private readonly inflightModels = new Map<string, Promise<any | null>>();
+
+  /** 英雄专用资源目录（非 /assets/wc3/ 下）贴图路径求解 */
+  private makeAssetSolver(modelUrl: string, assetBaseUrl: string): (src: unknown) => unknown {
+    const base = assetBaseUrl.endsWith('/') ? assetBaseUrl : assetBaseUrl + '/';
+    return (src: unknown) => {
+      if (typeof src !== 'string') return src;
+      const p = src.split('\\').join('/');
+      const team = p.match(/ReplaceableTextures\/(TeamColor|TeamGlow)\/(Team(?:Color|Glow)\d+)\.blp$/i);
+      if (team) return `${base}ReplaceableTextures/${team[1]}/${team[2]}.png`;
+      if (/\.(mdx|mdl|mdxbin)$/i.test(p)) return modelUrl;
+      if (/^https?:\/\//i.test(p) || p.startsWith('/assets/')) return p;
+      if (/^(units|buildings|textures|doodads|replaceabletextures|abilities|war3mapimported)\//i.test(p)) {
+        return this.resolveWc3Path(p);
+      }
+      return `${base}${p.split('/').pop()}`;
+    };
+  }
+
+  /** 加载并缓存模型；失败/超时记入黑名单，避免每波兵重复请求 404 */
+  loadUnitModel(path: string, assetBaseUrl?: string): Promise<any | null> {
+    const key = path;
+    if (this.modelCache.has(key)) return Promise.resolve(this.modelCache.get(key));
+    if (this.failedModels.has(key)) return Promise.resolve(null);
+    const pending = this.inflightModels.get(key);
+    if (pending) return pending;
+    let loadPath = path;
+    if (!loadPath.startsWith('/') && !/\.(mdx|mdl|mdxbin)$/i.test(loadPath)) loadPath += '.mdx';
+    const solver =
+      loadPath.startsWith('/') && !loadPath.includes('/assets/wc3/') && assetBaseUrl
+        ? this.makeAssetSolver(loadPath, assetBaseUrl)
+        : (src: unknown) => this.resolveWc3Path(src);
+    const p = Promise.race([
+      Promise.resolve(this.viewer.load(loadPath, solver)).catch(() => null),
+      new Promise<null>((r) => setTimeout(() => r(null), 12000)),
+    ]).then((model) => {
+      this.inflightModels.delete(key);
+      if (!model) {
+        this.failedModels.add(key);
+        return null;
+      }
+      this.modelCache.set(key, model);
+      return model;
+    });
+    this.inflightModels.set(key, p);
+    return p;
+  }
+
+  /** 生成一个单位模型实例；模型缺失时依次尝试 fallbacks */
+  async spawnUnit(opts: {
+    path: string;
+    assetBaseUrl?: string;
+    fallbacks?: string[];
+    x: number;
+    y: number;
+    teamColor: number;
+    scale: number;
+  }): Promise<any | null> {
+    let model = await this.loadUnitModel(opts.path, opts.assetBaseUrl);
+    for (const fb of opts.fallbacks || []) {
+      if (model) break;
+      model = await this.loadUnitModel(fb);
+    }
+    if (!model || this.disposed) return null;
+    const inst = model.addInstance();
+    inst.setScene(this.scene);
+    inst.setTeamColor(opts.teamColor);
+    inst.setSequenceLoopMode(0);
+    inst.setLocation([opts.x, opts.y, this.sampleHeight(opts.x, opts.y)]);
+    inst.setUniformScale(opts.scale);
+    return inst;
+  }
+
+  /** 屏幕坐标 → 地面世界坐标（右键移动/施法落点） */
+  pickGroundAt(clientX: number, clientY: number): { x: number; y: number } | null {
+    return this.pickGround(clientX, clientY);
+  }
+
+  /** 镜头对准某点但不改变镜头模式（空格回英雄/小地图点击） */
+  focusOn(x: number, y: number): void {
+    this.target[0] = x;
+    this.target[1] = y;
+    this.clampTargetToMap();
+    this.updateCamera();
+  }
+
+  /** buildings.json 中已铺设的建筑实例（id → instance），供引擎做受击/死亡表现 */
+  getPlacedBuildings(): { id: string; kind: string; x: number; y: number; instance: any }[] {
+    return (this.buildings as any[]).filter((b) => b && b.id && b.instance);
   }
 
   playSequence(idOrName: number | string): void {
@@ -1361,6 +1491,8 @@ export class Wc3MdxViewer {
 
         this.applyEdgeScroll(dt / 1000);
         this.applyKeyboardPan(dt / 1000);
+
+        this.options.onFrame?.(dt);
 
         if (this.sim && this.simEnabled) {
           this.sim.tick(dt * this.simSpeed);

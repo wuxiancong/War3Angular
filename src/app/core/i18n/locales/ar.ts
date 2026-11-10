@@ -4,7 +4,7 @@ export const ar: TranslationSchema = {
     theme: { dark: "داكن", light: "فاتح" },
     status: { uplink: "الاتصال طبيعي", bots: "بوتات", signals: "حسابات نشطة" },
     nav: { 
-        home: "الرئيسية", matches: "الإحصائيات", replay: "REPLAY", ladder: "التصنيف", team: "الفريق", report: "إبلاغ", 
+        home: "الرئيسية", matches: "الإحصائيات", replay: "REPLAY", online: "PLAY ONLINE", play: "WEB MATCH", ladder: "التصنيف", team: "الفريق", report: "إبلاغ", 
         reportList: "إشعارات", ban: "قائمة الحظر", download: "تحميل", platformUpdates: "تحديثات", 
         mapUpdates: "خرائط", faq: "الأسئلة الشائعة", support: "الدعم", onlineSupport: "الدعم المباشر",
         myTeam: "فريقي", create: "إنشاء مباراة"

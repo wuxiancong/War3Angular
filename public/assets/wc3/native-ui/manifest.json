@@ -1,0 +1,981 @@
+{
+ "source": "C:/Program Files (x86)/iCCup Warcraft III",
+ "races": {
+  "NightElf": {
+   "keys": {
+    "ConsoleInventoryCoverTexture": {
+     "path": "UI\\Console\\NightElf\\NightElfUITile-InventoryCover.blp",
+     "file": "inventory-cover.png",
+     "w": 256,
+     "h": 512
+    },
+    "ConsoleInventoryNoCapacity": {
+     "path": "UI\\Widgets\\Console\\NightElf\\nightelf-inventory-slotfiller.blp",
+     "file": "inventory-slotfiller.png",
+     "w": 64,
+     "h": 64
+    },
+    "UpperMenuButtonTexture": {
+     "path": "UI\\Widgets\\Console\\NightElf\\nightelf-console-buttonstates2.blp",
+     "file": "upper-button.png",
+     "w": 256,
+     "h": 256
+    },
+    "MiniMapSignalButtonEnabled": {
+     "path": "UI\\Widgets\\Console\\Human\\human-minimap-ping-active.blp",
+     "file": "mm-signal.png",
+     "w": 32,
+     "h": 32
+    },
+    "MiniMapSignalButtonPushed": {
+     "path": "UI\\Widgets\\Console\\Human\\human-minimap-ping-active-down.blp",
+     "file": "mm-signal-down.png",
+     "w": 32,
+     "h": 32
+    },
+    "MiniMapTerrainButtonActiveEnabled": {
+     "path": "UI\\Widgets\\Console\\Human\\human-minimap-terrain-active.blp",
+     "file": "mm-terrain-on.png",
+     "w": 32,
+     "h": 32
+    },
+    "MiniMapTerrainButtonActivePushed": {
+     "path": "UI\\Widgets\\Console\\Human\\human-minimap-terrain-active-down.blp",
+     "file": "mm-terrain-on-down.png",
+     "w": 32,
+     "h": 32
+    },
+    "MiniMapTerrainButtonInactiveEnabled": {
+     "path": "UI\\Widgets\\Console\\Human\\human-minimap-terrain-inactive.blp",
+     "file": "mm-terrain-off.png",
+     "w": 32,
+     "h": 32
+    },
+    "MiniMapTerrainButtonInactivePushed": {
+     "path": "UI\\Widgets\\Console\\Human\\human-minimap-terrain-inactive-down.blp",
+     "file": "mm-terrain-off-down.png",
+     "w": 32,
+     "h": 32
+    },
+    "MiniMapAllyButtonActiveEnabled": {
+     "path": "UI\\Widgets\\Console\\Human\\human-minimap-ally-active.blp",
+     "file": "mm-ally-on.png",
+     "w": 32,
+     "h": 32
+    },
+    "MiniMapAllyButtonActivePushed": {
+     "path": "UI\\Widgets\\Console\\Human\\human-minimap-ally-active-down.blp",
+     "file": "mm-ally-on-down.png",
+     "w": 32,
+     "h": 32
+    },
+    "MiniMapAllyButtonInactiveEnabled": {
+     "path": "UI\\Widgets\\Console\\Human\\human-minimap-ally-inactive.blp",
+     "file": "mm-ally-off.png",
+     "w": 32,
+     "h": 32
+    },
+    "MiniMapAllyButtonInactivePushed": {
+     "path": "UI\\Widgets\\Console\\Human\\human-minimap-ally-inactive-down.blp",
+     "file": "mm-ally-off-down.png",
+     "w": 32,
+     "h": 32
+    },
+    "MiniMapCreepButtonActiveEnabled": {
+     "path": "UI\\Widgets\\Console\\Human\\human-minimap-creep-active.blp",
+     "file": "mm-creep-on.png",
+     "w": 32,
+     "h": 32
+    },
+    "MiniMapCreepButtonActivePushed": {
+     "path": "UI\\Widgets\\Console\\Human\\human-minimap-creep-active-down.blp",
+     "file": "mm-creep-on-down.png",
+     "w": 32,
+     "h": 32
+    },
+    "MiniMapCreepButtonInactiveEnabled": {
+     "path": "UI\\Widgets\\Console\\Human\\human-minimap-creep-inactive.blp",
+     "file": "mm-creep-off.png",
+     "w": 32,
+     "h": 32
+    },
+    "MiniMapCreepButtonInactivePushed": {
+     "path": "UI\\Widgets\\Console\\Human\\human-minimap-creep-inactive-down.blp",
+     "file": "mm-creep-off-down.png",
+     "w": 32,
+     "h": 32
+    },
+    "MiniMapFormationOnButtonEnabled": {
+     "path": "UI\\Widgets\\Console\\Human\\human-formation-on.blp",
+     "file": "mm-formation-on.png",
+     "w": 32,
+     "h": 32
+    },
+    "MiniMapFormationOnButtonEnabledPushed": {
+     "path": "UI\\Widgets\\Console\\Human\\human-formation-on-down.blp",
+     "file": "mm-formation-on-down.png",
+     "w": 32,
+     "h": 32
+    },
+    "MiniMapFormationOffButtonEnabled": {
+     "path": "UI\\Widgets\\Console\\Human\\human-formation-off.blp",
+     "file": "mm-formation-off.png",
+     "w": 32,
+     "h": 32
+    },
+    "MiniMapFormationOffButtonEnabledPushed": {
+     "path": "UI\\Widgets\\Console\\Human\\human-formation-off-down.blp",
+     "file": "mm-formation-off-down.png",
+     "w": 32,
+     "h": 32
+    },
+    "GoldIcon": {
+     "path": "UI\\Feedback\\Resources\\ResourceGold.blp",
+     "file": "res-gold.png",
+     "w": 32,
+     "h": 32
+    },
+    "LumberIcon": {
+     "path": "UI\\Feedback\\Resources\\ResourceLumber.blp",
+     "file": "res-lumber.png",
+     "w": 32,
+     "h": 32
+    },
+    "SupplyIcon": {
+     "path": "UI\\Feedback\\Resources\\ResourceSupply.blp",
+     "file": "res-supply.png",
+     "w": 32,
+     "h": 32
+    },
+    "UpkeepIcon": {
+     "path": "UI\\Feedback\\Resources\\ResourceUpkeep.blp",
+     "file": "res-upkeep.png",
+     "w": 32,
+     "h": 32
+    },
+    "InfoPanelIconHeroIconSTR": {
+     "path": "UI\\Widgets\\Console\\Human\\infocard-heroattributes-str.blp",
+     "file": "info-hero-str.png",
+     "w": 64,
+     "h": 64
+    },
+    "InfoPanelIconHeroIconAGI": {
+     "path": "UI\\Widgets\\Console\\Human\\infocard-heroattributes-agi.blp",
+     "file": "info-hero-agi.png",
+     "w": 64,
+     "h": 64
+    },
+    "InfoPanelIconHeroIconINT": {
+     "path": "UI\\Widgets\\Console\\Human\\infocard-heroattributes-int.blp",
+     "file": "info-hero-int.png",
+     "w": 64,
+     "h": 64
+    },
+    "InfoPanelIconDamageNormal": {
+     "path": "UI\\Widgets\\Console\\Human\\infocard-attack-melee.blp",
+     "file": "info-dmg-normal.png",
+     "w": 64,
+     "h": 64
+    },
+    "InfoPanelIconDamagePierce": {
+     "path": "UI\\Widgets\\Console\\Human\\infocard-attack-piercing.blp",
+     "file": "info-dmg-pierce.png",
+     "w": 64,
+     "h": 64
+    },
+    "InfoPanelIconDamageSiege": {
+     "path": "UI\\Widgets\\Console\\Human\\infocard-attack-siege.blp",
+     "file": "info-dmg-siege.png",
+     "w": 64,
+     "h": 64
+    },
+    "InfoPanelIconDamageMagic": {
+     "path": "UI\\Widgets\\COnsole\\Human\\infocard-attack-magic.blp",
+     "file": "info-dmg-magic.png",
+     "w": 64,
+     "h": 64
+    },
+    "InfoPanelIconDamageChaos": {
+     "path": "UI\\Widgets\\COnsole\\Human\\infocard-attack-chaos.blp",
+     "file": "info-dmg-chaos.png",
+     "w": 64,
+     "h": 64
+    },
+    "InfoPanelIconDamageHero": {
+     "path": "UI\\Widgets\\Console\\Human\\infocard-attack-hero.blp",
+     "file": "info-dmg-hero.png",
+     "w": 64,
+     "h": 64
+    },
+    "InfoPanelIconArmorSmall": {
+     "path": "UI\\Widgets\\Console\\Human\\infocard-armor-small.blp",
+     "file": "info-armor-small.png",
+     "w": 64,
+     "h": 64
+    },
+    "InfoPanelIconArmorMedium": {
+     "path": "UI\\Widgets\\Console\\Human\\infocard-armor-medium.blp",
+     "file": "info-armor-medium.png",
+     "w": 64,
+     "h": 64
+    },
+    "InfoPanelIconArmorLarge": {
+     "path": "UI\\Widgets\\Console\\Human\\infocard-armor-large.blp",
+     "file": "info-armor-large.png",
+     "w": 64,
+     "h": 64
+    },
+    "InfoPanelIconArmorFort": {
+     "path": "UI\\Widgets\\Console\\Human\\infocard-armor-fortified.blp",
+     "file": "info-armor-fort.png",
+     "w": 64,
+     "h": 64
+    },
+    "InfoPanelIconArmorHero": {
+     "path": "UI\\Widgets\\Console\\Human\\infocard-armor-hero.blp",
+     "file": "info-armor-hero.png",
+     "w": 64,
+     "h": 64
+    },
+    "InfoPanelIconArmorDivine": {
+     "path": "UI\\Widgets\\Console\\Human\\infocard-armor-hero.blp",
+     "file": "info-armor-divine.png",
+     "w": 64,
+     "h": 64
+    },
+    "InfoPanelIconArmorNone": {
+     "path": "UI\\Widgets\\Console\\Human\\infocard-armor-unarmored.blp",
+     "file": "info-armor-none.png",
+     "w": 64,
+     "h": 64
+    },
+    "CommandButtonActiveHighlight": {
+     "path": "UI\\Widgets\\Console\\Human\\CommandButton\\human-activebutton.blp",
+     "file": "cmd-active.png",
+     "w": 64,
+     "h": 64
+    },
+    "CommandButtonNumberOverlay": {
+     "path": "UI\\Widgets\\Console\\Human\\CommandButton\\human-button-lvls-overlay.blp",
+     "file": "cmd-number.png",
+     "w": 32,
+     "h": 32
+    },
+    "CommandButtonHeroGlow": {
+     "path": "UI\\Widgets\\Console\\Human\\CommandButton\\human-multipleselection-heroglow.blp",
+     "file": "cmd-heroglow.png",
+     "w": 64,
+     "h": 64
+    },
+    "SimpleHpBarConsole": {
+     "path": "UI\\Feedback\\HpBarConsole\\human-healthbar-fill.blp",
+     "file": "bar-fill.png",
+     "w": 128,
+     "h": 16
+    },
+    "SimpleXpBarConsole": {
+     "path": "UI\\Feedback\\XPBar\\human-bigbar-fill.blp",
+     "file": "xp-fill.png",
+     "w": 256,
+     "h": 32
+    },
+    "SimpleXpBarBorder": {
+     "path": "UI\\Feedback\\XPBar\\human-xpbar-border.blp",
+     "file": "xp-border.png",
+     "w": 256,
+     "h": 32
+    },
+    "ToolTipBackground": {
+     "path": "UI\\Widgets\\ToolTips\\Human\\human-tooltip-background.blp",
+     "file": "tooltip-bg.png",
+     "w": 64,
+     "h": 64
+    },
+    "ToolTipBorder": {
+     "path": "UI\\Widgets\\ToolTips\\Human\\human-tooltip-border.blp",
+     "file": "tooltip-border.png",
+     "w": 128,
+     "h": 16
+    },
+    "ToolTipGoldIcon": {
+     "path": "UI\\Widgets\\ToolTips\\Human\\ToolTipGoldIcon.blp",
+     "file": "tip-gold.png",
+     "w": 32,
+     "h": 32
+    },
+    "ToolTipManaIcon": {
+     "path": "UI\\Widgets\\ToolTips\\Human\\ToolTipManaIcon.blp",
+     "file": "tip-mana.png",
+     "w": 32,
+     "h": 32
+    },
+    "ToolTipLumberIcon": {
+     "path": "UI\\Widgets\\ToolTips\\Human\\ToolTipLumberIcon.blp",
+     "file": "tip-lumber.png",
+     "w": 32,
+     "h": 32
+    },
+    "ToolTipSupplyIcon": {
+     "path": "UI\\Widgets\\ToolTips\\Human\\ToolTipSupplyIcon.blp",
+     "file": "tip-supply.png",
+     "w": 32,
+     "h": 32
+    },
+    "MinimapHeroTexture": {
+     "path": "UI\\Minimap\\minimap-hero.blp",
+     "file": "mm-icon-hero.png",
+     "w": 32,
+     "h": 32
+    },
+    "MinimapNeutralTexture": {
+     "path": "UI\\Minimap\\minimap-neutralbuilding.blp",
+     "file": "mm-icon-neutral.png",
+     "w": 16,
+     "h": 16
+    },
+    "EscMenuBackground": {
+     "path": "UI\\Widgets\\EscMenu\\NightElf\\nightelf-options-menu-background.blp",
+     "file": "esc-bg.png",
+     "w": 256,
+     "h": 256
+    },
+    "EscMenuBorder": {
+     "path": "UI\\Widgets\\EscMenu\\NightElf\\nightelf-options-menu-border.blp",
+     "file": "esc-border.png",
+     "w": 512,
+     "h": 64
+    },
+    "EscMenuButtonBackground": {
+     "path": "UI\\Widgets\\EscMenu\\NightElf\\nightelf-options-button-background.blp",
+     "file": "esc-btn.png",
+     "w": 256,
+     "h": 256
+    },
+    "EscMenuButtonPushedBackground": {
+     "path": "UI\\Widgets\\EscMenu\\NightElf\\nightelf-options-button-background-down.blp",
+     "file": "esc-btn-down.png",
+     "w": 256,
+     "h": 256
+    },
+    "EscMenuButtonMouseOverHighlight": {
+     "path": "UI\\Widgets\\EscMenu\\NightElf\\nightelf-options-button-highlight.blp",
+     "file": "esc-btn-hi.png",
+     "w": 256,
+     "h": 32
+    },
+    "MultiboardIconBorder": {
+     "path": "UI\\Widgets\\EscMenu\\Human\\editbox-border.blp",
+     "file": "editbox-border.png",
+     "w": 128,
+     "h": 16
+    },
+    "TimeOfDayIndicator": {
+     "path": "UI\\Console\\NightElf\\NightElfUI-TimeIndicator.mdl",
+     "file": "time-indicator.mdxbin"
+    }
+   },
+   "missing": [
+    "HeroStrengthIcon=UI\\Widgets\\Console\\Human\\human-attribute-str.blp",
+    "HeroAgilityIcon=UI\\Widgets\\Console\\Human\\human-attribute-agi.blp",
+    "HeroIntelligenceIcon=UI\\Widgets\\Console\\Human\\human-attribute-int.blp",
+    "HeroBarBorder=UI\\Widgets\\Console\\Human\\human-hero-border.blp",
+    "MinimapCreepCampTexture=UI\\Minimap\\MinimapIcon\\MinimapIconCreepLoc.blp",
+    "MinimapToughCreepCampTexture=UI\\Minimap\\MinimapIcon\\MinimapIconCreepLoc2.blp"
+   ],
+   "topbarHeight": 64,
+   "consoleHeight": 352,
+   "holes": [
+    {
+     "x": 609,
+     "y": 103,
+     "w": 395,
+     "h": 249
+    },
+    {
+     "x": 20,
+     "y": 116,
+     "w": 276,
+     "h": 221
+    },
+    {
+     "x": 1233,
+     "y": 116,
+     "w": 80,
+     "h": 49
+    },
+    {
+     "x": 1321,
+     "y": 116,
+     "w": 79,
+     "h": 49
+    },
+    {
+     "x": 1408,
+     "y": 116,
+     "w": 79,
+     "h": 49
+    },
+    {
+     "x": 1495,
+     "y": 116,
+     "w": 79,
+     "h": 49
+    },
+    {
+     "x": 435,
+     "y": 122,
+     "w": 144,
+     "h": 168
+    },
+    {
+     "x": 1233,
+     "y": 173,
+     "w": 80,
+     "h": 79
+    },
+    {
+     "x": 1321,
+     "y": 173,
+     "w": 79,
+     "h": 79
+    },
+    {
+     "x": 1408,
+     "y": 173,
+     "w": 79,
+     "h": 79
+    },
+    {
+     "x": 1495,
+     "y": 173,
+     "w": 79,
+     "h": 79
+    },
+    {
+     "x": 1233,
+     "y": 260,
+     "w": 80,
+     "h": 79
+    },
+    {
+     "x": 1321,
+     "y": 260,
+     "w": 79,
+     "h": 79
+    },
+    {
+     "x": 1408,
+     "y": 260,
+     "w": 79,
+     "h": 79
+    },
+    {
+     "x": 1495,
+     "y": 260,
+     "w": 79,
+     "h": 79
+    },
+    {
+     "x": 437,
+     "y": 298,
+     "w": 140,
+     "h": 22
+    },
+    {
+     "x": 437,
+     "y": 325,
+     "w": 141,
+     "h": 20
+    }
+   ]
+  },
+  "Undead": {
+   "keys": {
+    "ConsoleInventoryCoverTexture": {
+     "path": "UI\\Console\\Undead\\UndeadUITile-InventoryCover.blp",
+     "file": "inventory-cover.png",
+     "w": 256,
+     "h": 512
+    },
+    "ConsoleInventoryNoCapacity": {
+     "path": "UI\\Widgets\\Console\\Undead\\undead-inventory-slotfiller.blp",
+     "file": "inventory-slotfiller.png",
+     "w": 64,
+     "h": 64
+    },
+    "UpperMenuButtonTexture": {
+     "path": "UI\\Widgets\\Console\\Undead\\undead-console-buttonstates2.blp",
+     "file": "upper-button.png",
+     "w": 256,
+     "h": 256
+    },
+    "MiniMapSignalButtonEnabled": {
+     "path": "UI\\Widgets\\Console\\Human\\human-minimap-ping-active.blp",
+     "file": "mm-signal.png",
+     "w": 32,
+     "h": 32
+    },
+    "MiniMapSignalButtonPushed": {
+     "path": "UI\\Widgets\\Console\\Human\\human-minimap-ping-active-down.blp",
+     "file": "mm-signal-down.png",
+     "w": 32,
+     "h": 32
+    },
+    "MiniMapTerrainButtonActiveEnabled": {
+     "path": "UI\\Widgets\\Console\\Human\\human-minimap-terrain-active.blp",
+     "file": "mm-terrain-on.png",
+     "w": 32,
+     "h": 32
+    },
+    "MiniMapTerrainButtonActivePushed": {
+     "path": "UI\\Widgets\\Console\\Human\\human-minimap-terrain-active-down.blp",
+     "file": "mm-terrain-on-down.png",
+     "w": 32,
+     "h": 32
+    },
+    "MiniMapTerrainButtonInactiveEnabled": {
+     "path": "UI\\Widgets\\Console\\Human\\human-minimap-terrain-inactive.blp",
+     "file": "mm-terrain-off.png",
+     "w": 32,
+     "h": 32
+    },
+    "MiniMapTerrainButtonInactivePushed": {
+     "path": "UI\\Widgets\\Console\\Human\\human-minimap-terrain-inactive-down.blp",
+     "file": "mm-terrain-off-down.png",
+     "w": 32,
+     "h": 32
+    },
+    "MiniMapAllyButtonActiveEnabled": {
+     "path": "UI\\Widgets\\Console\\Human\\human-minimap-ally-active.blp",
+     "file": "mm-ally-on.png",
+     "w": 32,
+     "h": 32
+    },
+    "MiniMapAllyButtonActivePushed": {
+     "path": "UI\\Widgets\\Console\\Human\\human-minimap-ally-active-down.blp",
+     "file": "mm-ally-on-down.png",
+     "w": 32,
+     "h": 32
+    },
+    "MiniMapAllyButtonInactiveEnabled": {
+     "path": "UI\\Widgets\\Console\\Human\\human-minimap-ally-inactive.blp",
+     "file": "mm-ally-off.png",
+     "w": 32,
+     "h": 32
+    },
+    "MiniMapAllyButtonInactivePushed": {
+     "path": "UI\\Widgets\\Console\\Human\\human-minimap-ally-inactive-down.blp",
+     "file": "mm-ally-off-down.png",
+     "w": 32,
+     "h": 32
+    },
+    "MiniMapCreepButtonActiveEnabled": {
+     "path": "UI\\Widgets\\Console\\Human\\human-minimap-creep-active.blp",
+     "file": "mm-creep-on.png",
+     "w": 32,
+     "h": 32
+    },
+    "MiniMapCreepButtonActivePushed": {
+     "path": "UI\\Widgets\\Console\\Human\\human-minimap-creep-active-down.blp",
+     "file": "mm-creep-on-down.png",
+     "w": 32,
+     "h": 32
+    },
+    "MiniMapCreepButtonInactiveEnabled": {
+     "path": "UI\\Widgets\\Console\\Human\\human-minimap-creep-inactive.blp",
+     "file": "mm-creep-off.png",
+     "w": 32,
+     "h": 32
+    },
+    "MiniMapCreepButtonInactivePushed": {
+     "path": "UI\\Widgets\\Console\\Human\\human-minimap-creep-inactive-down.blp",
+     "file": "mm-creep-off-down.png",
+     "w": 32,
+     "h": 32
+    },
+    "MiniMapFormationOnButtonEnabled": {
+     "path": "UI\\Widgets\\Console\\Human\\human-formation-on.blp",
+     "file": "mm-formation-on.png",
+     "w": 32,
+     "h": 32
+    },
+    "MiniMapFormationOnButtonEnabledPushed": {
+     "path": "UI\\Widgets\\Console\\Human\\human-formation-on-down.blp",
+     "file": "mm-formation-on-down.png",
+     "w": 32,
+     "h": 32
+    },
+    "MiniMapFormationOffButtonEnabled": {
+     "path": "UI\\Widgets\\Console\\Human\\human-formation-off.blp",
+     "file": "mm-formation-off.png",
+     "w": 32,
+     "h": 32
+    },
+    "MiniMapFormationOffButtonEnabledPushed": {
+     "path": "UI\\Widgets\\Console\\Human\\human-formation-off-down.blp",
+     "file": "mm-formation-off-down.png",
+     "w": 32,
+     "h": 32
+    },
+    "GoldIcon": {
+     "path": "UI\\Feedback\\Resources\\ResourceGold.blp",
+     "file": "res-gold.png",
+     "w": 32,
+     "h": 32
+    },
+    "LumberIcon": {
+     "path": "UI\\Feedback\\Resources\\ResourceLumber.blp",
+     "file": "res-lumber.png",
+     "w": 32,
+     "h": 32
+    },
+    "SupplyIcon": {
+     "path": "UI\\Feedback\\Resources\\ResourceSupply.blp",
+     "file": "res-supply.png",
+     "w": 32,
+     "h": 32
+    },
+    "UpkeepIcon": {
+     "path": "UI\\Feedback\\Resources\\ResourceUpkeep.blp",
+     "file": "res-upkeep.png",
+     "w": 32,
+     "h": 32
+    },
+    "InfoPanelIconHeroIconSTR": {
+     "path": "UI\\Widgets\\Console\\Human\\infocard-heroattributes-str.blp",
+     "file": "info-hero-str.png",
+     "w": 64,
+     "h": 64
+    },
+    "InfoPanelIconHeroIconAGI": {
+     "path": "UI\\Widgets\\Console\\Human\\infocard-heroattributes-agi.blp",
+     "file": "info-hero-agi.png",
+     "w": 64,
+     "h": 64
+    },
+    "InfoPanelIconHeroIconINT": {
+     "path": "UI\\Widgets\\Console\\Human\\infocard-heroattributes-int.blp",
+     "file": "info-hero-int.png",
+     "w": 64,
+     "h": 64
+    },
+    "InfoPanelIconDamageNormal": {
+     "path": "UI\\Widgets\\Console\\Human\\infocard-attack-melee.blp",
+     "file": "info-dmg-normal.png",
+     "w": 64,
+     "h": 64
+    },
+    "InfoPanelIconDamagePierce": {
+     "path": "UI\\Widgets\\Console\\Human\\infocard-attack-piercing.blp",
+     "file": "info-dmg-pierce.png",
+     "w": 64,
+     "h": 64
+    },
+    "InfoPanelIconDamageSiege": {
+     "path": "UI\\Widgets\\Console\\Human\\infocard-attack-siege.blp",
+     "file": "info-dmg-siege.png",
+     "w": 64,
+     "h": 64
+    },
+    "InfoPanelIconDamageMagic": {
+     "path": "UI\\Widgets\\COnsole\\Human\\infocard-attack-magic.blp",
+     "file": "info-dmg-magic.png",
+     "w": 64,
+     "h": 64
+    },
+    "InfoPanelIconDamageChaos": {
+     "path": "UI\\Widgets\\COnsole\\Human\\infocard-attack-chaos.blp",
+     "file": "info-dmg-chaos.png",
+     "w": 64,
+     "h": 64
+    },
+    "InfoPanelIconDamageHero": {
+     "path": "UI\\Widgets\\Console\\Human\\infocard-attack-hero.blp",
+     "file": "info-dmg-hero.png",
+     "w": 64,
+     "h": 64
+    },
+    "InfoPanelIconArmorSmall": {
+     "path": "UI\\Widgets\\Console\\Human\\infocard-armor-small.blp",
+     "file": "info-armor-small.png",
+     "w": 64,
+     "h": 64
+    },
+    "InfoPanelIconArmorMedium": {
+     "path": "UI\\Widgets\\Console\\Human\\infocard-armor-medium.blp",
+     "file": "info-armor-medium.png",
+     "w": 64,
+     "h": 64
+    },
+    "InfoPanelIconArmorLarge": {
+     "path": "UI\\Widgets\\Console\\Human\\infocard-armor-large.blp",
+     "file": "info-armor-large.png",
+     "w": 64,
+     "h": 64
+    },
+    "InfoPanelIconArmorFort": {
+     "path": "UI\\Widgets\\Console\\Human\\infocard-armor-fortified.blp",
+     "file": "info-armor-fort.png",
+     "w": 64,
+     "h": 64
+    },
+    "InfoPanelIconArmorHero": {
+     "path": "UI\\Widgets\\Console\\Human\\infocard-armor-hero.blp",
+     "file": "info-armor-hero.png",
+     "w": 64,
+     "h": 64
+    },
+    "InfoPanelIconArmorDivine": {
+     "path": "UI\\Widgets\\Console\\Human\\infocard-armor-hero.blp",
+     "file": "info-armor-divine.png",
+     "w": 64,
+     "h": 64
+    },
+    "InfoPanelIconArmorNone": {
+     "path": "UI\\Widgets\\Console\\Human\\infocard-armor-unarmored.blp",
+     "file": "info-armor-none.png",
+     "w": 64,
+     "h": 64
+    },
+    "CommandButtonActiveHighlight": {
+     "path": "UI\\Widgets\\Console\\Human\\CommandButton\\human-activebutton.blp",
+     "file": "cmd-active.png",
+     "w": 64,
+     "h": 64
+    },
+    "CommandButtonNumberOverlay": {
+     "path": "UI\\Widgets\\Console\\Human\\CommandButton\\human-button-lvls-overlay.blp",
+     "file": "cmd-number.png",
+     "w": 32,
+     "h": 32
+    },
+    "CommandButtonHeroGlow": {
+     "path": "UI\\Widgets\\Console\\Human\\CommandButton\\human-multipleselection-heroglow.blp",
+     "file": "cmd-heroglow.png",
+     "w": 64,
+     "h": 64
+    },
+    "SimpleHpBarConsole": {
+     "path": "UI\\Feedback\\HpBarConsole\\human-healthbar-fill.blp",
+     "file": "bar-fill.png",
+     "w": 128,
+     "h": 16
+    },
+    "SimpleXpBarConsole": {
+     "path": "UI\\Feedback\\XPBar\\human-bigbar-fill.blp",
+     "file": "xp-fill.png",
+     "w": 256,
+     "h": 32
+    },
+    "SimpleXpBarBorder": {
+     "path": "UI\\Feedback\\XPBar\\human-xpbar-border.blp",
+     "file": "xp-border.png",
+     "w": 256,
+     "h": 32
+    },
+    "ToolTipBackground": {
+     "path": "UI\\Widgets\\ToolTips\\Human\\human-tooltip-background.blp",
+     "file": "tooltip-bg.png",
+     "w": 64,
+     "h": 64
+    },
+    "ToolTipBorder": {
+     "path": "UI\\Widgets\\ToolTips\\Human\\human-tooltip-border.blp",
+     "file": "tooltip-border.png",
+     "w": 128,
+     "h": 16
+    },
+    "ToolTipGoldIcon": {
+     "path": "UI\\Widgets\\ToolTips\\Human\\ToolTipGoldIcon.blp",
+     "file": "tip-gold.png",
+     "w": 32,
+     "h": 32
+    },
+    "ToolTipManaIcon": {
+     "path": "UI\\Widgets\\ToolTips\\Human\\ToolTipManaIcon.blp",
+     "file": "tip-mana.png",
+     "w": 32,
+     "h": 32
+    },
+    "ToolTipLumberIcon": {
+     "path": "UI\\Widgets\\ToolTips\\Human\\ToolTipLumberIcon.blp",
+     "file": "tip-lumber.png",
+     "w": 32,
+     "h": 32
+    },
+    "ToolTipSupplyIcon": {
+     "path": "UI\\Widgets\\ToolTips\\Human\\ToolTipSupplyIcon.blp",
+     "file": "tip-supply.png",
+     "w": 32,
+     "h": 32
+    },
+    "MinimapHeroTexture": {
+     "path": "UI\\Minimap\\minimap-hero.blp",
+     "file": "mm-icon-hero.png",
+     "w": 32,
+     "h": 32
+    },
+    "MinimapNeutralTexture": {
+     "path": "UI\\Minimap\\minimap-neutralbuilding.blp",
+     "file": "mm-icon-neutral.png",
+     "w": 16,
+     "h": 16
+    },
+    "EscMenuBackground": {
+     "path": "UI\\Widgets\\EscMenu\\Undead\\undead-options-menu-background.blp",
+     "file": "esc-bg.png",
+     "w": 256,
+     "h": 256
+    },
+    "EscMenuBorder": {
+     "path": "UI\\Widgets\\EscMenu\\Undead\\undead-options-menu-border.blp",
+     "file": "esc-border.png",
+     "w": 512,
+     "h": 64
+    },
+    "EscMenuButtonBackground": {
+     "path": "UI\\Widgets\\EscMenu\\Undead\\undead-options-button-background.blp",
+     "file": "esc-btn.png",
+     "w": 256,
+     "h": 256
+    },
+    "EscMenuButtonPushedBackground": {
+     "path": "UI\\Widgets\\EscMenu\\Undead\\undead-options-button-background-down.blp",
+     "file": "esc-btn-down.png",
+     "w": 256,
+     "h": 256
+    },
+    "EscMenuButtonMouseOverHighlight": {
+     "path": "UI\\Widgets\\EscMenu\\Undead\\undead-options-button-highlight.blp",
+     "file": "esc-btn-hi.png",
+     "w": 256,
+     "h": 32
+    },
+    "MultiboardIconBorder": {
+     "path": "UI\\Widgets\\EscMenu\\Human\\editbox-border.blp",
+     "file": "editbox-border.png",
+     "w": 128,
+     "h": 16
+    },
+    "TimeOfDayIndicator": {
+     "path": "UI\\Console\\Undead\\UndeadUI-TimeIndicator.mdl",
+     "file": "time-indicator.mdxbin"
+    }
+   },
+   "missing": [
+    "HeroStrengthIcon=UI\\Widgets\\Console\\Human\\human-attribute-str.blp",
+    "HeroAgilityIcon=UI\\Widgets\\Console\\Human\\human-attribute-agi.blp",
+    "HeroIntelligenceIcon=UI\\Widgets\\Console\\Human\\human-attribute-int.blp",
+    "HeroBarBorder=UI\\Widgets\\Console\\Human\\human-hero-border.blp",
+    "MinimapCreepCampTexture=UI\\Minimap\\MinimapIcon\\MinimapIconCreepLoc.blp",
+    "MinimapToughCreepCampTexture=UI\\Minimap\\MinimapIcon\\MinimapIconCreepLoc2.blp"
+   ],
+   "topbarHeight": 64,
+   "consoleHeight": 352,
+   "holes": [
+    {
+     "x": 20,
+     "y": 116,
+     "w": 276,
+     "h": 221
+    },
+    {
+     "x": 1233,
+     "y": 116,
+     "w": 80,
+     "h": 49
+    },
+    {
+     "x": 1321,
+     "y": 116,
+     "w": 79,
+     "h": 49
+    },
+    {
+     "x": 1408,
+     "y": 116,
+     "w": 79,
+     "h": 49
+    },
+    {
+     "x": 1495,
+     "y": 116,
+     "w": 79,
+     "h": 49
+    },
+    {
+     "x": 609,
+     "y": 117,
+     "w": 389,
+     "h": 235
+    },
+    {
+     "x": 434,
+     "y": 130,
+     "w": 144,
+     "h": 159
+    },
+    {
+     "x": 1233,
+     "y": 173,
+     "w": 80,
+     "h": 79
+    },
+    {
+     "x": 1321,
+     "y": 173,
+     "w": 79,
+     "h": 79
+    },
+    {
+     "x": 1408,
+     "y": 173,
+     "w": 79,
+     "h": 79
+    },
+    {
+     "x": 1495,
+     "y": 173,
+     "w": 79,
+     "h": 79
+    },
+    {
+     "x": 1233,
+     "y": 260,
+     "w": 80,
+     "h": 79
+    },
+    {
+     "x": 1321,
+     "y": 260,
+     "w": 79,
+     "h": 79
+    },
+    {
+     "x": 1408,
+     "y": 260,
+     "w": 79,
+     "h": 79
+    },
+    {
+     "x": 1495,
+     "y": 260,
+     "w": 79,
+     "h": 79
+    },
+    {
+     "x": 439,
+     "y": 297,
+     "w": 134,
+     "h": 22
+    },
+    {
+     "x": 439,
+     "y": 324,
+     "w": 134,
+     "h": 23
+    }
+   ]
+  }
+ }
+}

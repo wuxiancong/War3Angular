@@ -4,7 +4,7 @@ export const it: TranslationSchema = {
     theme: { dark: "Scuro", light: "Chiaro" },
     status: { uplink: "Connessione Normale", bots: "Bot", signals: "Account Attivi" },
     nav: { 
-        home: "HOME", matches: "STATISTICHE", replay: "REPLAY", ladder: "CLASSIFICA", team: "SQUAD", report: "SEGNALA", 
+        home: "HOME", matches: "STATISTICHE", replay: "REPLAY", online: "GIOCA ONLINE", play: "PARTITA WEB", ladder: "CLASSIFICA", team: "SQUAD", report: "SEGNALA", 
         reportList: "AVVISI", ban: "LISTA BAN", download: "DOWNLOAD", platformUpdates: "AGGIORNAMENTI", 
         mapUpdates: "MAPPE", faq: "FAQ", support: "SUPPORTO", onlineSupport: "Supporto Online",
         myTeam: "Mio Team", create: "Crea Match"
