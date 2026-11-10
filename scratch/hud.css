@@ -1,0 +1,121 @@
+      /* ================= 原生控制台 HUD =================
+         坐标系：WC3 UI 为 0.8×0.6（宽×高），宽屏下横向拉伸铺满；这里用百分比 + 容器查询单位还原。
+         --u = 0.001 个 UI 单位（字体 0.010 即 10u）。 */
+      .w3 { position: absolute; inset: 0; z-index: 10; pointer-events: none; container-type: size; color: #fff; user-select: none;
+        font-family: 'Friz Quadrata TT', 'FZLanTingHeiS', 'Microsoft YaHei', 'PingFang SC', sans-serif;
+        cursor: url('/assets/wc3/ui/cursor-human-pointer.png') 2 2, auto; }
+      .w3 > *, .w3 > * * { --u: calc(100cqh / 600); }
+      .w3 button { font-family: inherit; cursor: url('/assets/wc3/ui/cursor-human-active.png') 2 2, pointer; }
+      .w3-abs { position: absolute; pointer-events: auto; box-sizing: border-box; }
+      .w3-top { position: absolute; left: 0; top: 0; width: 100%; height: 5.3333%; background-size: 100% 100%; background-repeat: no-repeat; }
+      .w3-console { position: absolute; left: 0; bottom: 0; width: 100%; height: 29.3333%; background-size: 100% 100%; background-repeat: no-repeat; }
+      /* 控制台实体部分拦截点击，避免点到下面的世界 */
+      .w3-hit { position: absolute; left: 0; bottom: 0; width: 100%; height: 20.5%; pointer-events: auto; }
+      .w3-hit.l { width: 25.6%; height: 26.5%; }
+      .w3-hit.r { left: auto; right: 0; width: 23.5%; height: 25.5%; }
+
+      /* ---- 顶部菜单按钮：UpperMenuButtonTexture 精灵图（u 0~0.664；常态 v 0~0.172，按下 0.25~，高亮 0.75~ 叠加） ---- */
+      .w3-upper { position: absolute; pointer-events: auto; border: 0; padding: 0; color: #fff; font-size: calc(var(--u) * 10); line-height: 1;
+        background-color: transparent; background-image: var(--tex); background-repeat: no-repeat; background-size: 150.59% 581.82%; background-position: 0 0;
+        text-shadow: 0 1px 1px #000; white-space: nowrap; overflow: hidden; }
+      .w3-upper em { font-style: normal; color: #fed312; }
+      .w3-upper::after { content: ''; position: absolute; inset: 0; background-image: var(--tex); background-repeat: no-repeat; background-size: 150.59% 581.82%;
+        background-position: 0 90.57%; mix-blend-mode: screen; opacity: 0; pointer-events: none; }
+      .w3-upper:hover { color: #ffd412; }
+      .w3-upper:hover::after { opacity: 1; }
+      .w3-upper:active, .w3-upper.on { background-position: 0 30.19%; padding: calc(var(--u) * 1) 0 0 calc(var(--u) * 1); }
+
+      /* ---- 时间指示器 ---- */
+      .w3-time { position: absolute; }
+      .w3-time-sky { position: absolute; left: 39.06%; top: 9.4%; width: 21.88%; height: 43.75%; border-radius: 50%; background-size: 200% 100%; background-repeat: repeat-x; }
+      .w3-time-frame { position: absolute; inset: 0; background-size: 100% 100%; background-repeat: no-repeat; }
+
+      /* ---- 资源栏 ---- */
+      .w3-res { position: absolute; pointer-events: auto; text-align: right; font-size: calc(var(--u) * 10); line-height: calc(var(--u) * 16.4); color: #fff; text-shadow: 0 1px 1px #000; white-space: nowrap; }
+      .w3-upkeep { text-align: center; }
+
+      /* ---- 多面板 ---- */
+      .w3-mb-title { position: absolute; pointer-events: auto; padding: 0 calc(var(--u) * 9); font-size: calc(var(--u) * 11); display: flex; align-items: center; white-space: nowrap; color: #fff;
+        border-style: solid; border-width: calc(var(--u) * 5); border-image: url('/assets/wc3/native-ui/common/multiboard-9.png') 16 fill / calc(var(--u) * 7) stretch; }
+      .w3-mb-btn { position: absolute; pointer-events: auto; padding: 0; background: #000 url('/assets/wc3/native-ui/common/mm-min-enabled.png') center / 62% 62% no-repeat;
+        border-style: solid; border-width: calc(var(--u) * 5); border-image: url('/assets/wc3/native-ui/common/multiboard-9.png') 16 / calc(var(--u) * 7) stretch; }
+      .w3-mb-btn:not(.open) { transform: scaleY(-1); }
+      .w3-mb-board { position: absolute; pointer-events: auto; padding: calc(var(--u) * 4) calc(var(--u) * 7); font-size: calc(var(--u) * 9.5);
+        border-style: solid; border-width: calc(var(--u) * 5); border-image: url('/assets/wc3/native-ui/common/multiboard-9.png') 16 fill / calc(var(--u) * 7) stretch; }
+      .w3-mb-row { display: grid; grid-template-columns: calc(var(--u) * 13) calc(var(--u) * 78) calc(var(--u) * 16) calc(var(--u) * 46) calc(var(--u) * 40) calc(var(--u) * 18); align-items: center; gap: calc(var(--u) * 3); line-height: calc(var(--u) * 14.5); white-space: nowrap; }
+      .w3-mb-row img { width: calc(var(--u) * 12); height: calc(var(--u) * 12); display: block; }
+      .w3-mb-row .nm { overflow: hidden; text-overflow: ellipsis; }
+      .w3-mb-row .rs { color: #f87171; }
+      .w3-mb-row.dead { opacity: 0.55; }
+      .w3-mb-head { display: flex; justify-content: space-between; color: #fed312; }
+
+      /* ---- 文字层 ---- */
+      .w3-msgs { position: absolute; left: 2.5%; bottom: 31.5%; max-width: 55%; font-size: calc(var(--u) * 11); line-height: 1.35; text-shadow: 0 1px 2px #000, 0 0 2px #000; }
+      .w3-err, .w3-hint, .w3-respawn { position: absolute; left: 50%; transform: translateX(-50%); bottom: 31%; font-size: calc(var(--u) * 12); color: #ffcc00; text-shadow: 0 1px 2px #000, 0 0 3px #000; white-space: nowrap; }
+      .w3-hint { bottom: 35%; color: #fff; }
+      .w3-respawn { bottom: 60%; font-size: calc(var(--u) * 16); color: #ff5a5a; }
+      .w3-net { position: absolute; left: 0.5%; top: 6%; font-size: calc(var(--u) * 8); opacity: 0.45; }
+
+      /* ---- 小地图 / 肖像 ---- */
+      .w3-minimap { background: #000; cursor: url('/assets/wc3/ui/cursor-human-crosshair.png') 16 16, crosshair; image-rendering: auto; }
+      .w3-portrait { overflow: hidden; background: #05070a; }
+      .w3-portrait canvas, .w3-portrait img { width: 100%; height: 100%; display: block; object-fit: cover; }
+      .w3-mmbtn { border: 0; padding: 0; background-color: transparent; background-size: 100% 100%; background-repeat: no-repeat; }
+      .w3-mmbtn:hover { filter: brightness(1.25); }
+      .w3-mmbtn:active { transform: translate(1px, 1px); }
+      .w3-hp, .w3-mp { text-align: center; font-size: calc(var(--u) * 9.5); display: flex; align-items: center; justify-content: center; pointer-events: none; text-shadow: 0 1px 1px #000; }
+      .w3-hp { color: #20ff20; }
+      .w3-mp { color: #bfd8ff; }
+
+      /* ---- 信息面板：字体尺寸取自 SimpleInfoPanel.fdf（标题 0.013 / 标签与数值 0.0085） ---- */
+      .w3-info { pointer-events: auto; }
+      .w3-name { text-align: center; font-size: calc(var(--u) * 13); line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 1px #000; }
+      .w3-class { text-align: center; font-size: calc(var(--u) * 8.5); margin-top: calc(var(--u) * 5.5); }
+      .w3-xp { position: relative; width: 67.4%; height: calc(var(--u) * 15.625); margin: calc(var(--u) * 1.5) auto 0; background: #000; }
+      .w3-xp > i { position: absolute; left: 1.5%; top: 12%; bottom: 12%; max-width: 97%; background: #7a1fa8 url('/assets/wc3/native-ui/NightElf/xp-fill.png') left center / 100% 100%; background-blend-mode: multiply; }
+      .w3-xp::after { content: ''; position: absolute; inset: 0; background: url('/assets/wc3/native-ui/NightElf/xp-border.png') center / 100% 100% no-repeat; }
+      .w3-xp > span { position: absolute; inset: 0; z-index: 1; display: flex; align-items: center; justify-content: center; font-size: calc(var(--u) * 8.5); white-space: nowrap; text-shadow: 0 1px 1px #000; }
+      .w3-icon-row, .w3-hero-attr { position: absolute; display: flex; align-items: flex-start; font-size: calc(var(--u) * 8.5); line-height: 1.2; }
+      .w3-icon-row { left: 2.1%; }
+      .w3-icon-row img, .w3-hero-attr img { width: calc(var(--u) * 32 * 1.3333 * 100cqw / 100cqh * 0.75); flex: none; }
+      .w3-icon-row > div, .w3-hero-attr > div { display: flex; flex-direction: column; padding-top: calc(var(--u) * 3); }
+      .w3-hero-attr { left: 57.9%; top: 21.9%; height: 42.8%; align-items: center; }
+      .w3-hero-attr > div { padding-top: 0; }
+      .w3-info .lb { color: #fcd312; }
+      .w3-info .vl { padding-left: calc(var(--u) * 5); color: #fff; }
+      .w3-hero-attr .vl { margin-bottom: calc(var(--u) * 4); }
+      .w3-status { position: absolute; left: 2.1%; right: 2%; top: 87%; font-size: calc(var(--u) * 8.5); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+      /* ---- 物品栏 / 命令卡按钮 ---- */
+      .w3-btn { border: 0; padding: 0; background: #000; overflow: hidden; }
+      .w3-btn > img { width: 100%; height: 100%; display: block; }
+      .w3-btn:hover > img { filter: brightness(1.18); }
+      .w3-btn:active > img { transform: scale(0.94); }
+      .w3-btn.dim > img { filter: grayscale(0.85) brightness(0.42); }
+      .w3-btn.act::after { content: ''; position: absolute; inset: 0; background: url('/assets/wc3/native-ui/NightElf/cmd-active.png') center / 100% 100% no-repeat; pointer-events: none; }
+      /* 冷却：原版 UI-Cooldown-Indicator 为顺时针扫过的暗色扇形 */
+      .w3-btn .cd { position: absolute; inset: 0; pointer-events: none; background: conic-gradient(transparent calc((100 - var(--p)) * 1%), rgba(0, 0, 0, 0.72) 0); }
+      .w3-btn .num { position: absolute; right: 4%; bottom: 0; font-size: calc(var(--u) * 9); font-weight: 400; color: #fff; text-shadow: 0 0 2px #000, 0 1px 1px #000, 1px 0 1px #000; pointer-events: none; }
+      .w3-invcover { background-size: 100% 145.45%; background-position: 0 100%; background-repeat: no-repeat; pointer-events: none; }
+
+      /* ---- 提示框（ToolTipBackground + ToolTipBorder 九宫格） ---- */
+      .w3-tip { position: absolute; right: 0.35%; bottom: 27.4%; width: 36%; max-height: 60%; overflow: hidden; pointer-events: none; padding: calc(var(--u) * 3) calc(var(--u) * 5);
+        border-style: solid; border-width: calc(var(--u) * 5); border-image: url('/assets/wc3/native-ui/common/tooltip-9.png') 16 fill / calc(var(--u) * 7) stretch; }
+      .w3-tip .tt { font-size: calc(var(--u) * 11); color: #fff; }
+      .w3-tip .cost { display: flex; gap: calc(var(--u) * 10); font-size: calc(var(--u) * 9.5); color: #fed312; margin-top: calc(var(--u) * 2); }
+      .w3-tip .cost span { display: inline-flex; align-items: center; gap: calc(var(--u) * 3); }
+      .w3-tip .cost img { width: calc(var(--u) * 11); height: calc(var(--u) * 11); }
+      .w3-tip .bd { font-size: calc(var(--u) * 9.5); line-height: 1.35; white-space: pre-wrap; margin-top: calc(var(--u) * 4); color: #fff; }
+
+      /* ---- 对话框（EscMenuBackground + EscMenuBorder 九宫格） ---- */
+      .w3-dialog { position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%); width: 44%; max-height: 62%; pointer-events: auto; display: flex; flex-direction: column; gap: calc(var(--u) * 6);
+        padding: calc(var(--u) * 14) calc(var(--u) * 16); border-style: solid; border-width: calc(var(--u) * 22); border-image: var(--nine) 64 fill / calc(var(--u) * 30) stretch; }
+      .w3-dialog .hd { text-align: center; font-size: calc(var(--u) * 16); color: #fed312; text-shadow: 0 1px 2px #000; }
+      .w3-dialog .tx { font-size: calc(var(--u) * 10); line-height: 1.5; white-space: pre-wrap; overflow: auto; }
+      .w3-dialog .tx.log { max-height: 40cqh; }
+      .w3-dialog .ally { display: grid; grid-template-columns: calc(var(--u) * 18) 1fr 1.2fr auto; gap: calc(var(--u) * 6); align-items: center; font-size: calc(var(--u) * 10); }
+      .w3-dialog .ally img { width: calc(var(--u) * 16); height: calc(var(--u) * 16); }
+      .w3-dialog .ally .g { color: #fed312; }
+      .w3-dbtn { align-self: center; min-width: 46%; padding: calc(var(--u) * 5) calc(var(--u) * 12); font-size: calc(var(--u) * 11); color: #fed312; background: rgba(0, 0, 0, 0.72); border: 1px solid #8a6d1a; }
+      .w3-dbtn:hover { color: #fff; border-color: #fed312; }
+      .w3-dbtn.ret { margin-top: calc(var(--u) * 4); }

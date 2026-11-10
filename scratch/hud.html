@@ -1,0 +1,203 @@
+        @if (phase() === 'playing' && hud(); as h) {
+          <!-- ============ 原生控制台 HUD：坐标全部取自 ConsoleUI.fdf / UpperButtonBar.fdf / ResourceBar.fdf / SimpleInfoPanel.fdf 与控制台贴图镂空 ============ -->
+          <div class="w3" [class.w3-ud]="myTeam() === 1">
+            <!-- 顶栏贴图（Tile01~04 的 v=0~0.125 条带，中间缺口留给时间指示器） -->
+            <div class="w3-top" [style.background-image]="skin('topbar.png')"></div>
+
+            <!-- 左上四个菜单按钮：UpperButtonBarFrame，x=0.002+i×0.085，宽 0.085 高 0.022 -->
+            @for (b of upperButtons; track b.id) {
+              <button type="button" class="w3-upper" [class.on]="menu() === b.id" [style]="b.style"
+                      [style.--tex]="skin('upper-button.png')" (click)="toggleMenu(b.id)">
+                {{ b.text }} (<em>{{ b.key }}</em>)
+              </button>
+            }
+
+            <!-- 时间指示器：外框贴图 + 随昼夜横向滚动的天空盘（TimeOfDayIndicator 模型的两张贴图） -->
+            <div class="w3-time" [style]="L.time">
+              <div class="w3-time-sky" [style.background-image]="skin('ti-HumanUITile-TimeIndicator.png')" [style.background-position-x.%]="h.skyPos"></div>
+              <div class="w3-time-frame" [style.background-image]="skin(myTeam() === 1 ? 'ti-UndeadUITile-TimeIndicatorFrame.png' : 'ti-NightElfUITile-TimeIndicatorFrame.png')"></div>
+            </div>
+
+            <!-- 资源栏：ResourceBarFrame（宽 0.33828，贴屏幕右上）。DotA 用 war3mapSkin.txt 把木材=分、人口=秒、维护费=版本号 -->
+            <img class="w3-abs" [style]="L.resGoldIcon" src="/assets/wc3/native-ui/NightElf/res-gold.png" alt="" />
+            <div class="w3-res" [style]="L.resGold" (mouseenter)="showNativeTip('黄金', '金钱是击杀敌方单位或英雄的奖励，也会定期增长。')" (mouseleave)="hideTip()">{{ h.gold }}</div>
+            <img class="w3-abs" [style]="L.resLumberIcon" src="/assets/wc3/native-ui/common/dota-lumber-clock.png" alt="" />
+            <div class="w3-res" [style]="L.resLumber" (mouseenter)="showNativeTip('分：', '对局已进行的分钟数。')" (mouseleave)="hideTip()">{{ h.clockMin }}</div>
+            <div class="w3-res" [style]="L.resSupply" (mouseenter)="showNativeTip('秒：', '对局已进行的秒数。')" (mouseleave)="hideTip()">{{ h.clockSec }}</div>
+            <div class="w3-res w3-upkeep" [style]="L.resUpkeep">v6.83d</div>
+
+            <!-- 多面板（DotA 计分板）标题与最小化按钮：Multiboard.fdf -->
+            <div class="w3-mb-title" [style]="L.mbTitle">( {{ h.stats[0] }}/{{ h.stats[1] }}/{{ h.stats[2] }} - {{ h.stats[3] }}/{{ h.stats[4] }} - {{ h.level }} )</div>
+            <button type="button" class="w3-mb-btn" [class.open]="showScore()" [style]="L.mbBtn" (click)="showScore.set(!showScore())" aria-label="展开或收起计分板"></button>
+            @if (showScore()) {
+              <div class="w3-mb-board" [style]="L.mbBoard">
+                <div class="w3-mb-row w3-mb-head"><span>近卫军团</span><span>{{ h.radiantKills }}</span></div>
+                @for (r of h.score; track r.slot) {
+                  @if (r.slot === 5) { <div class="w3-mb-row w3-mb-head"><span>天灾军团</span><span>{{ h.direKills }}</span></div> }
+                  <div class="w3-mb-row" [class.dead]="!r.alive">
+                    <img [src]="r.icon" alt="" />
+                    <span class="nm" [style.color]="r.color === '#540081' ? '#c084fc' : r.color">{{ r.player }}</span>
+                    <span class="lv">{{ r.level }}</span>
+                    <span>{{ r.k }}/{{ r.d }}/{{ r.a }}</span>
+                    <span>{{ r.lh }}/{{ r.dn }}</span>
+                    <span class="rs">{{ r.alive ? '' : r.respawn }}</span>
+                  </div>
+                }
+              </div>
+            }
+
+            <!-- 游戏消息（原版位于屏幕左侧、控制台上方） -->
+            <div class="w3-msgs">
+              @for (m of messages(); track m.id) { <div [style.color]="m.color">{{ m.text }}</div> }
+            </div>
+            @if (errText()) { <div class="w3-err">{{ errText() }}</div> }
+            @if (targeting(); as tg) { <div class="w3-hint">{{ tg.label }}</div> }
+            @if (h.respawn > 0) { <div class="w3-respawn">你的英雄已阵亡，{{ h.respawn }} 秒后复活</div> }
+            <div class="w3-net">{{ h.net }}</div>
+
+            <!-- 底部控制台：四块瓦片 v=0.3125~1（Tile02 为 0.414~1），高 0.176 -->
+            <!-- 3D 肖像（Portrait / Portrait Talk）；无肖像模型时退回头像图标 -->
+            <div class="w3-abs w3-portrait" [style]="L.portrait">
+              <canvas #portraitCanvas width="144" height="168" [class.hidden]="!portrait3d()"></canvas>
+              @if (!portrait3d()) { <img [src]="h.sel.icon" alt="" /> }
+            </div>
+
+            <div class="w3-console" [style.background-image]="skin('console.png')"></div>
+
+
+            <!-- 小地图 -->
+            <canvas #minimap width="256" height="256" class="w3-abs w3-minimap" [style]="L.minimap"
+                    (pointerdown)="onMinimapDown($event)" (contextmenu)="$event.preventDefault()"></canvas>
+
+            <!-- 小地图右侧五个按钮：信号 / 地形 / 盟友颜色 / 野怪营地 / 阵型 -->
+            @for (b of mmButtons(); track b.id) {
+              <button type="button" class="w3-abs w3-mmbtn" [style]="b.style" [style.background-image]="b.img"
+                      (click)="onMmButton(b.id)" (mouseenter)="showNativeTip(b.title, b.tip)" (mouseleave)="hideTip()" [attr.aria-label]="b.title"></button>
+            }
+
+            <!-- 生命 / 魔法 文本（肖像下方两条镂空） -->
+            <div class="w3-abs w3-hp" [style]="L.hpText">{{ h.sel.hp }} / {{ h.sel.maxHp }}</div>
+            @if (h.sel.maxMp > 0) { <div class="w3-abs w3-mp" [style]="L.mpText">{{ h.sel.mp }} / {{ h.sel.maxMp }}</div> }
+
+            <!-- 信息面板：SimpleInfoPanelUnitDetail -->
+            <div class="w3-abs w3-info" [style]="L.info">
+              <div class="w3-name">{{ h.sel.title }}</div>
+              @if (h.sel.isHero) {
+                <div class="w3-xp" (mouseenter)="showNativeTip('经验值', h.sel.xpText)" (mouseleave)="hideTip()">
+                  <i [style.width.%]="h.sel.xpPct"></i>
+                  <span>等级 {{ h.sel.level }} {{ h.sel.cls }}</span>
+                </div>
+              } @else if (h.sel.cls) {
+                <div class="w3-class">{{ h.sel.cls }}</div>
+              }
+              @if (h.sel.dmg) {
+                <div class="w3-icon-row" style="left: 0; top: 34.5%">
+                  <img [src]="h.sel.dmgIcon" alt="" />
+                  <div><span class="lb">攻击力:</span><span class="vl">{{ h.sel.dmg }}</span></div>
+                </div>
+              }
+              @if (h.sel.armor) {
+                <div class="w3-icon-row" style="left: 0; top: 60%">
+                  <img [src]="h.sel.armorIcon" alt="" />
+                  <div><span class="lb">护甲:</span><span class="vl">{{ h.sel.armor }}</span></div>
+                </div>
+              }
+              @if (h.sel.isHero) {
+                <div class="w3-hero-attr">
+                  <img [src]="h.sel.attrIcon" alt="" />
+                  <div>
+                    <span class="lb">力量:</span><span class="vl">{{ h.sel.str }}</span>
+                    <span class="lb">敏捷:</span><span class="vl">{{ h.sel.agi }}</span>
+                    <span class="lb">智力:</span><span class="vl">{{ h.sel.int }}</span>
+                  </div>
+                </div>
+              }
+              @if (h.sel.buffs.length) {
+                <div class="w3-status"><span class="lb">状态:</span> {{ h.sel.buffs.join('、') }}</div>
+              }
+            </div>
+
+            <!-- 物品栏 6 格（非英雄单位时盖上 InventoryCover 贴图） -->
+            @if (h.sel.isHero) {
+              @for (it of h.items; track $index) {
+                <button type="button" class="w3-abs w3-btn" [style]="L.inv[$index]" (click)="useItem($index)" (contextmenu)="sellItem($index, $event)"
+                        (mouseenter)="it && showNativeTip(it.name, it.desc, it.sellGold, 0, '右键出售：')" (mouseleave)="hideTip()" [attr.aria-label]="it ? it.name : '空物品栏'">
+                  @if (it) {
+                    <img [src]="it.icon" alt="" />
+                    @if (it.cdPct > 0) { <i class="cd" [style.--p]="it.cdPct"></i> }
+                    @if (it.charges > 1) { <b class="num">{{ it.charges }}</b> }
+                  }
+                </button>
+              }
+            } @else {
+              <div class="w3-abs w3-invcover" [style]="L.invCover" [style.background-image]="skin('inventory-cover.png')"></div>
+            }
+
+            <!-- 命令卡 4×3：按钮 0.039，间距 0.0434 -->
+            @for (c of cells(); track $index) {
+              @if (c) {
+                <button type="button" class="w3-abs w3-btn" [class.dim]="c.dim" [class.act]="c.active" [style]="L.cmd[$index]" (click)="c.click()"
+                        (mouseenter)="showNativeTip(c.title, c.body, c.gold, c.mana)" (mouseleave)="hideTip()" [attr.aria-label]="c.title">
+                  <img [src]="c.icon" alt="" />
+                  @if (c.cdPct > 0) { <i class="cd" [style.--p]="c.cdPct"></i> }
+                  @if (c.num) { <b class="num">{{ c.num }}</b> }
+                </button>
+              }
+            }
+
+            <!-- 原生提示框：固定在命令卡上方、贴右 -->
+            @if (tip(); as t) {
+              <div class="w3-tip">
+                <div class="tt">{{ t.title }}</div>
+                @if (t.gold || t.mana) {
+                  <div class="cost">
+                    @if (t.gold) { <span>{{ t.goldLabel }}<img src="/assets/wc3/native-ui/NightElf/tip-gold.png" alt="金" />{{ t.gold }}</span> }
+                    @if (t.mana) { <span><img src="/assets/wc3/native-ui/NightElf/tip-mana.png" alt="魔法" />{{ t.mana }}</span> }
+                  </div>
+                }
+                @if (t.body) { <div class="bd">{{ t.body }}</div> }
+              </div>
+            }
+
+            <!-- F9~F12 对话框（EscMenu 边框九宫格） -->
+            @if (menu(); as mn) {
+              <div class="w3-dialog" [style.--nine]="'url(/assets/wc3/native-ui/common/esc-' + (myTeam() === 1 ? 'undead' : 'nightelf') + '-9.png)'">
+                @if (mn === 'quests') {
+                  <div class="hd">地图信息</div>
+                  <div class="tx">DotA Allstars v6.83d · 网页对战
+
+右键地面移动，右键敌人攻击，右键血量低于一半的己方小兵反补。
+A 攻击移动 / 强制攻击，S 停止，H 保持原位，M 移动。
+技能热键见提示框方括号内字母；点红十字或按 O 学习技能，Ctrl + 热键直接加点。
+物品：小键盘 7 8 / 4 5 / 1 2，或主键盘 1~6。
+左键点击商店后，命令卡显示其货架，点击图标购买；右键物品栏出售。
+镜头：屏幕边缘、方向键、中键拖动、滚轮；空格回到英雄并跟随。</div>
+                } @else if (mn === 'menu') {
+                  <div class="hd">游戏菜单</div>
+                  <button type="button" class="w3-dbtn" (click)="toggleCamLock()">镜头跟随英雄：{{ camLock() ? '开' : '关' }}</button>
+                  <button type="button" class="w3-dbtn" (click)="view && toggleHpBars()">显示生命条：{{ hpBars() ? '开' : '关' }}</button>
+                  <button type="button" class="w3-dbtn" (click)="quitGame()">退出游戏</button>
+                } @else if (mn === 'allies') {
+                  <div class="hd">盟友</div>
+                  @for (r of h.score; track r.slot) {
+                    @if ((r.slot < 5) === (myTeam() === 0)) {
+                      <div class="ally"><img [src]="r.icon" alt="" /><span [style.color]="r.color === '#540081' ? '#c084fc' : r.color">{{ r.player }}</span><span>{{ r.hero }} · 等级 {{ r.level }}</span><span class="g">{{ r.gold }}</span></div>
+                    }
+                  }
+                } @else {
+                  <div class="hd">消息记录</div>
+                  <div class="tx log">{{ logText() }}</div>
+                }
+                <button type="button" class="w3-dbtn ret" (click)="menu.set(null)">返回游戏 (Esc)</button>
+              </div>
+            }
+
+            @if (winner() >= 0) {
+              <div class="w3-dialog" [style.--nine]="'url(/assets/wc3/native-ui/common/esc-' + (myTeam() === 1 ? 'undead' : 'nightelf') + '-9.png)'">
+                <div class="hd" [style.color]="winner() === myTeam() ? '#4ade80' : '#f87171'">{{ winner() === myTeam() ? '胜利！' : '失败' }}</div>
+                <div class="tx">{{ winner() === 0 ? '近卫军团' : '天灾军团' }} 摧毁了对方基地。</div>
+                <button type="button" class="w3-dbtn ret" (click)="quitGame()">退出游戏</button>
+              </div>
+            }
+          </div>
+        }

@@ -203,7 +203,47 @@ function assembleConsole(race, skin) {
   blit(bot, W, t2, 0, 212, 512, 300, 512, 52);
   blit(bot, W, t3, 0, 160, 512, 352, 1024, 0);
   blit(bot, W, t4, 0, 160, 64, 352, 1536, 0);
+  const holes = findHoles(bot, W, H);
+  // ConsoleUI.fdf 的贴图都是 AlphaMode "ALPHAKEY"（alpha 测试，非混合）：先二值化，
+  // 再把「从顶部/两侧够不着的透明区」（即各功能镂空，原版其后是 ConsoleBackground 黑底）填黑；
+  // 肖像镂空保留透明，3D 肖像画布垫在控制台贴图下面。
+  for (const img of [top, bot]) for (let i = 3; i < img.length; i += 4) img[i] = img[i] >= 192 ? 255 : 0;
+  const outside = new Uint8Array(W * H);
+  const st = [];
+  const seed = (x, y) => {
+    const i = y * W + x;
+    if (!outside[i] && bot[i * 4 + 3] === 0) {
+      outside[i] = 1;
+      st.push(i);
+    }
+  };
+  for (let x = 0; x < W; x++) seed(x, 0);
+  for (let y = 0; y < H; y++) {
+    seed(0, y);
+    seed(W - 1, y);
+  }
+  while (st.length) {
+    const i = st.pop();
+    const x = i % W;
+    const y = (i - x) / W;
+    if (x > 0) seed(x - 1, y);
+    if (x < W - 1) seed(x + 1, y);
+    if (y > 0) seed(x, y - 1);
+    if (y < H - 1) seed(x, y + 1);
+  }
+  const portrait = holes.find((h) => h.x > 400 && h.x < 480 && h.h > 120);
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const i = y * W + x;
+      if (bot[i * 4 + 3] !== 0 || outside[i]) continue;
+      if (portrait && x >= portrait.x - 2 && x <= portrait.x + portrait.w + 2 && y >= portrait.y - 2 && y <= portrait.y + portrait.h + 2) continue;
+      bot[i * 4] = bot[i * 4 + 1] = bot[i * 4 + 2] = 0;
+      bot[i * 4 + 3] = 255;
+    }
+  }
+  writePng(path.join(OUT, race, 'topbar.png'), W, 64, top);
   writePng(path.join(OUT, race, 'console.png'), W, H, bot);
+  return { topbarHeight: 64, consoleHeight: H, holes };
   return { topbarHeight: 64, consoleHeight: H, holes: findHoles(bot, W, H) };
 }
 
@@ -372,7 +412,7 @@ common.nine.tooltip = nineSlice(D.ToolTipBorder, D.ToolTipBackground, 'common/to
 common.nine.escNightElf = nineSlice(NE.EscMenuBorder, NE.EscMenuBackground, 'common/esc-nightelf-9.png');
 const UDK = { ...D, ...(skins['Undead'] || {}) };
 common.nine.escUndead = nineSlice(UDK.EscMenuBorder, UDK.EscMenuBackground, 'common/esc-undead-9.png');
-common.nine.multiboard = nineSlice(D.MultiboardBorder || 'UI\Widgets\EscMenu\Human\human-options-menu-border', D.MultiboardBackground || D.EscMenuBackground, 'common/multiboard-9.png');
+common.nine.multiboard = nineSlice(D.MultiboardBorder || 'UI/Widgets/EscMenu/Human/human-options-menu-border', D.MultiboardBackground || D.EscMenuBackground, 'common/multiboard-9.png');
 
 // 命令图标与地图皮肤覆盖（war3mapSkin.txt [CustomSkin]：DotA 把木材图标换成时钟、人口图标换成空白）
 const mapSkinPath = 'D:/Qt/workspace/War3Analysis/artifacts/wc3-native-ui/dota683d-war3mapSkin.txt';
@@ -386,7 +426,7 @@ const extraTex = {
   'common/BTNHoldPosition.png': D.CommandHoldPosition,
   'common/BTNAttack.png': D.CommandAttack,
   'common/BTNPatrol.png': D.CommandPatrol,
-  'common/BTNStatUp.png': 'ReplaceableTextures\CommandButtons\BTNStatUp',
+  'common/BTNStatUp.png': 'ReplaceableTextures/CommandButtons/BTNStatUp',
   'common/dota-lumber-clock.png': custom.LumberIcon,
   'common/dota-supply.png': custom.SupplyIcon,
   'common/mm-min-enabled.png': D.MultiboardMinimizeButtonEnabled,
@@ -406,15 +446,22 @@ for (const [file, p] of Object.entries(extraTex)) {
 // 时间指示器模型引用的贴图：扫描 MDX 内的 .blp 路径，原样导出到 /assets/wc3/<原路径>（供 mdx-m3-viewer 解析）
 for (const race of RACES) {
   const skin = { ...D, ...(skins[race] || {}) };
-  const f = skin.TimeOfDayIndicator ? getFile(skin.TimeOfDayIndicator.replace(/.mdl$/i, '.mdx')) : null;
+  const f = skin.TimeOfDayIndicator ? getFile(skin.TimeOfDayIndicator.replace(/[.]mdl$/i, '.mdx')) : null;
   if (!f) continue;
   const text = f.bytes.toString('latin1');
-  const texs = [...new Set(text.match(/[A-Za-z0-9_\-. ]+.blp/gi) || [])];
+  const texs = [...new Set(text.match(/[A-Za-z0-9_. \\-]+[.]blp/gi) || [])];
   manifest.races[race].timeIndicatorTextures = texs;
+  // 同时转成 PNG（ti-<文件名>.png），前端用「外框 + 旋转的昼夜盘」静态还原时间指示器
+  for (const tp of texs) {
+    const t = loadTexture(tp);
+    if (!t) continue;
+    const base = tp.split(String.fromCharCode(92)).pop().replace(/[.]blp$/i, '');
+    writePng(path.join(OUT, race, `ti-${base}.png`), t.w, t.h, t.data);
+  }
   for (const tp of texs) {
     const tf = getFile(tp);
     if (!tf) continue;
-    const dst = path.join(ROOT, 'public/assets/wc3', tp.split('\').join('/'));
+    const dst = path.join(ROOT, 'public/assets/wc3', tp.split(String.fromCharCode(92)).join('/'));
     if (!fs.existsSync(dst)) {
       fs.mkdirSync(path.dirname(dst), { recursive: true });
       fs.writeFileSync(dst, tf.bytes);

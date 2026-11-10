@@ -895,7 +895,8 @@ export class Wc3MdxViewer {
       }
       this.portraitViewer = pv;
       this.portraitScene = scene;
-      await this.loadPortraitModelForHero(this.options.modelUrl);
+      // 对战模式由页面按所选单位调用 setPortraitModel，不自动加载录像默认肖像
+      if (!this.options.gameplay) await this.loadPortraitModelForHero(this.options.modelUrl);
     } catch (e) {
       console.warn('[wc3] attachPortraitCanvas error', e);
     }
@@ -911,9 +912,39 @@ export class Wc3MdxViewer {
     return this.resolveWc3Path(src);
   }
 
-  private async loadPortraitModelForHero(heroModelUrl: string): Promise<void> {
+  /**
+   * 对战模式：把控制台肖像切换为指定单位。
+   * 先找同目录的 *_Portrait 模型（原版肖像模型，带 Portrait / Portrait Talk 序列），没有则返回 false 由页面退回静态头像。
+   */
+  async setPortraitModel(unitModelUrl: string, teamColor: number): Promise<boolean> {
+    if (!this.portraitViewer || !this.portraitScene || !unitModelUrl) return false;
+    this.options.teamColor = teamColor;
+    let url = unitModelUrl.split('\\').join('/');
+    if (!url.startsWith('/')) url = String(this.resolveWc3Path(/\.(mdx|mdl|mdxbin)$/i.test(url) ? url : url + '.mdx'));
+    const portraitUrl = url.replace(/\.mdxbin$/i, '_Portrait.mdxbin');
+    try {
+      // 先探测文件是否存在，避免 mdx-m3-viewer 对 404 长时间挂起
+      const head = await fetch(portraitUrl, { method: 'HEAD' });
+      const type = head.headers.get('content-type') || '';
+      if (!head.ok || type.includes('text/html')) return false;
+    } catch {
+      return false;
+    }
+    await this.loadPortraitModelForHero(portraitUrl, true);
+    return !!this.portraitInstance;
+  }
+
+  /** 肖像说话动作（选中/下达指令时原版会播放 Portrait Talk） */
+  playPortraitTalk(): void {
+    const inst = this.portraitInstance;
+    const seqs = (inst?.model?.sequences || []) as { name?: string }[];
+    const idx = seqs.findIndex((s) => String(s.name || '').toLowerCase().includes('talk'));
+    if (inst && idx >= 0) inst.setSequence(idx);
+  }
+
+  private async loadPortraitModelForHero(heroModelUrl: string, exact = false): Promise<void> {
     if (!this.portraitViewer || !this.portraitScene) return;
-    const portraitUrl = this.derivePortraitModelUrl(heroModelUrl);
+    const portraitUrl = exact ? heroModelUrl : this.derivePortraitModelUrl(heroModelUrl);
     let model: any = null;
     try {
       model = await Promise.race([
