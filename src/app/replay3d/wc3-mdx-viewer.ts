@@ -1065,7 +1065,7 @@ export class Wc3MdxViewer {
   setSimEnabled(on: boolean): void {
     this.simEnabled = on;
     if (this.syncConfig) this.syncConfig.enabled = on;
-    if (this.sim) this.sim.cfg.enabled = on;
+    this.sim?.setEnabled(on);
   }
 
   applySyncOverrides(overrides: Partial<SceneSyncConfig>): void {

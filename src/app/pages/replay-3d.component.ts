@@ -2059,7 +2059,7 @@ export class Replay3dComponent implements OnDestroy {
           id: r.spotId,
           px: Math.max(0, Math.min(100, rp.px)),
           py: Math.max(0, Math.min(100, rp.py)),
-          name: `${r.spotName}·${r.nameCn}`,
+          name: `${r.spotName}·${r.label}`,
           color: runeColors[r.kind] || '#38bdf8',
         };
       })
