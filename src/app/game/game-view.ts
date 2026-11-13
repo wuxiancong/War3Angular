@@ -6,6 +6,9 @@
 import type { Wc3MdxViewer } from '../replay3d/wc3-mdx-viewer';
 import { getHeroByCode } from '../replay3d/dota-hero-roster';
 import { RUNE_NAMES, type GameEngine, type GameEvent, type Unit } from './game-engine';
+import { BAR_Z, PLAYER_COLORS, TEAM_HP, drawFloatText, drawGroundCircle, drawUnitBar, prepareOverlay, readableColor } from './overlay-draw';
+import { FOG_ALPHA, VisionGrid, type VisionSource } from './fog';
+export { PLAYER_COLORS } from './overlay-draw';
 
 interface Visual {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -39,8 +42,6 @@ interface RingFx {
 }
 
 /** WC3 玩家颜色：近卫 1-5（蓝/青/紫/黄/橙），天灾 7-11（粉/灰/浅蓝/深绿/棕） */
-export const PLAYER_COLORS = ['#0042ff', '#1ce6b9', '#540081', '#fffc01', '#fe8a0e', '#e55bb0', '#959697', '#7ebff1', '#106246', '#4e2a04'];
-const TEAM_HP = ['#22c55e', '#ef4444', '#eab308'];
 const RUNE_COLOR: Record<string, string> = { bounty: '#f59e0b', dd: '#38bdf8', haste: '#ef4444', regen: '#22c55e', invis: '#a855f7' };
 
 export interface TargetingHint {
@@ -53,7 +54,7 @@ export interface TargetingHint {
 
 export class GameView {
   private readonly visuals = new Map<number, Visual>();
-  private readonly ctx: CanvasRenderingContext2D;
+  private ctx: CanvasRenderingContext2D;
   private floats: FloatText[] = [];
   private rings: RingFx[] = [];
   private pointer = { x: 0, y: 0, wx: 0, wy: 0, has: false };
@@ -61,13 +62,19 @@ export class GameView {
   hoverId = 0;
   targeting: TargetingHint | null = null;
   showHpBars = true;
+  /** 战争迷雾开关（只影响本端显示，不进锁步） */
+  fogOn = true;
+  /** 夜晚视野用 nsight（由页面按游戏时刻设置） */
+  night = false;
+  readonly fog = new VisionGrid();
+  private fogAt = 0;
   private moveMarker: { x: number; y: number; age: number; attack: boolean } | null = null;
   private disposed = false;
 
   constructor(
     private readonly viewer: Wc3MdxViewer,
     private readonly engine: GameEngine,
-    private readonly overlay: HTMLCanvasElement,
+    private overlay: HTMLCanvasElement,
     private readonly mySlot: number
   ) {
     this.ctx = overlay.getContext('2d') as CanvasRenderingContext2D;
@@ -125,6 +132,7 @@ export class GameView {
     for (const u of this.engine.units.values()) {
       if (!u.alive || (filter && !filter(u))) continue;
       if (u.kind === 'hero' && u.team !== this.myTeam() && this.engine.hasBuff(u, 'invis')) continue;
+      if (this.fogged(u)) continue;
       const v = this.visuals.get(u.id);
       const x = v ? v.vx : u.x;
       const y = v ? v.vy : u.y;
@@ -140,6 +148,45 @@ export class GameView {
       }
     }
     return best;
+  }
+
+  /** 组件热替换重建模板后，改画到新的叠加画布上 */
+  setOverlay(el: HTMLCanvasElement | null | undefined): void {
+    if (!el || el === this.overlay) return;
+    this.overlay = el;
+    this.ctx = el.getContext('2d') as CanvasRenderingContext2D;
+  }
+
+  /** 敌方/中立的可移动单位在迷雾里看不到（建筑与原版一样保持显示） */
+  fogged(u: Unit): boolean {
+    if (!this.fogOn || u.team === this.myTeam()) return false;
+    if (u.kind !== 'hero' && u.kind !== 'creep' && u.kind !== 'neutral') return false;
+    return !this.fog.visible(u.x, u.y);
+  }
+
+  /** 每 150ms 按己方单位的白天/夜晚视野重算可见区域 */
+  private updateFog(): void {
+    const now = performance.now();
+    if (!this.fogOn || now < this.fogAt) return;
+    this.fogAt = now + 150;
+    const myTeam = this.myTeam();
+    const data = this.engine.data;
+    if (!this.fog.hasOccluders) this.fog.setOccluders(this.viewer.getVisionOccluders());
+    const src: VisionSource[] = [];
+    for (const u of this.engine.units.values()) {
+      if (!u.alive) continue;
+      if (u.team === myTeam) {
+        const def = data.units[u.typeId] || data.heroes[u.typeId];
+        const r = (this.night ? def?.nsight : def?.sight) || (this.night ? 800 : 1400);
+        src.push({ x: u.x, y: u.y, r });
+        continue;
+      }
+      // 迷雾中攻击暴露（MiscData FoggedAttackRevealRadius = 200）：正在攻击我方单位的敌人在其周围 200 码可见
+      const tgId = u.autoTarget || (u.order as { id?: number }).id || 0;
+      const tg = tgId ? this.engine.units.get(tgId) : undefined;
+      if (tg && tg.alive && tg.team === myTeam && u.anim === 'attack') src.push({ x: u.x, y: u.y, r: 200, ignoreLos: true });
+    }
+    this.fog.update(src);
   }
 
   private myTeam(): number {
@@ -253,6 +300,7 @@ export class GameView {
     const k = Math.min(1, dtMs / 70); // 位置指数平滑，掩盖 50ms 逻辑步进
     const seen = new Set<number>();
     const myTeam = this.myTeam();
+    this.updateFog();
     for (const u of engine.units.values()) {
       seen.add(u.id);
       let v = this.visuals.get(u.id);
@@ -301,7 +349,7 @@ export class GameView {
       v.vf += da * Math.min(1, dtMs / 90);
       const inst = v.inst;
       if (!inst) continue;
-      const hidden = u.kind === 'hero' && u.team !== myTeam && u.alive && engine.hasBuff(u, 'invis');
+      const hidden = (u.kind === 'hero' && u.team !== myTeam && u.alive && engine.hasBuff(u, 'invis')) || this.fogged(u);
       if (u.hero && !u.alive && engine.tick - u.diedAt > 50) {
         // 阵亡英雄尸体 2.5 秒后隐藏，复活时再显示
         if (!v.dead) {
@@ -348,46 +396,25 @@ export class GameView {
   }
 
   private drawOverlay(dt: number): void {
-    const c = this.overlay;
-    const rect = c.getBoundingClientRect();
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
-    const W = Math.max(1, Math.round(rect.width));
-    const H = Math.max(1, Math.round(rect.height));
-    if (c.width !== Math.round(W * dpr) || c.height !== Math.round(H * dpr)) {
-      c.width = Math.round(W * dpr);
-      c.height = Math.round(H * dpr);
-    }
     const ctx = this.ctx;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, W, H);
+    const { W, H } = prepareOverlay(this.overlay, ctx);
     const engine = this.engine;
     const myTeam = this.myTeam();
     const H0 = (x: number, y: number) => this.viewer.sampleHeight(x, y);
+    const project = (x: number, y: number, z: number) => this.project(x, y, z, W, H);
 
-    // 地面圆（世界半径 → 屏幕椭圆）
-    const groundCircle = (x: number, y: number, r: number, stroke: string, lw = 2, fill?: string) => {
-      const z = H0(x, y) + 6;
-      ctx.beginPath();
-      let started = false;
-      for (let i = 0; i <= 28; i++) {
-        const a = (i / 28) * Math.PI * 2;
-        const p = this.project(x + Math.cos(a) * r, y + Math.sin(a) * r, z, W, H);
-        if (!p) continue;
-        if (!started) {
-          ctx.moveTo(p.x, p.y);
-          started = true;
-        } else ctx.lineTo(p.x, p.y);
-      }
-      if (!started) return;
-      ctx.closePath();
-      if (fill) {
-        ctx.fillStyle = fill;
-        ctx.fill();
-      }
-      ctx.strokeStyle = stroke;
-      ctx.lineWidth = lw;
-      ctx.stroke();
-    };
+    // 战争迷雾：先压暗地面，再画圈与血条
+    // 压暗本身在 WebGL 里画（平滑、全图），这里只推进浓度渐变
+    if (this.fogOn) {
+      this.fog.fade();
+      this.viewer.setFogDensity(this.fog.density, FOG_ALPHA);
+    } else {
+      this.viewer.setFogDensity(null);
+    }
+
+    // 地面圆（世界半径 → 屏幕椭圆）：画法与录像页共用（overlay-draw.ts）
+    const groundCircle = (x: number, y: number, r: number, stroke: string, lw = 2, fill?: string) =>
+      drawGroundCircle(ctx, project, x, y, H0(x, y) + 6, r, stroke, lw, fill);
 
     // 选择圈 / 悬停圈
     for (const id of [this.selectedId, this.hoverId]) {
@@ -430,6 +457,7 @@ export class GameView {
     // 神符
     for (const rune of engine.runes) {
       if (!rune) continue;
+      if (this.fogOn && !this.fog.visible(rune.x, rune.y)) continue;
       const p = this.project(rune.x, rune.y, H0(rune.x, rune.y) + 60, W, H);
       if (!p) continue;
       const pulse = 1 + Math.sin(performance.now() / 250) * 0.12;
@@ -469,55 +497,34 @@ export class GameView {
       for (const u of engine.units.values()) {
         if (!u.alive || u.kind === 'fountain') continue;
         if (u.kind === 'hero' && u.team !== myTeam && engine.hasBuff(u, 'invis')) continue;
+        if (this.fogged(u)) continue;
         const v = this.visuals.get(u.id);
         const x = v ? v.vx : u.x;
         const y = v ? v.vy : u.y;
         const isB = u.kind === 'tower' || u.kind === 'rax' || u.kind === 'ancient';
         if (isB && u.hp >= u.maxHp && u.id !== this.selectedId && u.id !== this.hoverId) continue;
-        const p = this.project(x, y, H0(x, y) + (isB ? 300 : u.kind === 'hero' ? 150 : 105), W, H);
+        const kind = isB ? 'building' : u.kind === 'hero' ? 'hero' : 'unit';
+        const p = this.project(x, y, H0(x, y) + BAR_Z[kind], W, H);
         if (!p) continue;
-        const w = isB ? 64 : u.kind === 'hero' ? 62 : 36;
-        const h = u.kind === 'hero' ? 7 : 5;
-        const pct = Math.max(0, Math.min(1, u.hp / u.maxHp));
-        ctx.fillStyle = 'rgba(0,0,0,0.8)';
-        ctx.fillRect(p.x - w / 2 - 1, p.y - 1, w + 2, h + 2);
-        ctx.fillStyle = u.team === 2 ? TEAM_HP[2] : u.team === myTeam ? TEAM_HP[0] : TEAM_HP[1];
-        ctx.fillRect(p.x - w / 2, p.y, w * pct, h);
-        if (u.hero) {
-          const mp = u.maxMp > 0 ? u.mp / u.maxMp : 0;
-          ctx.fillStyle = 'rgba(0,0,0,0.8)';
-          ctx.fillRect(p.x - w / 2 - 1, p.y + h + 1, w + 2, 4);
-          ctx.fillStyle = '#3b82f6';
-          ctx.fillRect(p.x - w / 2, p.y + h + 1, w * mp, 3);
-          ctx.font = 'bold 12px sans-serif';
-          ctx.textAlign = 'center';
-          const label = `${u.hero.playerName} · ${u.hero.level}`;
-          ctx.strokeStyle = '#000';
-          ctx.lineWidth = 3;
-          ctx.strokeText(label, p.x, p.y - 5);
-          ctx.fillStyle = PLAYER_COLORS[u.hero.slot] === '#540081' ? '#c084fc' : PLAYER_COLORS[u.hero.slot];
-          ctx.fillText(label, p.x, p.y - 5);
-          if (engine.hasBuff(u, 'stun')) {
-            ctx.fillStyle = '#fde047';
-            ctx.fillText('眩晕', p.x, p.y - 20);
-          }
-        }
+        drawUnitBar(ctx, {
+          x: p.x,
+          y: p.y,
+          kind,
+          hp: u.hp / u.maxHp,
+          color: u.team === 2 ? TEAM_HP[2] : u.team === myTeam ? TEAM_HP[0] : TEAM_HP[1],
+          mp: u.hero && u.maxMp > 0 ? u.mp / u.maxMp : 0,
+          label: u.hero ? `${u.hero.playerName} · ${u.hero.level}` : undefined,
+          labelColor: u.hero ? readableColor(PLAYER_COLORS[u.hero.slot]) : undefined,
+          stunned: !!u.hero && engine.hasBuff(u, 'stun'),
+        });
       }
     }
 
     // 跳字
     this.floats = this.floats.filter((f) => (f.age += dt) < 1.4);
-    ctx.font = 'bold 14px sans-serif';
-    ctx.textAlign = 'center';
     for (const f of this.floats) {
       const p = this.project(f.x, f.y, f.z + f.age * 70, W, H);
-      if (!p) continue;
-      ctx.globalAlpha = Math.max(0, 1 - f.age / 1.4);
-      ctx.strokeStyle = '#000';
-      ctx.lineWidth = 3;
-      ctx.strokeText(f.text, p.x, p.y);
-      ctx.fillStyle = f.color;
-      ctx.fillText(f.text, p.x, p.y);
+      if (p) drawFloatText(ctx, p.x, p.y, f.text, f.color, 1 - f.age / 1.4);
     }
     ctx.globalAlpha = 1;
   }

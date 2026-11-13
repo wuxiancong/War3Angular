@@ -4,6 +4,9 @@ import type { PathingData } from './game-data';
  * 寻路栅格：由 war3map.wpm(32 码格) 降采样到 64 码格，8 向 A* + 视线拉直。
  * 全部整数/确定性运算，保证锁步同步下各端路径一致。
  */
+/** 直线行走时路线两侧要求的空余（世界单位），约等于小兵/英雄的碰撞半径 */
+const LOS_CLEARANCE = 24;
+
 export class PathGrid {
   readonly size: number;
   readonly cell = 64;
@@ -38,8 +41,9 @@ export class PathGrid {
         for (let dy = 0; dy < ratio; dy++) {
           for (let dx = 0; dx < ratio; dx++) n += fine[(cy * ratio + dy) * data.width + cx * ratio + dx];
         }
-        // 4 个细格中 ≥2 个不可走即视为阻挡
-        this.blockedCells[cy * this.size + cx] = n >= 2 ? 1 : 0;
+        // 4 个细格（32 码）中有任意 1 个不可走即视为阻挡：单位碰撞半径约 32 码，
+        // 以前要求 ≥2 个时一格宽的悬崖边、斜向墙会被降采样抹掉，单位就能直接走过去
+        this.blockedCells[cy * this.size + cx] = n >= 1 ? 1 : 0;
       }
     }
     const total = this.size * this.size;
@@ -85,15 +89,25 @@ export class PathGrid {
     }
   }
 
-  /** 两点间是否可直线行走（按半格步进采样） */
+  /**
+   * 两点间是否可直线行走：每 1/4 格采样一次，并在路线两侧各留 LOS_CLEARANCE 的余量。
+   * 只采中线时，拉直后的路径会贴着树/悬崖的格角斜穿过去（单位模型明显穿进地形）。
+   */
   los(ax: number, ay: number, bx: number, by: number): boolean {
     const dx = bx - ax;
     const dy = by - ay;
     const dist = Math.sqrt(dx * dx + dy * dy);
-    const steps = Math.ceil(dist / (this.cell * 0.5));
+    if (dist < 1) return !this.blocked(bx, by);
+    const steps = Math.ceil(dist / (this.cell * 0.25));
+    const px = (-dy / dist) * LOS_CLEARANCE;
+    const py = (dx / dist) * LOS_CLEARANCE;
     for (let i = 1; i <= steps; i++) {
       const t = i / steps;
-      if (this.blocked(ax + dx * t, ay + dy * t)) return false;
+      const x = ax + dx * t;
+      const y = ay + dy * t;
+      if (this.blocked(x, y)) return false;
+      // 终点附近（最后半格）不查两侧，允许贴近目标点
+      if (dist * (1 - t) > this.cell * 0.5 && (this.blocked(x + px, y + py) || this.blocked(x - px, y - py))) return false;
     }
     return true;
   }

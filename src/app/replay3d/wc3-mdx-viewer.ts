@@ -1,5 +1,8 @@
 import { installMemoryMapLoader, loadDotaNamedMapFiles } from './wc3-memory-map';
 import { patchWar3MapViewerMap } from './wc3-doodad-patch';
+import { dncLight, patchSdFragment, type DncLight } from './wc3-lighting';
+import { loadPathingData } from '../game/game-data';
+import { PathGrid } from '../game/path-grid';
 import {
   RADIANT_SPAWN,
   DOTA_MAP_BOUNDS,
@@ -48,6 +51,9 @@ type DragMode = 'pan' | 'orbit' | null;
 /**
  * Browser wrapper: War3MapViewer (real 3D terrain) + Blademaster MDX + DotA sim.
  */
+/** Adts（魔法岗哨）的施法者特效：防御塔头顶的真视之眼 */
+const TRUE_SIGHT_EYE_MODEL = 'Abilities\\Spells\\Human\\MagicSentry\\MagicSentryCaster.mdx';
+
 export class Wc3MdxViewer {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   readonly viewer: any;
@@ -103,7 +109,8 @@ export class Wc3MdxViewer {
   private readonly onKeyUp: (e: KeyboardEvent) => void;
   private resizeObserver?: ResizeObserver;
   private readonly wc3Base: string;
-  private readonly inputEl: HTMLElement;
+  private inputEl: HTMLElement;
+  private readonly onContextMenu = (e: Event) => e.preventDefault();
   private constructor(
     private readonly options: Wc3MdxViewerOptions,
     private readonly War3MapViewer: any
@@ -116,6 +123,8 @@ export class Wc3MdxViewer {
     const pathSolver = (src: unknown) => this.resolveWc3Path(src);
     this.viewer = new War3MapViewer(canvas, pathSolver, false);
     this.scene = this.viewer.worldScene || this.viewer.scenes?.[0];
+    Wc3MdxViewer.clearEmptyTexture(this.viewer);
+    this.installModelLighting();
 
     this.onPointerDown = (e) => {
       if (this.options.gameplay) {
@@ -145,9 +154,19 @@ export class Wc3MdxViewer {
     };
     this.onPointerMove = (e) => {
       const rect = this.inputEl.getBoundingClientRect();
-      this.pointerInside = true;
       this.pointerX = (e.clientX - rect.left) / Math.max(1, rect.width);
       this.pointerY = (e.clientY - rect.top) / Math.max(1, rect.height);
+      // 监听整个窗口：指针在 HUD（顶栏/控制台）上时也能边缘滚屏。
+      // 视口上方是网站页头，把鼠标甩到窗口最上沿时指针落在页头里——这也算「上边缘」，
+      // 否则上下滚屏永远触发不了（左右两侧视口贴着窗口边，所以一直正常）。
+      // 指针停在页头的按钮/链接/输入框上时不滚，免得操作菜单时镜头乱跑。
+      const target = e.target as Element | null;
+      const overControl = !!target?.closest?.('a,button,input,select,textarea,[role="button"]');
+      // 小地图贴着视口下沿：在小地图上点/拖时不能顺带触发下边缘滚屏（否则镜头先跳过去又往下滑）
+      const noEdge = !!target?.closest?.('.w3-minimap,[data-no-edge-scroll]');
+      const inX = this.pointerX >= 0 && this.pointerX <= 1;
+      this.pointerInside = !noEdge && inX && this.pointerY <= 1 && (this.pointerY >= 0 || !overControl);
+      if (this.pointerY < 0) this.pointerY = 0;
 
       if (!this.dragMode) return;
       const dx = e.clientX - this.lastX;
@@ -220,7 +239,8 @@ export class Wc3MdxViewer {
         }
         return;
       }
-      if (['w', 'a', 's', 'd'].includes(k)) {
+      // 录像页：WASD 与方向键都能平移镜头
+      if (['w', 'a', 's', 'd'].includes(k) || k.startsWith('arrow')) {
         this.keys.add(k);
         this.cameraMode = 'free';
         e.preventDefault();
@@ -229,12 +249,14 @@ export class Wc3MdxViewer {
     this.onKeyUp = (e) => this.keys.delete(e.key.toLowerCase());
 
     this.inputEl.addEventListener('pointerdown', this.onPointerDown);
-    this.inputEl.addEventListener('pointermove', this.onPointerMove);
+    // HUD 盖在视口上方，指针移到控制台/顶栏时 viewLayer 收不到事件；原版里屏幕四边都能滚屏。
+    // 对战页与录像页一样监听整个窗口（拖动时 pointer capture 的事件也会冒泡到 window）
+    window.addEventListener('pointermove', this.onPointerMove);
+    document.documentElement.addEventListener('pointerleave', this.onPointerLeave);
     this.inputEl.addEventListener('pointerup', this.onPointerUp);
     this.inputEl.addEventListener('pointercancel', this.onPointerUp);
-    this.inputEl.addEventListener('pointerleave', this.onPointerLeave);
     this.inputEl.addEventListener('wheel', this.onWheel, { passive: false });
-    this.inputEl.addEventListener('contextmenu', (e) => e.preventDefault());
+    this.inputEl.addEventListener('contextmenu', this.onContextMenu);
     window.addEventListener('resize', this.onResize);
     window.addEventListener('keydown', this.onKeyDown);
     window.addEventListener('keyup', this.onKeyUp);
@@ -247,6 +269,7 @@ export class Wc3MdxViewer {
     }
     const { loadWc3ViewerLibs } = await import('./wc3-viewer-libs');
     const libs = loadWc3ViewerLibs();
+    Wc3MdxViewer.sdSources = (await import('./wc3-viewer-libs')).loadSdShaderSources();
     patchWar3MapViewerMap(libs);
     (Wc3MdxViewer as any)._War3Map = libs.War3Map;
     (Wc3MdxViewer as any)._ModelViewer = libs.ModelViewer;
@@ -437,6 +460,10 @@ export class Wc3MdxViewer {
     return table[kind] || null;
   }
 
+  /** 防御塔头顶的真视之眼（塔 id → 模型实例），塔被摧毁后隐藏 */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private towerEyes = new Map<string, any>();
+
   /** Place towers / rax / shops / ancient / fountain from buildings.json. */
   private async placeDotaBuildings(): Promise<void> {
     const cfg = await loadDotaMapConfig(DEFAULT_DOTA_MAP_URL);
@@ -451,7 +478,8 @@ export class Wc3MdxViewer {
       if (existing) return existing;
       const p = Promise.race([
         this.viewer.load(path, (src: unknown) => this.resolveWc3Path(src)),
-        new Promise<null>((r) => setTimeout(() => r(null), 5000)),
+        // 开发服务器刚启动时单个模型可能要十几秒；超时会让整类建筑（含全部防御塔）不出现
+        new Promise<null>((r) => setTimeout(() => r(null), 30000)),
       ]).then((model) => {
         inflight.delete(path);
         if (!model) {
@@ -484,7 +512,14 @@ export class Wc3MdxViewer {
       if (!model) continue;
       const inst = model.addInstance();
       inst.setScene(this.scene);
-      inst.setTeamColor(b.team === 1 ? 1 : 0);
+      // DotA 6.83：近卫建筑归 Player 1（红），天灾建筑归 Player 7（绿）；
+      // 英雄出生光环按玩家槽位上色（近卫 2~6 号：蓝青紫黄橙，天灾 8~12 号：粉灰浅蓝深绿棕）
+      const cop = /_cop_(\d)$/.exec(b.id || '');
+      // 酒馆等由脚本 SetUnitColor 指定颜色的单位在 buildings.json 里带 color
+      const fixedColor = (b as { color?: number }).color;
+      inst.setTeamColor(
+        typeof fixedColor === 'number' ? fixedColor : cop ? (b.team === 1 ? 6 : 0) + Number(cop[1]) : b.team === 1 ? 6 : 0
+      );
       inst.setSequenceLoopMode(2);
       const z = this.sampleHeight(b.x, b.y);
       inst.setLocation([b.x, b.y, z]);
@@ -501,6 +536,27 @@ export class Wc3MdxViewer {
       }
       placed.push({ id: b.id, name: b.name, kind: b.kind, x: b.x, y: b.y, instance: inst });
       if (b.kind === 'tower') {
+        // 22 座防御塔都带 Adts（魔法岗哨 = 真视），原版在塔的 overhead 挂点上显示一只眼睛
+        try {
+          const eyeModel = await loadModel(TRUE_SIGHT_EYE_MODEL);
+          if (eyeModel) {
+            const scale = b.scale ?? spec?.scale ?? 1;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const att = ((model.attachments || []) as any[]).find((x) => /^overhead/i.test(String(x?.name || '')));
+            const oz = att?.pivot ? Number(att.pivot[2]) * scale : 300;
+            const eye = eyeModel.addInstance();
+            eye.setScene(this.scene);
+            eye.setSequenceLoopMode(2);
+            eye.setLocation([b.x, b.y, z + (Number.isFinite(oz) && oz > 0 ? oz : 300)]);
+            const eyeStand = (eyeModel.sequences as { name?: string }[]).findIndex((q) =>
+              String(q.name || '').toLowerCase().trim().startsWith('stand')
+            );
+            eye.setSequence(eyeStand >= 0 ? eyeStand : 0);
+            this.towerEyes.set(b.id, eye);
+          }
+        } catch (e) {
+          console.warn('[wc3] tower true-sight eye skipped', b.id, e);
+        }
         this.placedTowers.push({
           id: b.id,
           name: b.name,
@@ -514,22 +570,50 @@ export class Wc3MdxViewer {
     this.buildings = placed;
   }
 
+  /** 寻路栅格（war3map.wpm + 树木）；加载完之前为 null */
+  private pathGrid: PathGrid | null = null;
+
+  get pathReady(): boolean {
+    return !!this.pathGrid;
+  }
+
+  /** A* 寻路（不含起点的路点列表）；栅格没加载完时直接返回终点 */
+  findPath(ax: number, ay: number, bx: number, by: number): [number, number][] {
+    return this.pathGrid ? this.pathGrid.findPath(ax, ay, bx, by) : [[bx, by]];
+  }
+
+  /** 该点在寻路栅格上是否不可走（调试：检查英雄有没有走进树林/悬崖） */
+  isBlocked(x: number, y: number): boolean {
+    return !!this.pathGrid && this.pathGrid.blocked(x, y);
+  }
+
   private async initSceneSim(): Promise<void> {
     const base = await loadSceneSyncConfig();
     this.syncConfig = applySyncOverrides(base, this.options.syncOverrides);
     this.simEnabled = !!this.syncConfig.enabled;
     if (!this.simEnabled) return;
 
+    // 与对战页同一张寻路栅格（war3map.wpm + 树木），小兵按 A* 绕开树林与悬崖
+    let grid: PathGrid | null = null;
+    try {
+      grid = new PathGrid(await loadPathingData());
+      this.pathGrid = grid;
+    } catch (e) {
+      console.warn('[wc3] 寻路栅格加载失败，小兵将直线行走', e);
+    }
     this.sim = new DotaSceneSim(
       this.syncConfig,
       (x, y) => this.sampleHeight(x, y),
       (opts) => this.spawnUnitInstance(opts),
       this.instance,
-      (name) => this.resolveSequenceId(name)
+      (name) => this.resolveSequenceId(name),
+      grid ? (ax, ay, bx, by) => grid.findPath(ax, ay, bx, by) : undefined
     );
     this.sim.registerTowers(this.placedTowers);
     await this.sim.bootstrap();
-    // 等录像号角时钟来再推进；禁止初始化后墙钟空转
+    // 等录像号角时钟来再推进；禁止初始化后墙钟空转。
+    // 先标成「未开局」：出兵时间是号角后 0 秒，不标的话模拟时钟停在 0 也会立刻刷出第一波
+    this.sim.syncGameClock(-1);
     this.simSpeed = 0;
     this.simUnitCount = this.sim.units.length;
   }
@@ -630,7 +714,7 @@ export class Wc3MdxViewer {
       if (typeof src !== 'string') return src;
       const p = src.split('\\').join('/');
       const team = p.match(/ReplaceableTextures\/(TeamColor|TeamGlow)\/(Team(?:Color|Glow)\d+)\.blp$/i);
-      if (team) return `${base}ReplaceableTextures/${team[1]}/${team[2]}.png`;
+      if (team) return `${this.wc3Base}ReplaceableTextures/${team[1]}/${team[2]}.blp`;
       if (/\.(mdx|mdl|mdxbin)$/i.test(p)) return modelUrl;
       if (/^https?:\/\//i.test(p) || p.startsWith('/assets/')) return p;
       if (/^(units|buildings|textures|doodads|replaceabletextures|abilities|war3mapimported)\//i.test(p)) {
@@ -876,9 +960,15 @@ export class Wc3MdxViewer {
         }
         return origGetContext.call(this, type, attrs);
       };
+      // 肖像在离屏画布上渲染，每帧拷到页面上的 2D 画布。
+      // 页面上直接放第二个 WebGL 画布时，切换录像/英雄后浏览器会把它的合成层多画一份到视口顶部（一块黑色遮挡）。
+      const off = document.createElement('canvas');
+      off.width = Math.max(96, canvas.clientWidth || canvas.width || 128);
+      off.height = Math.max(96, canvas.clientHeight || canvas.height || 128);
+      this.portraitTarget = canvas;
       let pv: any;
       try {
-        pv = new ModelViewer(canvas);
+        pv = new ModelViewer(off);
       } finally {
         canvasProto.getContext = origGetContext;
       }
@@ -900,6 +990,19 @@ export class Wc3MdxViewer {
     } catch (e) {
       console.warn('[wc3] attachPortraitCanvas error', e);
     }
+  }
+
+  /** 页面上显示肖像的 2D 画布（肖像本身在离屏 WebGL 画布上渲染） */
+  private portraitTarget: HTMLCanvasElement | null = null;
+
+  private blitPortrait(): void {
+    const src = this.portraitViewer?.canvas as HTMLCanvasElement | undefined;
+    const dst = this.portraitTarget;
+    if (!src || !dst || !dst.isConnected) return;
+    if (dst.width !== src.width) dst.width = src.width;
+    if (dst.height !== src.height) dst.height = src.height;
+    const ctx = dst.getContext('2d');
+    ctx?.drawImage(src, 0, 0);
   }
 
   private resolvePortraitPath(src: unknown): unknown {
@@ -981,10 +1084,11 @@ export class Wc3MdxViewer {
     this.portraitInstance = inst;
 
     const canvas = this.portraitViewer.canvas as HTMLCanvasElement;
-    const w = Math.max(96, canvas.clientWidth || canvas.width || 128);
-    const h = Math.max(96, canvas.clientHeight || canvas.height || 128);
-    canvas.width = w;
-    canvas.height = h;
+    const target = this.portraitTarget;
+    const w = Math.max(96, target?.clientWidth || canvas.width || 128);
+    const h = Math.max(96, target?.clientHeight || canvas.height || 128);
+    if (canvas.width !== w) canvas.width = w;
+    if (canvas.height !== h) canvas.height = h;
     this.portraitScene.viewport[0] = 0;
     this.portraitScene.viewport[1] = 0;
     this.portraitScene.viewport[2] = w;
@@ -1014,6 +1118,277 @@ export class Wc3MdxViewer {
     return this.sim.units
       .filter((u) => u.alive)
       .map((u) => ({ x: u.x, y: u.y, team: u.team, kind: u.kind }));
+  }
+
+  private visionOccluders: { level: Uint8Array; tree: Uint8Array } | null = null;
+  /**
+   * 战争迷雾的视线遮挡数据（128 码一格，原点 (-8192,-8192)，128×128）：
+   *  - level：每格的悬崖层（取 4 个地形角 layerHeight 的最小值，悬崖边那一格算低处）
+   *  - tree：格内有树（AshenTree 等，DestructableData occH > 0）
+   * 地形与树木加载完之前返回 null。
+   */
+  getVisionOccluders(): { level: Uint8Array; tree: Uint8Array } | null {
+    if (this.visionOccluders) return this.visionOccluders;
+    const map = this.viewer?.map;
+    const corners = map?.corners as { layerHeight: number }[][] | undefined;
+    if (!this.terrainReady || !corners?.length || !(map.doodads?.length > 0)) return null;
+    const size = 128;
+    const x0 = -8192;
+    const y0 = -8192;
+    const cox = map.centerOffset?.[0] ?? x0;
+    const coy = map.centerOffset?.[1] ?? y0;
+    const level = new Uint8Array(size * size);
+    const tree = new Uint8Array(size * size);
+    const at = (col: number, row: number) => corners[Math.max(0, Math.min(corners.length - 1, row))]?.[Math.max(0, Math.min(corners[0].length - 1, col))]?.layerHeight ?? 0;
+    for (let cy = 0; cy < size; cy++) {
+      for (let cx = 0; cx < size; cx++) {
+        const col = Math.round((x0 + cx * 128 - cox) / 128);
+        const row = Math.round((y0 + cy * 128 - coy) / 128);
+        level[cy * size + cx] = Math.max(0, Math.min(255, Math.min(at(col, row), at(col + 1, row), at(col, row + 1), at(col + 1, row + 1))));
+      }
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for (const d of map.doodads as any[]) {
+      const url: string = d?.instance?.model?.fetchUrl || '';
+      if (!/Tree/i.test(url)) continue;
+      const loc = d.instance.localLocation || d.instance.location;
+      if (!loc) continue;
+      const cx = Math.floor((loc[0] - x0) / 128);
+      const cy = Math.floor((loc[1] - y0) / 128);
+      if (cx >= 0 && cy >= 0 && cx < size && cy < size) tree[cy * size + cx] = 1;
+    }
+    this.visionOccluders = { level, tree };
+    return this.visionOccluders;
+  }
+
+  /**
+   * 开发时组件热替换（HMR）会重建模板 DOM：页面上换成了新的空白 canvas / 输入层，
+   * 而渲染器仍在旧元素上画 → 3D 视口一片漆黑、鼠标拖动/滚轮失效。
+   * 页面每帧调用一次：把仍在工作的 WebGL 画布与肖像画布放回 DOM，输入监听挪到新的输入层。
+   */
+  adoptDom(els: { canvas?: HTMLCanvasElement | null; viewLayer?: HTMLElement | null; portrait?: HTMLCanvasElement | null }): void {
+    const live = this.options.canvas;
+    if (els.canvas && els.canvas !== live && els.canvas.isConnected) {
+      live.className = els.canvas.className;
+      els.canvas.replaceWith(live);
+      this.onResize();
+    }
+    // 肖像是离屏渲染后拷过来的，换了画布只要改拷贝目标
+    if (els.portrait && els.portrait !== this.portraitTarget && els.portrait.isConnected) {
+      this.portraitTarget = els.portrait;
+    }
+    const vl = els.viewLayer;
+    if (vl && vl !== this.inputEl && vl.isConnected) {
+      const old = this.inputEl;
+      old.removeEventListener('pointerdown', this.onPointerDown);
+      old.removeEventListener('pointerup', this.onPointerUp);
+      old.removeEventListener('pointercancel', this.onPointerUp);
+      old.removeEventListener('wheel', this.onWheel);
+      old.removeEventListener('contextmenu', this.onContextMenu);
+      this.inputEl = vl;
+      vl.addEventListener('pointerdown', this.onPointerDown);
+      vl.addEventListener('pointerup', this.onPointerUp);
+      vl.addEventListener('pointercancel', this.onPointerUp);
+      vl.addEventListener('wheel', this.onWheel, { passive: false });
+      vl.addEventListener('contextmenu', this.onContextMenu);
+    }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private litShaders: any[] = [];
+  private light: DncLight = dncLight(12);
+  private static sdSources: { vert: string; frag: string } | null = null;
+
+  /**
+   * 查看器给「还没加载完的贴图」绑的占位贴图是 2×2 不透明白色（源码注释写的是黑色）。
+   * 加载期间英雄脚下的队伍光晕（叠加混合）就画成一块白方块，树和建筑也会先白一下。
+   * 改成全透明黑：没加载完的东西先不显示。
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private static clearEmptyTexture(viewer: any): void {
+    const gl: WebGLRenderingContext | undefined = viewer?.gl;
+    const tex = viewer?.webgl?.emptyTexture;
+    if (!gl || !tex) return;
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 2, 2, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(16));
+  }
+
+  /** 模型（单位/建筑/装饰物）改用原版 DNC 光照：替换 MDX 标清着色器的 lambert() */
+  private installModelLighting(): void {
+    try {
+      const src = Wc3MdxViewer.sdSources;
+      const cache = this.viewer.sharedCache?.get?.('mdx');
+      if (!src || !cache) return;
+      const frag = patchSdFragment(src.frag);
+      if (frag === src.frag) return;
+      const webgl = this.viewer.webgl;
+      const sd = webgl.createShader(src.vert, frag);
+      const sdExt = webgl.createShader('#define EXTENDED_BONES\n' + src.vert, frag);
+      if (sd) cache.sdShader = sd;
+      if (sdExt) cache.sdExtendedShader = sdExt;
+      this.litShaders = [sd, sdExt].filter(Boolean);
+    } catch (e) {
+      console.warn('[wc3] model lighting skipped', e);
+    }
+    this.setTimeOfDay(12);
+  }
+
+  /** 游戏内时间（0–24 时）：地形、悬崖、模型都按 DNC 关键帧取光照 */
+  setTimeOfDay(hours: number): void {
+    if (this.forcedHours !== null) hours = this.forcedHours;
+    this.light = dncLight(hours);
+    this.viewer.__wc3Light = this.light;
+    const gl: WebGLRenderingContext | undefined = this.viewer.gl;
+    if (!gl) return;
+    for (const s of this.litShaders) {
+      s.use();
+      gl.uniform3fv(s.uniforms['u_wc3LightDir'], this.light.dir);
+      gl.uniform3fv(s.uniforms['u_wc3Diffuse'], this.light.diffuse);
+      gl.uniform3fv(s.uniforms['u_wc3Ambient'], this.light.ambientUnit);
+    }
+  }
+
+  private forcedHours: number | null = null;
+  /** 调试对比：锁定光照时刻（null 恢复跟随游戏时间） */
+  forceTimeOfDay(hours: number | null): void {
+    this.forcedHours = hours;
+    this.setTimeOfDay(hours ?? 12);
+  }
+
+  /** 关掉/打开 war3map.shd 烘焙阴影（对比用） */
+  setBakedShadows(on: boolean): void {
+    this.viewer.__wc3ShadowsOff = !on;
+  }
+
+  /** 战争迷雾：按回调隐藏/显示场景模拟单位的模型（hidden 返回 true 即隐藏） */
+  setSimUnitsHidden(hidden: (x: number, y: number, team: 0 | 1 | -1) => boolean): void {
+    if (!this.sim) return;
+    for (const u of this.sim.units) {
+      if (!u.alive) continue;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const inst = u.instance as any;
+      if (hidden(u.x, u.y, u.team)) inst?.hide?.();
+      else inst?.show?.();
+    }
+    // 神符（中立物品）：没有视野的河道里看不到
+    for (const r of this.sim.runes) {
+      if (!r.alive) continue;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const inst = r.instance as any;
+      if (hidden(r.x, r.y, -1)) inst?.hide?.();
+      else inst?.show?.();
+    }
+  }
+
+  // --- 战争迷雾：场景画完后在 WebGL 里再画一遍「乘法压暗」网格 ---
+  // 网格顶点在迷雾格中心（128 码一格，与 game/fog.ts 的 VisionGrid 对齐），浓度逐顶点插值，
+  // 所以边缘是平滑渐变（原版也是），并且整张图都覆盖，不受镜头距离影响。
+  private fogDensity: Float32Array | null = null;
+  private fogDarkness = 0.6;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private fogGl: { shader: any; pos: WebGLBuffer; den: WebGLBuffer; idx: WebGLBuffer; count: number; bytes: Uint8Array } | null = null;
+
+  /**
+   * 设置战争迷雾浓度（128×128，行 0 在南，0 = 清晰，1 = 迷雾）；传 null 关闭。
+   * darkness：迷雾最浓处压掉的亮度比例。数组按引用保存，调用方每帧原地更新即可。
+   */
+  setFogDensity(density: Float32Array | null, darkness = 0.6): void {
+    this.fogDensity = density && density.length === 128 * 128 ? density : null;
+    this.fogDarkness = darkness;
+  }
+
+  private buildFogGl(): void {
+    const gl: WebGLRenderingContext = this.viewer.gl;
+    const shader = this.viewer.webgl.createShader(
+      `uniform mat4 u_VP;
+       attribute vec3 a_position;
+       attribute float a_density;
+       varying float v_density;
+       void main() {
+         v_density = a_density;
+         gl_Position = u_VP * vec4(a_position, 1.0);
+       }`,
+      `precision mediump float;
+       uniform float u_darkness;
+       varying float v_density;
+       void main() {
+         gl_FragColor = vec4(vec3(1.0 - u_darkness * clamp(v_density, 0.0, 1.0)), 1.0);
+       }`
+    );
+    const pos = gl.createBuffer();
+    const den = gl.createBuffer();
+    const idx = gl.createBuffer();
+    if (!shader || !pos || !den || !idx) return;
+    const N = 128;
+    const x0 = -8192;
+    const span = 16384;
+    const verts = new Float32Array(N * N * 3);
+    for (let cy = 0; cy < N; cy++) {
+      for (let cx = 0; cx < N; cx++) {
+        // 最外一圈顶点拉到地图边，免得边上留半格没盖住
+        const x = cx === 0 ? x0 : cx === N - 1 ? x0 + span : x0 + (cx + 0.5) * 128;
+        const y = cy === 0 ? x0 : cy === N - 1 ? x0 + span : x0 + (cy + 0.5) * 128;
+        const o = (cy * N + cx) * 3;
+        verts[o] = x;
+        verts[o + 1] = y;
+        verts[o + 2] = this.sampleHeight(x, y) + 8;
+      }
+    }
+    const indices = new Uint16Array((N - 1) * (N - 1) * 6);
+    let k = 0;
+    for (let cy = 0; cy < N - 1; cy++) {
+      for (let cx = 0; cx < N - 1; cx++) {
+        const a = cy * N + cx;
+        indices[k++] = a;
+        indices[k++] = a + 1;
+        indices[k++] = a + N + 1;
+        indices[k++] = a;
+        indices[k++] = a + N + 1;
+        indices[k++] = a + N;
+      }
+    }
+    const bytes = new Uint8Array(N * N);
+    gl.bindBuffer(gl.ARRAY_BUFFER, pos);
+    gl.bufferData(gl.ARRAY_BUFFER, verts, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, den);
+    gl.bufferData(gl.ARRAY_BUFFER, bytes, gl.DYNAMIC_DRAW);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, idx);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
+    this.fogGl = { shader, pos, den, idx, count: indices.length, bytes };
+  }
+
+  private renderFog(): void {
+    const density = this.fogDensity;
+    if (!density || !this.terrainReady) return;
+    const scene = this.scene || this.viewer?.map?.worldScene;
+    const vp = scene?.camera?.viewProjectionMatrix;
+    const gl: WebGLRenderingContext | undefined = this.viewer?.gl;
+    if (!vp || !gl) return;
+    if (!this.fogGl) this.buildFogGl();
+    const f = this.fogGl;
+    if (!f) return;
+    for (let i = 0; i < f.bytes.length; i++) f.bytes[i] = Math.max(0, Math.min(255, Math.round(density[i] * 255)));
+    const hadBlend = gl.isEnabled(gl.BLEND);
+    f.shader.use();
+    gl.uniformMatrix4fv(f.shader.uniforms['u_VP'], false, vp);
+    gl.uniform1f(f.shader.uniforms['u_darkness'], this.fogDarkness);
+    gl.bindBuffer(gl.ARRAY_BUFFER, f.pos);
+    gl.vertexAttribPointer(f.shader.attribs['a_position'], 3, gl.FLOAT, false, 0, 0);
+    gl.bindBuffer(gl.ARRAY_BUFFER, f.den);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, f.bytes);
+    gl.vertexAttribPointer(f.shader.attribs['a_density'], 1, gl.UNSIGNED_BYTE, true, 0, 0);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, f.idx);
+    // 不做深度测试：和原版一样，迷雾里的树、建筑也一起压暗
+    gl.disable(gl.DEPTH_TEST);
+    gl.disable(gl.CULL_FACE);
+    gl.depthMask(false);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.DST_COLOR, gl.ZERO);
+    gl.drawElements(gl.TRIANGLES, f.count, gl.UNSIGNED_SHORT, 0);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    if (!hadBlend) gl.disable(gl.BLEND);
+    gl.depthMask(true);
+    gl.enable(gl.DEPTH_TEST);
   }
 
   getSimRunes(): SimRune[] {
@@ -1065,7 +1440,7 @@ export class Wc3MdxViewer {
   setSimEnabled(on: boolean): void {
     this.simEnabled = on;
     if (this.syncConfig) this.syncConfig.enabled = on;
-    if (this.sim) this.sim.cfg.enabled = on;
+    this.sim?.setEnabled(on);
   }
 
   applySyncOverrides(overrides: Partial<SceneSyncConfig>): void {
@@ -1161,6 +1536,8 @@ export class Wc3MdxViewer {
     }
     this.inputEl.removeEventListener('pointerdown', this.onPointerDown);
     this.inputEl.removeEventListener('pointermove', this.onPointerMove);
+    window.removeEventListener('pointermove', this.onPointerMove);
+    document.documentElement.removeEventListener('pointerleave', this.onPointerLeave);
     this.inputEl.removeEventListener('pointerup', this.onPointerUp);
     this.inputEl.removeEventListener('pointercancel', this.onPointerUp);
     this.inputEl.removeEventListener('pointerleave', this.onPointerLeave);
@@ -1221,66 +1598,47 @@ export class Wc3MdxViewer {
   // --- AI 修改结束 [TERRAIN-TRI-HEIGHT] ---
 
   /** Approximate ground pick: ray vs z = sampleHeight plane near target. */
+  /**
+   * 屏幕坐标 → 地面世界坐标。
+   * 直接对渲染用的 viewProjection 矩阵求逆得到视线，再与地形求交，
+   * 与 projectWorldToScreen 严格互逆（手写相机基的旧实现会因 hudShift / FOV 约定不一致而偏移）。
+   */
   private pickGround(clientX: number, clientY: number): { x: number; y: number } | null {
     const canvas = this.options.canvas;
     const rect = canvas.getBoundingClientRect();
+    const scene = this.scene || this.viewer?.map?.worldScene;
+    const vp = scene?.camera?.viewProjectionMatrix as ArrayLike<number> | undefined;
+    if (!vp) return null;
+    const inv = invertMat4(vp);
+    if (!inv) return null;
     const nx = ((clientX - rect.left) / Math.max(1, rect.width)) * 2 - 1;
     const ny = -(((clientY - rect.top) / Math.max(1, rect.height)) * 2 - 1);
-    // Camera position
-    const [tx, ty, tz] = this.target;
-    const cp = Math.cos(this.pitch);
-    const sp = Math.sin(this.pitch);
-    const cy = Math.cos(this.yaw);
-    const sy = Math.sin(this.yaw);
-    const cx = tx + this.distance * cp * cy;
-    const camY = ty + this.distance * cp * sy;
-    const camZ = tz + this.distance * sp;
-    // Build rough look basis
-    const fx = tx - cx;
-    const fy = ty - camY;
-    const fz = tz - camZ;
-    const fl = Math.hypot(fx, fy, fz) || 1;
-    const f0 = fx / fl;
-    const f1 = fy / fl;
-    const f2 = fz / fl;
-    // right = forward × up
-    let rx = f1 * 0 - f2 * 1;
-    let ry = f2 * 0 - f0 * 0;
-    let rz = f0 * 1 - f1 * 0;
-    // Actually up is (0,0,1): right = forward × up
-    rx = f1 * 1 - f2 * 0;
-    ry = f2 * 0 - f0 * 1;
-    rz = f0 * 0 - f1 * 0;
-    let rl = Math.hypot(rx, ry, rz) || 1;
-    rx /= rl;
-    ry /= rl;
-    rz /= rl;
-    // up' = right × forward
-    let ux = ry * f2 - rz * f1;
-    let uy = rz * f0 - rx * f2;
-    let uz = rx * f1 - ry * f0;
-    const ul = Math.hypot(ux, uy, uz) || 1;
-    ux /= ul;
-    uy /= ul;
-    uz /= ul;
-    const fov = Math.PI / 4.5;
-    const aspect = canvas.width / Math.max(1, canvas.height);
-    const tan = Math.tan(fov / 2);
-    const dx = (rx * nx * tan * aspect + ux * ny * tan + f0) ;
-    const dy = (ry * nx * tan * aspect + uy * ny * tan + f1);
-    const dz = (rz * nx * tan * aspect + uz * ny * tan + f2);
-    // Intersect with plane z = tz (approx); refine with height sample
-    if (Math.abs(dz) < 1e-5) return null;
-    let t = (tz - camZ) / dz;
-    if (t < 0) t = (0 - camZ) / dz;
-    let gx = cx + dx * t;
-    let gy = camY + dy * t;
-    const gz = this.sampleHeight(gx, gy);
-    // Second pass against actual height plane
-    if (Math.abs(dz) > 1e-5) {
-      t = (gz - camZ) / dz;
-      gx = cx + dx * t;
-      gy = camY + dy * t;
+    const unproject = (z: number): [number, number, number] | null => {
+      const w = inv[3] * nx + inv[7] * ny + inv[11] * z + inv[15];
+      if (Math.abs(w) < 1e-9) return null;
+      return [
+        (inv[0] * nx + inv[4] * ny + inv[8] * z + inv[12]) / w,
+        (inv[1] * nx + inv[5] * ny + inv[9] * z + inv[13]) / w,
+        (inv[2] * nx + inv[6] * ny + inv[10] * z + inv[14]) / w,
+      ];
+    };
+    const near = unproject(-1);
+    const far = unproject(1);
+    if (!near || !far) return null;
+    const dx = far[0] - near[0];
+    const dy = far[1] - near[1];
+    const dz = far[2] - near[2];
+    // 视线必须朝下才可能落到地面
+    if (dz > -1e-6) return null;
+    let gz = this.target[2];
+    let gx = 0;
+    let gy = 0;
+    // 逐步逼近真实地形高度（坡地/高台上一次修正不够）
+    for (let i = 0; i < 5; i++) {
+      const t = (gz - near[2]) / dz;
+      gx = near[0] + dx * t;
+      gy = near[1] + dy * t;
+      gz = this.sampleHeight(gx, gy);
     }
     return { x: gx, y: gy };
   }
@@ -1371,11 +1729,9 @@ export class Wc3MdxViewer {
       /ReplaceableTextures\/(TeamColor|TeamGlow)\/(Team(?:Color|Glow)(\d+))\.blp$/i
     );
     if (teamMatch) {
-      const idx = Number(teamMatch[3]);
-      if (idx <= 1) {
-        return `${this.wc3Base}ReplaceableTextures/${teamMatch[1]}/${teamMatch[2]}.blp`;
-      }
-      return `${this.wc3Base}ReplaceableTextures/${teamMatch[1]}/${teamMatch[2]}.png`;
+      // 全部用原版 BLP（scripts/extract-team-textures.cjs 导出）。以前 02 以后是 8×8 纯色 PNG 占位，
+      // TeamGlow 变成实心方块，能量圈等带队伍光晕的模型显示成一整块亮色
+      return `${this.wc3Base}ReplaceableTextures/${teamMatch[1]}/${teamMatch[2]}.blp`;
     }
     // Mal'Furion.blp 等含撇号路径需逐段 encode，否则浏览器/静态服拉失败
     const encoded = p
@@ -1527,6 +1883,12 @@ export class Wc3MdxViewer {
 
         if (this.sim && this.simEnabled) {
           this.sim.tick(dt * this.simSpeed);
+          for (const t of this.sim.towers) {
+            const eye = this.towerEyes.get(t.id);
+            if (!eye) continue;
+            if (t.alive) eye.show?.();
+            else eye.hide?.();
+          }
           this.simUnitCount = this.sim.units.length;
         }
 
@@ -1542,12 +1904,19 @@ export class Wc3MdxViewer {
         }
         this.updateCamera();
         this.viewer.updateAndRender(dt);
+        try {
+          this.renderFog();
+        } catch (e) {
+          console.warn('[wc3] fog pass failed', e);
+          this.fogDensity = null;
+        }
         if (this.portraitViewer && this.portraitInstance) {
           if (this.portraitInstance.sequenceEnded && this.portraitSeqs.length) {
             this.portraitCursor = (this.portraitCursor + 1) % this.portraitSeqs.length;
             this.portraitInstance.setSequence(this.portraitSeqs[this.portraitCursor]);
           }
           this.portraitViewer.updateAndRender(dt);
+          this.blitPortrait();
         }
       } catch (e) {
         console.warn('[wc3] frame error', e);
@@ -1602,4 +1971,45 @@ export class Wc3MdxViewer {
       console.warn('[wc3] mirrorToViewImage failed', e);
     }
   }
+}
+
+/** 4×4 列主序矩阵求逆（gl-matrix 同款展开式）；不可逆时返回 null */
+function invertMat4(m: ArrayLike<number>): number[] | null {
+  const a00 = m[0], a01 = m[1], a02 = m[2], a03 = m[3];
+  const a10 = m[4], a11 = m[5], a12 = m[6], a13 = m[7];
+  const a20 = m[8], a21 = m[9], a22 = m[10], a23 = m[11];
+  const a30 = m[12], a31 = m[13], a32 = m[14], a33 = m[15];
+  const b00 = a00 * a11 - a01 * a10;
+  const b01 = a00 * a12 - a02 * a10;
+  const b02 = a00 * a13 - a03 * a10;
+  const b03 = a01 * a12 - a02 * a11;
+  const b04 = a01 * a13 - a03 * a11;
+  const b05 = a02 * a13 - a03 * a12;
+  const b06 = a20 * a31 - a21 * a30;
+  const b07 = a20 * a32 - a22 * a30;
+  const b08 = a20 * a33 - a23 * a30;
+  const b09 = a21 * a32 - a22 * a31;
+  const b10 = a21 * a33 - a23 * a31;
+  const b11 = a22 * a33 - a23 * a32;
+  let det = b00 * b11 - b01 * b10 + b02 * b09 + b03 * b08 - b04 * b07 + b05 * b06;
+  if (!det) return null;
+  det = 1 / det;
+  return [
+    (a11 * b11 - a12 * b10 + a13 * b09) * det,
+    (a02 * b10 - a01 * b11 - a03 * b09) * det,
+    (a31 * b05 - a32 * b04 + a33 * b03) * det,
+    (a22 * b04 - a21 * b05 - a23 * b03) * det,
+    (a12 * b08 - a10 * b11 - a13 * b07) * det,
+    (a00 * b11 - a02 * b08 + a03 * b07) * det,
+    (a32 * b02 - a30 * b05 - a33 * b01) * det,
+    (a20 * b05 - a22 * b02 + a23 * b01) * det,
+    (a10 * b10 - a11 * b08 + a13 * b06) * det,
+    (a01 * b08 - a00 * b10 - a03 * b06) * det,
+    (a30 * b04 - a31 * b02 + a33 * b00) * det,
+    (a21 * b02 - a20 * b04 - a23 * b00) * det,
+    (a11 * b07 - a10 * b09 - a12 * b06) * det,
+    (a00 * b09 - a01 * b07 + a02 * b06) * det,
+    (a31 * b01 - a30 * b03 - a32 * b00) * det,
+    (a20 * b03 - a21 * b01 + a22 * b00) * det,
+  ];
 }

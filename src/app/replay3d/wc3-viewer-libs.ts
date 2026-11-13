@@ -8,6 +8,13 @@ import * as mappedDataNs from 'mdx-m3-viewer/dist/cjs/utils/mappeddata.js';
 import dooFileMod from 'mdx-m3-viewer/dist/cjs/parsers/w3x/doo/file.js';
 import doodadMod from 'mdx-m3-viewer/dist/cjs/viewer/handlers/w3x/doodad.js';
 import terrainDoodadMod from 'mdx-m3-viewer/dist/cjs/viewer/handlers/w3x/terraindoodad.js';
+import sdVertMod from 'mdx-m3-viewer/dist/cjs/viewer/handlers/mdx/shaders/sd.vert.js';
+import sdFragMod from 'mdx-m3-viewer/dist/cjs/viewer/handlers/mdx/shaders/sd.frag.js';
+
+/** MDX 标清模型着色器源码（用来换成原版光照） */
+export function loadSdShaderSources(): { vert: string; frag: string } {
+  return { vert: String(unwrap(sdVertMod)), frag: String(unwrap(sdFragMod)) };
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function unwrap(m: any): any {

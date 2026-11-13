@@ -4,6 +4,32 @@
  * - DotA w3b/w3d mods reference missing base IDs → guard applyModificationTable
  */
 
+import { dncLight, type DncLight } from './wc3-lighting';
+
+/** 读 w3i（TFT 版本 25）里的水面染色；未启用（flags & 0x10000 为 0）或格式不认识时返回 null。返回 RGB */
+export function readW3iWaterTint(b: Uint8Array): [number, number, number] | null {
+  const dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
+  let o = 0;
+  const i32 = () => { const v = dv.getInt32(o, true); o += 4; return v; };
+  const str = () => { while (o < b.length && b[o] !== 0) o++; o++; };
+  const version = i32();
+  if (version !== 25) return null;
+  i32(); i32(); // saves, editor version
+  str(); str(); str(); str(); // name, author, description, recommended players
+  o += 8 * 4 + 4 * 4; // camera bounds (8 floats) + complements (4 ints)
+  i32(); i32(); // playable width/height
+  const flags = i32();
+  o += 1; // main tileset
+  i32(); str(); str(); str(); str(); // loading screen
+  i32(); str(); str(); str(); str(); // game data set + prologue
+  o += 4 + 4 * 3 + 4; // terrain fog type, start/end/density, colour
+  o += 4; // weather id
+  str(); // sound environment
+  o += 1; // light environment tileset
+  if (o + 4 > b.length || !(flags & 0x10000)) return null;
+  return [b[o + 2], b[o + 1], b[o]];
+}
+
 export interface DoodadPatchDeps {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   War3MapViewerMap: any;
@@ -16,6 +42,14 @@ export interface DoodadPatchDeps {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   TerrainDoodad: any;
 }
+
+/**
+ * 旧补丁：把高台 / 悬崖边的草地贴图强行换成大理石。WC3 本身不会这样做——地面贴图完全按 w3e 的
+ * groundTexture 与 CliffTypes.slk 的 groundTile 取，强改会让近卫基地（Ashenvale 草地高台）大片变色。
+ * 实际替换成的是 Clvg（Felwood_Leaves 落叶），原版截图里近卫基地是草地，所以关闭。
+ * 以前关掉显得「偏黄」是因为地面没有光照、直接输出贴图；现在地形按 DNC 光照着色。
+ */
+const MARBLE_PLATFORM_HACK = false;
 
 export function patchWar3MapViewerMap(deps: DoodadPatchDeps): void {
   const { War3MapViewerMap, MappedDataRow, DooFile, Doodad, TerrainDoodad } = deps;
@@ -116,24 +150,10 @@ export function patchWar3MapViewerMap(deps: DoodadPatchDeps): void {
       if (/^(YTlb|YTpb|YTfc|YTpc)$/i.test(id4)) return true;
       if (/LOSBlocker|PathingBlocker|BlightDoodad|InvisiblePlatform|ClickHelper/i.test(fileNorm)) return true;
       if (/WESTRING_DEST_LOS|WESTRING_DEST_PATH/i.test(name)) return true;
-      // DotA 自定义：D00B=Ruins_Shrub 变体、D009=FaerieFire、D000/D001 辅助
-      if (/^(D00B|D009|D000|D001)$/i.test(id4)) return true;
+      // DotA 自定义：D009=FaerieFire 技能特效、D000/D001 辅助物
+      if (/^(D009|D000|D001)$/i.test(id4)) return true;
       if (/^Abilities\\/i.test(fileNorm) || /FaerieFire/i.test(fileNorm)) return true;
-      // 灌木/花/蘑菇/芦苇/冠盖矮树 ID（截图里的「小树木」）
-      if (
-        /^(ZPsh|ZPfw|APbs|CPbs|YPbs|APms|CPms|CPct|APct|NTtc|ATtc|ZPru|CPlp|LPwh)$/i.test(id4)
-      ) {
-        return true;
-      }
-      if (
-        /Ruins_Shrub|Ruins_Flower|Ruins_Rush|AshenBush|AshenShrooms|AshenCanopyTree|FelwoodBush|FelwoodCatTail|AshenCatTail|Cityscape\\?Plant|Wheat|CornField|Lilypad|GlowRunes/i.test(
-          fileNorm
-        )
-      ) {
-        return true;
-      }
-      // AshenBush0 等：Bush 后紧跟数字，不能用 \b
-      if (/SkullPile|Bones|Bush|Shrub|Flower|Shroom|CatTail|CanopyTree/i.test(fileNorm)) return true;
+      // 灌木、花、蘑菇、芦苇、骨堆等地面装饰原版都会显示（原版截图里到处都是），不再隐藏
       return false;
     };
 
@@ -444,7 +464,7 @@ export function patchWar3MapViewerMap(deps: DoodadPatchDeps): void {
     }
   };
 
-  War3MapViewerMap.prototype.cliffGroundIndex = function cliffGroundIndexMarble(
+  if (MARBLE_PLATFORM_HACK) War3MapViewerMap.prototype.cliffGroundIndex = function cliffGroundIndexMarble(
     this: any,
     whichCliff: number
   ): number {
@@ -458,7 +478,7 @@ export function patchWar3MapViewerMap(deps: DoodadPatchDeps): void {
     return idx;
   };
 
-  War3MapViewerMap.prototype.cornerTexture = function cornerTextureMarble(
+  if (MARBLE_PLATFORM_HACK) War3MapViewerMap.prototype.cornerTexture = function cornerTextureMarble(
     this: any,
     column: number,
     row: number
@@ -509,6 +529,25 @@ export function patchWar3MapViewerMap(deps: DoodadPatchDeps): void {
    * cliffsReady the 2-step cliff tiles stay empty holes. Wrap the stock loader
    * so terrain still finishes and partial cliff models are kept.
    */
+  /**
+   * war3map.w3i 的「水面染色」：flags & 0x10000 时，用地图里的颜色替换 Water.slk 水色的 RGB（透明度仍按水深取 slk）。
+   * 颜色按 B,G,R,A 字节存。DotA 6.83 存的是 (255,0,0,255) → 纯蓝，所以河水是蓝色而不是 Felwood 的绿水。
+   * 原版查看器读了 w3i 却没用这一项。
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const applyWaterTint = (self: any): void => {
+    const bytes: Uint8Array | undefined = self.map?.get?.('war3map.w3i')?.bytes?.();
+    const tint = bytes ? readW3iWaterTint(bytes) : null;
+    if (!tint) return;
+    for (const c of [self.maxDeepColor, self.minDeepColor, self.maxShallowColor, self.minShallowColor]) {
+      if (!c) continue;
+      c[0] = tint[0];
+      c[1] = tint[1];
+      c[2] = tint[2];
+    }
+    self.__wc3WaterTint = tint;
+  };
+
   const origLoadTerrain = War3MapViewerMap.prototype.loadTerrainCliffsAndWater;
   War3MapViewerMap.prototype.loadTerrainCliffsAndWater =
     async function loadTerrainCliffsAndWaterSafe(this: any) {
@@ -596,8 +635,11 @@ export function patchWar3MapViewerMap(deps: DoodadPatchDeps): void {
             attribute float a_InstanceID;
             attribute vec4 a_textures;
             attribute vec4 a_variations;
+            uniform vec2 u_shadowTiles;
             varying vec4 v_tilesets;
             varying vec2 v_uv[4];
+            varying vec3 v_normal;
+            varying vec2 v_shadowUV;
             vec2 getCell(float variation) {
               if (variation < 16.0) return vec2(mod(variation, 4.0), floor(variation / 4.0));
               variation -= 16.0;
@@ -621,8 +663,17 @@ export function patchWar3MapViewerMap(deps: DoodadPatchDeps): void {
                 vec2 corner = vec2(mod(a_InstanceID, u_size.x), floor(a_InstanceID / u_size.x));
                 vec2 base = corner + a_position;
                 float height = texture2D(u_heightMap, base / u_size).a;
+                // 法线：相邻地形角的高度差（高度以 128 码为单位，左右/上下各隔 1 格）
+                float hL = texture2D(u_heightMap, (base - vec2(1.0, 0.0)) / u_size).a;
+                float hR = texture2D(u_heightMap, (base + vec2(1.0, 0.0)) / u_size).a;
+                float hD = texture2D(u_heightMap, (base - vec2(0.0, 1.0)) / u_size).a;
+                float hU = texture2D(u_heightMap, (base + vec2(0.0, 1.0)) / u_size).a;
+                v_normal = normalize(vec3(hL - hR, hD - hU, 2.0));
+                v_shadowUV = base / u_shadowTiles;
                 gl_Position = u_VP * vec4(base * 128.0 + u_offset, height * 128.0, 1.0);
               } else {
+                v_normal = vec3(0.0, 0.0, 1.0);
+                v_shadowUV = vec2(0.0);
                 v_tilesets = vec4(0.0);
                 v_uv[0] = vec2(0.0); v_uv[1] = vec2(0.0); v_uv[2] = vec2(0.0); v_uv[3] = vec2(0.0);
                 gl_Position = vec4(0.0);
@@ -632,8 +683,15 @@ export function patchWar3MapViewerMap(deps: DoodadPatchDeps): void {
           const groundFrag = `
             precision mediump float;
             uniform sampler2D u_tilesets[15];
+            uniform sampler2D u_shadowMap;
+            uniform float u_shadowOn;
+            uniform vec3 u_wc3LightDir;
+            uniform vec3 u_wc3Diffuse;
+            uniform vec3 u_wc3Ambient;
             varying vec4 v_tilesets;
             varying vec2 v_uv[4];
+            varying vec3 v_normal;
+            varying vec2 v_shadowUV;
             vec4 sampleTile(float tileset, vec2 uv) {
               int i = int(tileset - 0.6);
               if (i == 0) return texture2D(u_tilesets[0], uv);
@@ -662,7 +720,11 @@ export function patchWar3MapViewerMap(deps: DoodadPatchDeps): void {
               if (v_tilesets[1] > 0.5) color = blend(color, v_tilesets[1], v_uv[1]);
               if (v_tilesets[2] > 0.5) color = blend(color, v_tilesets[2], v_uv[2]);
               if (v_tilesets[3] > 0.5) color = blend(color, v_tilesets[3], v_uv[3]);
-              gl_FragColor = vec4(color.rgb, 1.0);
+              // 原版：环境光 + 方向光（DNC），war3map.shd 烘焙阴影遮掉部分方向光
+              float shadow = u_shadowOn * texture2D(u_shadowMap, v_shadowUV).a;
+              float d = max(dot(normalize(v_normal), -u_wc3LightDir), 0.0) * (1.0 - WC3_SHADOW * shadow);
+              vec3 light = clamp(u_wc3Ambient + u_wc3Diffuse * d, 0.0, 1.0);
+              gl_FragColor = vec4(color.rgb * light, 1.0);
             }
           `;
           const cliffVert = `
@@ -670,6 +732,8 @@ export function patchWar3MapViewerMap(deps: DoodadPatchDeps): void {
             uniform sampler2D u_heightMap;
             uniform vec2 u_pixel;
             uniform vec2 u_centerOffset;
+            uniform vec2 u_shadowTiles;
+            varying vec2 v_shadowUV;
             attribute vec3 a_position;
             attribute vec3 a_normal;
             attribute vec2 a_uv;
@@ -693,6 +757,7 @@ export function patchWar3MapViewerMap(deps: DoodadPatchDeps): void {
               v_uv = a_uv;
               v_texture = a_instanceTexture;
               v_position = a_position + vec3(a_instancePosition.xy, a_instancePosition.z + height * 128.0);
+              v_shadowUV = (v_position.xy - u_centerOffset) / 128.0 / u_shadowTiles;
               gl_Position = u_VP * vec4(v_position, 1.0);
             }
           `;
@@ -704,7 +769,12 @@ export function patchWar3MapViewerMap(deps: DoodadPatchDeps): void {
             varying vec2 v_uv;
             varying float v_texture;
             varying vec3 v_position;
-            const vec3 lightDir = normalize(vec3(-0.45, -0.45, 0.72));
+            varying vec2 v_shadowUV;
+            uniform sampler2D u_shadowMap;
+            uniform float u_shadowOn;
+            uniform vec3 u_wc3LightDir;
+            uniform vec3 u_wc3Diffuse;
+            uniform vec3 u_wc3Ambient;
             vec4 sampleCliff(float texture, vec2 uv) {
               int i = int(texture + 0.1);
               if (i == 0) return texture2D(u_texture1, uv);
@@ -713,16 +783,17 @@ export function patchWar3MapViewerMap(deps: DoodadPatchDeps): void {
             void main() {
               vec4 color = sampleCliff(v_texture, v_uv);
               vec3 n = normalize(v_normal);
-              float ndotl = clamp(dot(n, lightDir), 0.0, 1.0);
-              float rockShade = clamp(0.68 + ndotl * 0.38, 0.62, 1.06);
-              float skirtWeight = smoothstep(0.72, 0.94, abs(n.z));
-              float shade = mix(rockShade, 1.0, skirtWeight);
-              gl_FragColor = vec4(color.rgb * shade, color.a);
+              float shadow = u_shadowOn * texture2D(u_shadowMap, v_shadowUV).a;
+              float d = max(dot(n, -u_wc3LightDir), 0.0) * (1.0 - WC3_SHADOW * shadow);
+              vec3 light = clamp(u_wc3Ambient + u_wc3Diffuse * d, 0.0, 1.0);
+              gl_FragColor = vec4(color.rgb * light, color.a);
             }
           `;
-          const newGround = viewer.webgl.createShader(groundVert, groundFrag);
+          // 烘焙阴影遮掉的方向光比例
+          const shadowDefine = '#define WC3_SHADOW 0.6\n';
+          const newGround = viewer.webgl.createShader(groundVert, shadowDefine + groundFrag);
           if (newGround) viewer.groundShader = newGround;
-          const newCliff = viewer.webgl.createShader(cliffVert, cliffFrag);
+          const newCliff = viewer.webgl.createShader(cliffVert, shadowDefine + cliffFrag);
           if (newCliff) viewer.cliffShader = newCliff;
         }
       } catch (e) {
@@ -735,6 +806,11 @@ export function patchWar3MapViewerMap(deps: DoodadPatchDeps): void {
         ]);
       } catch (e) {
         console.warn('[wc3] loadTerrainCliffsAndWater failed', e);
+      }
+      try {
+        applyWaterTint(this);
+      } catch (e) {
+        console.warn('[wc3] water tint skipped', e);
       }
       // 还原 corners 为普通可写属性，避免后续逻辑踩到 hook getter
       try {
@@ -758,4 +834,89 @@ export function patchWar3MapViewerMap(deps: DoodadPatchDeps): void {
       this.cliffModels = this.cliffModels.filter(Boolean);
       this.cliffsReady = true;
     };
+
+  // --- 原版光照：DNC 环境光 + 方向光，war3map.shd 烘焙阴影（每 128 码地块 4×4 个阴影格，第 0 行在南） ---
+  /** 阴影图纹理（ALPHA，线性过滤），没有阴影数据时为 1×1 的 0 */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const shadowTexture = (self: any): { tex: WebGLTexture; tiles: [number, number] } | null => {
+    if (self.__wc3Shadow !== undefined) return self.__wc3Shadow;
+    const gl: WebGLRenderingContext = self.viewer.gl;
+    let bytes: Uint8Array | null = null;
+    try {
+      bytes = self.map?.get?.('war3map.shd')?.bytes?.() ?? null;
+    } catch {
+      bytes = null;
+    }
+    const w = (self.columns || 0) * 4;
+    const h = (self.rows || 0) * 4;
+    const tex = gl.createTexture();
+    if (!tex) return (self.__wc3Shadow = null);
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    let ok = false;
+    if (bytes && w > 0 && h > 0 && bytes.length >= w * h) {
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.ALPHA, w, h, 0, gl.ALPHA, gl.UNSIGNED_BYTE, bytes.subarray(0, w * h));
+      ok = true;
+    } else {
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.ALPHA, 1, 1, 0, gl.ALPHA, gl.UNSIGNED_BYTE, new Uint8Array([0]));
+      if (bytes) console.warn('[wc3] war3map.shd size mismatch', bytes.length, w, h);
+    }
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
+    self.__wc3Shadow = ok ? { tex, tiles: [self.columns, self.rows] } : { tex, tiles: [1, 1] };
+    self.__wc3ShadowOk = ok;
+    return self.__wc3Shadow;
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const applyLight = (self: any, shader: any, unit: number): void => {
+    if (!shader?.uniforms) return;
+    const gl: WebGLRenderingContext = self.viewer.gl;
+    const light: DncLight = self.viewer.__wc3Light || dncLight(12);
+    const sh = shadowTexture(self);
+    const u = shader.uniforms;
+    shader.use();
+    gl.uniform3fv(u['u_wc3LightDir'], light.dir);
+    gl.uniform3fv(u['u_wc3Diffuse'], light.diffuse);
+    gl.uniform3fv(u['u_wc3Ambient'], light.ambientTerrain);
+    const on = !!sh && !!self.__wc3ShadowOk && self.viewer.__wc3ShadowsOff !== true;
+    gl.uniform1f(u['u_shadowOn'], on ? 1 : 0);
+    if (sh) {
+      gl.uniform2f(u['u_shadowTiles'], sh.tiles[0], sh.tiles[1]);
+      gl.uniform1i(u['u_shadowMap'], unit);
+      gl.activeTexture(gl.TEXTURE0 + unit);
+      gl.bindTexture(gl.TEXTURE_2D, sh.tex);
+    }
+  };
+
+  const origRenderGround = War3MapViewerMap.prototype.renderGround;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  War3MapViewerMap.prototype.renderGround = function renderGroundLit(this: any) {
+    // 地面贴图占 0..N-1 号纹理单元、高度图 15 号；阴影图放 14 号（DotA 只有 10 张地面贴图）
+    if (this.terrainReady && (this.tilesetTextures?.length || 0) < 15) {
+      try {
+        applyLight(this, this.viewer.groundShader, 14);
+      } catch (e) {
+        console.warn('[wc3] ground light uniforms failed', e);
+      }
+    }
+    return origRenderGround.call(this);
+  };
+
+  const origRenderCliffs = War3MapViewerMap.prototype.renderCliffs;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  War3MapViewerMap.prototype.renderCliffs = function renderCliffsLit(this: any) {
+    // 悬崖：高度图 0 号、两张岩石贴图 1/2 号；阴影图放 3 号
+    if (this.cliffsReady) {
+      try {
+        applyLight(this, this.viewer.cliffShader, 3);
+      } catch (e) {
+        console.warn('[wc3] cliff light uniforms failed', e);
+      }
+    }
+    return origRenderCliffs.call(this);
+  };
 }

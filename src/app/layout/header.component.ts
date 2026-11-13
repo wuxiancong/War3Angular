@@ -51,7 +51,7 @@ import { NgClass } from '@angular/common';
                        [class.invisible]="!isOnlineDropdownOpen()"
                        [class.translate-y-2]="!isOnlineDropdownOpen()">
                       <a routerLink="/play" (click)="isOnlineDropdownOpen.set(false)" class="block px-4 py-2 text-sm text-[var(--text-muted)] hover:text-accent hover:bg-[var(--border)] transition-colors">{{ 'nav.play' | t }}</a>
-                      <a routerLink="/replay-3d" (click)="isOnlineDropdownOpen.set(false)" class="block px-4 py-2 text-sm text-[var(--text-muted)] hover:text-accent hover:bg-[var(--border)] transition-colors">{{ 'nav.replay' | t }}</a>
+                      <a routerLink="/replay" (click)="isOnlineDropdownOpen.set(false)" class="block px-4 py-2 text-sm text-[var(--text-muted)] hover:text-accent hover:bg-[var(--border)] transition-colors">{{ 'nav.replay' | t }}</a>
                   </div>
               </div>
               <a routerLink="/ladder" routerLinkActive="text-accent border-b-3 border-accent opacity-100" class="transition-all px-2 opacity-30 hover:opacity-100 hover:text-accent">{{ 'nav.ladder' | t }}</a>
@@ -274,7 +274,7 @@ import { NgClass } from '@angular/common';
                               <span class="material-icons text-accent text-sm group-active:!text-white">videogame_asset</span>
                               {{ 'nav.play' | t }}
                           </a>
-                          <a routerLink="/replay-3d" (click)="closeMenu()" routerLinkActive="!text-white bg-accent" class="px-4 py-3 rounded-xl text-md font-bold text-[var(--text-main)] flex items-center gap-3 active:bg-accent active:!text-white transition-all">
+                          <a routerLink="/replay" (click)="closeMenu()" routerLinkActive="!text-white bg-accent" class="px-4 py-3 rounded-xl text-md font-bold text-[var(--text-main)] flex items-center gap-3 active:bg-accent active:!text-white transition-all">
                               <span class="material-icons text-accent text-sm group-active:!text-white">movie</span>
                               {{ 'nav.replay' | t }}
                           </a>

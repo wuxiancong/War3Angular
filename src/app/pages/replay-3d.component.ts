@@ -6,10 +6,28 @@ import {
   inject,
   signal,
   viewChild,
+  computed,
   OnDestroy,
 } from '@angular/core';
 import { isPlatformBrowser, NgClass } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
+import { B, NUI, U, W3_LAYOUT } from '../game/w3-hud';
+import { FOG_ALPHA, VisionGrid, type VisionSource } from '../game/fog';
+import {
+  BAR_Z,
+  PLAYER_COLORS,
+  TEAM_HP,
+  drawFloatText,
+  drawGroundCircle,
+  drawMinimap,
+  drawUnitBar,
+  prepareOverlay,
+  readableColor,
+  type MinimapScene,
+  nightAmount,
+  skyPosition,
+  timeOfDay,
+} from '../game/overlay-draw';
 import { Wc3MdxViewer, type Wc3SequenceInfo } from '../replay3d/wc3-mdx-viewer';
 import {
   DOTA_MAP_BOUNDS,
@@ -30,21 +48,11 @@ import {
 } from '../replay3d/replay-timeline';
 import {
   DOTA_HERO_ROSTER,
+  getHeroByCode,
   getHeroByKey,
   type DotaHeroRosterEntry,
 } from '../replay3d/dota-hero-roster';
 
-// 基于 1600x342 console-assembled.png 像素孔位精确对齐的小地图、头像、血蓝条、信息栏、6格背包、12格技能槽百分比
-const CF = {
-  mm: { l: 1.25, t: 13.45, w: 17.25, h: 81.87 },
-  port: { l: 26.94, t: 33.63, w: 9.38, h: 52.63 },
-  // 血/蓝条上下靠拢（间隙约 0.15%），避免蓝条离血条过近
-  hp: { l: 26.94, t: 87.4, w: 9.38, h: 4.55 },
-  mp: { l: 26.94, t: 92.1, w: 9.38, h: 4.4 },
-  info: { l: 37.81, t: 32.75, w: 25.0, h: 65.5 },
-  inv: { l: 64.25, t: 32.16, w: 9.38, h: 66.08 },
-  cmd: { l: 77.0, t: 18.13, w: 21.38, h: 77.78 },
-};
 
 export interface CommandCardSlot {
   id: string;
@@ -63,6 +71,7 @@ export interface CommandCardSlot {
   standalone: true,
   imports: [NgClass],
   host: { class: 'flex flex-col flex-grow' },
+  styleUrl: '../game/w3-hud.css',
   styles: [
     `
       .wc3-root {
@@ -238,51 +247,6 @@ export interface CommandCardSlot {
       .replay-toolbar .rt-dd-item .material-icons {
         color: var(--rt-dd-accent);
       }
-      .wc3-topbar {
-        position: absolute;
-        left: 0;
-        right: 0;
-        top: 0;
-        height: 36px;
-        z-index: 25;
-        pointer-events: none;
-      }
-      .wc3-topbar-bg {
-        position: absolute;
-        left: 0;
-        right: 0;
-        top: 0;
-        height: 68px;
-        width: 100%;
-        background: url('/assets/wc3/ui/topbar-assembled.png') top center / 100% 100% no-repeat;
-        pointer-events: none;
-        z-index: 0;
-      }
-      .wc3-top-menu-btn {
-        pointer-events: auto;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: url('/assets/wc3/ui/upper-btn-normal.png') center / 100% 100% no-repeat;
-        color: #fcd34d;
-        font-size: clamp(9px, 0.76vw, 11px);
-        font-weight: 900;
-        letter-spacing: 0.02em;
-        text-shadow: 0 1px 2px #000, 0 0 3px #000;
-        border: 0;
-        padding: 0 2px;
-        transition: filter 0.1s;
-      }
-      .wc3-top-menu-btn:hover {
-        background-image: url('/assets/wc3/ui/upper-btn-highlight.png');
-        filter: brightness(1.15);
-        color: #ffffff;
-      }
-      .wc3-top-menu-btn:active,
-      .wc3-top-menu-btn.active {
-        background-image: url('/assets/wc3/ui/upper-btn-pushed.png');
-        color: #ffffff;
-      }
       .wc3-overhead-hp {
         position: absolute;
         transform: translate(-50%, -100%);
@@ -303,47 +267,6 @@ export interface CommandCardSlot {
         text-shadow: 0 1px 2px #000, 0 0 4px #000;
         white-space: nowrap;
       }
-      .wc3-res-box {
-        position: absolute;
-        top: 2px;
-        height: 23px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 0 0.65%;
-        font-size: clamp(10px, 0.85vw, 13px);
-        font-weight: 900;
-        color: #f8e8b8;
-        text-shadow: 0 1px 2px #000, 0 0 3px #000;
-        z-index: 15;
-        pointer-events: auto;
-      }
-      .wc3-console {
-        position: absolute;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        width: 100%;
-        aspect-ratio: 1600 / 342;
-        max-height: 26vh;
-        height: min(26vh, calc(100vw * 342 / 1600));
-        background: url('/assets/wc3/ui/console-assembled.png') center / 100% 100% no-repeat;
-        z-index: 20;
-        pointer-events: none;
-      }
-      .wc3-console-hit {
-        position: absolute;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        height: 84%;
-        pointer-events: auto;
-      }
-      .wc3-abs {
-        position: absolute;
-        box-sizing: border-box;
-        pointer-events: auto;
-      }
       .wc3-mm {
         cursor: url('/assets/wc3/ui/cursor-human-crosshair.png') 16 16, crosshair !important;
         overflow: hidden;
@@ -357,258 +280,6 @@ export interface CommandCardSlot {
         object-fit: fill;
         pointer-events: none;
         display: block;
-      }
-      .wc3-mm-sidebtn {
-        position: absolute;
-        left: 19.48%;
-        width: 2.58%;
-        height: 11.4%;
-        padding: 0;
-        border: 1px solid rgba(212, 175, 85, 0.45);
-        border-radius: 2px;
-        background: #14100c;
-        overflow: hidden;
-        pointer-events: auto;
-        box-shadow: inset 0 0 3px rgba(0, 0, 0, 0.9);
-        transition: filter 0.12s, transform 0.08s;
-      }
-      .wc3-mm-sidebtn:hover {
-        filter: brightness(1.25);
-        border-color: rgba(255, 215, 110, 0.9);
-      }
-      .wc3-mm-sidebtn:active,
-      .wc3-mm-sidebtn.active-btn {
-        transform: scale(0.95);
-        box-shadow: inset 0 0 0 1.5px #fbbf24, 0 0 6px rgba(251, 191, 36, 0.65);
-      }
-      .wc3-mm-sidebtn img {
-        width: 100%;
-        height: 100%;
-        object-fit: fill;
-        display: block;
-        pointer-events: none;
-      }
-      .wc3-port {
-        overflow: hidden;
-        border-radius: 42% 42% 0 0 / 28% 28% 0 0;
-        background: radial-gradient(circle at 35% 25%, #3a2e1c, #0d0906 74%);
-      }
-      .wc3-bar {
-        position: relative;
-        overflow: hidden;
-        border: 1px solid rgba(20, 15, 8, 0.95);
-        background: #070605 url('/assets/wc3/ui/bar-border.png') center / 100% 100% no-repeat;
-        box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.95);
-      }
-      .wc3-bar > i {
-        position: absolute;
-        inset: 1px auto 1px 1px;
-        display: block;
-        transition: width 0.12s linear;
-      }
-      .wc3-bar::after {
-        content: '';
-        position: absolute;
-        inset: 0;
-        background: url('/assets/wc3/ui/bar-stat-highlight.png') center / 100% 100% no-repeat;
-        opacity: 0.55;
-        pointer-events: none;
-      }
-      .wc3-bar > span {
-        position: absolute;
-        inset: 0;
-        z-index: 2;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: clamp(8px, 0.72vw, 11px);
-        font-weight: 900;
-        color: #ffffff;
-        text-shadow: 0 1px 2px #000, 0 0 4px #000, 1px 0 1px #000;
-        line-height: 1;
-        letter-spacing: 0.02em;
-      }
-      .wc3-hp > i {
-        background-color: #2fd84a;
-        background-image: linear-gradient(180deg, #7dff7a 0%, #2fd84a 42%, #149a28 100%),
-          url('/assets/wc3/ui/bar-hp-fill.png');
-        background-blend-mode: soft-light, normal;
-        background-size: 100% 100%, 100% 100%;
-        background-repeat: no-repeat;
-        filter: none;
-      }
-      .wc3-mp > i {
-        background-color: #1e6adf;
-        background-image: linear-gradient(180deg, #6ec8ff 0%, #2a7fff 45%, #0d3f9c 100%),
-          url('/assets/wc3/ui/bar-mp-fill.png');
-        background-blend-mode: soft-light, normal;
-        background-size: 100% 100%, 100% 100%;
-        background-repeat: no-repeat;
-        filter: none;
-      }
-      .wc3-xp-bar {
-        position: relative;
-        width: 100%;
-        height: 10px;
-        margin-top: 4px;
-        background: #050403;
-        overflow: hidden;
-        border-radius: 0;
-        box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.85);
-      }
-      .wc3-xp-bar > i {
-        position: absolute;
-        inset: 2px auto 2px 2px;
-        background-color: #9b4dff;
-        background-image: url('/assets/wc3/ui/bar-xp-fill.png');
-        background-position: left center;
-        background-size: 100% 100%;
-        background-repeat: repeat-x;
-        background-blend-mode: multiply;
-        filter: none;
-      }
-      .wc3-xp-bar::after {
-        content: '';
-        position: absolute;
-        inset: 0;
-        background: url('/assets/wc3/ui/bar-xp-border.png') center / 100% 100% no-repeat;
-        pointer-events: none;
-        z-index: 1;
-      }
-      .wc3-xp-bar > span {
-        position: absolute;
-        inset: 0;
-        z-index: 2;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 9px;
-        font-weight: 800;
-        color: #f5e6c4;
-        text-shadow: 0 1px 2px #000, 0 0 3px #000;
-        pointer-events: none;
-      }
-      .wc3-info {
-        color: #e8d5a3;
-        font-size: clamp(10px, 0.95vw, 13px);
-        text-shadow: 0 1px 2px #000;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-        padding: 4px 10px;
-        pointer-events: none;
-      }
-      .wc3-info .name {
-        font-weight: 900;
-        color: #f8e8b0;
-        font-size: 1.15em;
-        text-align: center;
-      }
-      .wc3-info .sub {
-        color: #c8a868;
-        font-size: 0.86em;
-        text-align: center;
-      }
-      .wc3-grid {
-        display: grid;
-        width: 100%;
-        height: 100%;
-      }
-      .wc3-grid-inv {
-        grid-template-columns: 1fr 1fr;
-        grid-template-rows: 1fr 1fr 1fr;
-        gap: 2.5% 3%;
-        padding: 1.2%;
-      }
-      .wc3-grid-cmd {
-        grid-template-columns: 1fr 1fr 1fr 1fr;
-        grid-template-rows: 1fr 1fr 1fr;
-        gap: 2% 1.8%;
-        padding: 1%;
-        transform: translate(2px, 2px);
-      }
-      .wc3-slot {
-        position: relative;
-        border: 0;
-        margin: 0;
-        padding: 0;
-        background: transparent;
-        overflow: hidden;
-        min-width: 0;
-        min-height: 0;
-        box-sizing: border-box;
-        appearance: none;
-        -webkit-appearance: none;
-        font: inherit;
-        color: inherit;
-        cursor: default;
-      }
-      button.wc3-slot {
-        cursor: pointer;
-      }
-      .wc3-slot.has-item,
-      .wc3-slot.has-cmd {
-        background: #000;
-        box-shadow: none;
-      }
-      .wc3-slot.unlearned .ico {
-        filter: grayscale(0.9) brightness(0.42);
-      }
-      .wc3-slot.active-toggle {
-        box-shadow: inset 0 0 0 2px #ff6b2b, 0 0 8px rgba(255, 107, 43, 0.75);
-      }
-      .wc3-slot.active-cmd {
-        outline: 2px solid #22c55e;
-        outline-offset: -2px;
-        box-shadow: inset 0 0 0 2px #22c55e, 0 0 10px rgba(34, 197, 94, 0.85);
-      }
-      .wc3-slot.active-cmd.active-toggle {
-        outline: 2px solid #22c55e;
-        outline-offset: -2px;
-        box-shadow: inset 0 0 0 2px #22c55e, 0 0 10px rgba(34, 197, 94, 0.85);
-      }
-      .wc3-slot .hk {
-        position: absolute;
-        right: 1px;
-        top: 0;
-        font-size: clamp(7px, 0.62vw, 10px);
-        font-weight: 900;
-        color: #ffe08a;
-        text-shadow: 0 1px 2px #000, 0 0 3px #000;
-        background: rgba(0, 0, 0, 0.55);
-        padding: 0 2px;
-        border-radius: 2px;
-        z-index: 2;
-        line-height: 1.1;
-        pointer-events: none;
-      }
-      .wc3-slot .lv {
-        position: absolute;
-        left: 1px;
-        bottom: 0;
-        font-size: clamp(7px, 0.62vw, 10px);
-        font-weight: 900;
-        color: #b8ff7a;
-        text-shadow: 0 1px 2px #000, 0 0 3px #000;
-        background: rgba(0, 0, 0, 0.65);
-        padding: 0 3px;
-        border-radius: 2px;
-        z-index: 2;
-        line-height: 1.1;
-        pointer-events: none;
-      }
-      .wc3-slot .ico {
-        /* WC3 64x64 内容常略偏右上：略放大并向左下偏移，让主体在槽内更居中 */
-        position: absolute;
-        left: -5%;
-        top: -3%;
-        width: 110%;
-        height: 110%;
-        object-fit: fill;
-        image-rendering: pixelated;
-        pointer-events: none;
-        display: block;
-        filter: none;
       }
       .wc3-cam {
         position: absolute;
@@ -634,48 +305,9 @@ export interface CommandCardSlot {
     `,
   ],
   template: `
-    <main class="wc3-root flex-grow flex flex-col bg-black text-[var(--text-main)] min-h-[calc(100dvh-var(--app-header-height,4.5rem))] select-none">
-            @if (toolbarCollapsed()) {
-        <div class="replay-toolbar sticky z-30 shrink-0 text-[11px] px-2 sm:px-3 py-2 flex items-center gap-2">
-          <button
-            type="button"
-            class="rt-collapse-btn shrink-0"
-            (click)="setToolbarCollapsed(false)"
-            title="显示工具栏"
-          >
-            <span class="material-icons text-[16px]">visibility</span>
-            显示</button>
-          <div class="rt-dd rt-dd-fill" data-rt-dd="match">
-            <button
-              type="button"
-              class="rt-dd-trigger"
-              [class.open]="toolbarMenu() === 'match'"
-              (click)="toggleToolbarMenu('match')"
-              title="切换录像文件"
-            >
-              <span class="rt-dd-label">{{ matchMenuLabel() }}</span>
-              <span class="material-icons text-[14px] opacity-50 transition-transform" [class.rotate-180]="toolbarMenu() === 'match'">expand_more</span>
-            </button>
-            @if (toolbarMenu() === 'match') {
-              <div class="rt-dd-panel wide">
-                @for (m of matchList(); track m.fileName) {
-                  <button
-                    type="button"
-                    class="rt-dd-item"
-                    [class.active]="selectedFile() === m.fileName"
-                    (click)="pickMatchFile(m.fileName)"
-                  >
-                    <span class="truncate">{{ m.heroName }} · {{ m.matchId }} ({{ formatDuration(m.durationMs) }} / {{ m.moveActions }})</span>
-                    @if (selectedFile() === m.fileName) {
-                      <span class="material-icons text-accent text-sm ml-auto shrink-0">check</span>
-                    }
-                  </button>
-                }
-              </div>
-            }
-          </div>
-        </div>
-      } @else {
+    <main class="wc3-root flex-grow flex flex-col bg-black text-[var(--text-main)] h-[calc(100vh-var(--app-header-height,4.5rem))] min-h-[560px] select-none">
+      <!-- 录像工具栏：默认隐藏，与对战页同样整屏都是游戏画面；在 菜单 (F10) 里打开 -->
+      @if (!toolbarCollapsed()) {
       <div class="replay-toolbar sticky z-30 shrink-0 text-[11px] px-2 sm:px-3 py-2 flex flex-col gap-1.5">
         <!-- 第1行：隐藏 + 标题 + 录像 -->
         <div class="flex items-center gap-2 min-w-0">
@@ -845,36 +477,6 @@ export interface CommandCardSlot {
             血条{{ showHealthBars() ? '开' : '关' }}
           </button>
 
-          <div class="rt-dd rt-dd-lg" data-rt-dd="hero">
-            <button
-              type="button"
-              class="rt-dd-trigger"
-              [class.open]="toolbarMenu() === 'hero'"
-              (click)="toggleToolbarMenu('hero')"
-              title="切换英雄 3D 模型"
-            >
-              <span class="rt-dd-label">{{ heroMenuLabel() }}</span>
-              <span class="material-icons text-[14px] opacity-50 transition-transform" [class.rotate-180]="toolbarMenu() === 'hero'">expand_more</span>
-            </button>
-            @if (toolbarMenu() === 'hero') {
-              <div class="rt-dd-panel wide">
-                @for (h of heroRoster; track h.key) {
-                  <button
-                    type="button"
-                    class="rt-dd-item"
-                    [class.active]="currentHeroKey() === h.key"
-                    (click)="pickHeroPreset(h.key)"
-                  >
-                    <span class="truncate">{{ h.index }}. {{ h.nameZh }}</span>
-                    @if (currentHeroKey() === h.key) {
-                      <span class="material-icons text-accent text-sm ml-auto shrink-0">check</span>
-                    }
-                  </button>
-                }
-              </div>
-            }
-          </div>
-
           <button type="button" (click)="showDebug.set(!showDebug())" class="px-2 py-1 border border-white/20 rounded shrink-0">
             {{ showDebug() ? '隐藏调试' : '事件流' }}
           </button>
@@ -886,229 +488,15 @@ export interface CommandCardSlot {
 
       <div class="flex flex-col lg:flex-row flex-grow min-h-0">
         <div class="relative flex-grow min-h-[42vh] sm:min-h-[520px] lg:min-h-0 bg-[#05080c] overflow-hidden">
-          <div class="wc3-topbar">
-            <div class="wc3-topbar-bg"></div>
-
-            <!-- 左上 4 个原生魔兽菜单槽（精确对齐 UpperButtonBar.fdf 孔位与原生贴图，严丝合缝） -->
-            <button type="button" class="wc3-abs wc3-top-menu-btn"
-                    [class.active]="activeTopMenu() === 'quests'"
-                    style="left:0.25%; width:10.625%; top:2px; height:24px; z-index:15"
-                    (click)="toggleTopMenu('quests')"
-                    title="查看地图信息与机制说明 (F9)">
-              地图信息 (<span class="text-white underline">F9</span>)
-            </button>
-            <button type="button" class="wc3-abs wc3-top-menu-btn"
-                    [class.active]="activeTopMenu() === 'menu'"
-                    style="left:10.875%; width:10.625%; top:2px; height:24px; z-index:15"
-                    (click)="toggleTopMenu('menu')"
-                    title="打开游戏菜单 (F10)">
-              菜单 (<span class="text-white underline">F10</span>)
-            </button>
-            <button type="button" class="wc3-abs wc3-top-menu-btn"
-                    [class.active]="activeTopMenu() === 'allies'"
-                    style="left:21.5%; width:10.625%; top:2px; height:24px; z-index:15"
-                    (click)="toggleTopMenu('allies')"
-                    title="查看盟友与对局阵容 (F11)">
-              盟友 (<span class="text-white underline">F11</span>)
-            </button>
-            <button type="button" class="wc3-abs wc3-top-menu-btn"
-                    [class.active]="activeTopMenu() === 'chat'"
-                    style="left:32.125%; width:10.625%; top:2px; height:24px; z-index:15"
-                    (click)="toggleTopMenu('chat')"
-                    title="查看对局聊天与事件记录 (F12)">
-              聊天 (<span class="text-white underline">F12</span>)
-            </button>
-
-            <!-- 顶部中央日夜球时钟读数（分:秒 精确居中） -->
-            <div class="wc3-abs flex flex-col items-center justify-end z-20 pointer-events-none"
-                 style="left:46%; width:8%; top:2px; height:58px">
-              <div class="font-mono text-[11px] font-black text-[#fff3c4] drop-shadow-[0_1px_2px_rgba(0,0,0,0.98)] bg-black/75 border border-amber-500/40 px-1.5 py-0.2 rounded flex items-center gap-0.5"
-                   title="游戏时间（分:秒）">
-                <span>{{ clockMinText() }}</span>
-                <span class="text-amber-400">:</span>
-                <span>{{ clockSecText() }}</span>
-              </div>
-            </div>
-
-            <!-- 右侧 4 个原生魔兽资源槽（精确对齐 ResourceBar.fdf 4个凹槽：金币 / 木材 / 人口等级 / 地图版本） -->
-            <div class="wc3-res-box" style="left:57.75%; width:9.1%" title="当前金钱">
-              <img class="w-4 h-4 shrink-0" src="/assets/wc3/ui/icons/gold.png" alt="金币" />
-              <span class="font-mono text-[#ffd74a] pr-1">{{ gold() }}</span>
-            </div>
-            <div class="wc3-res-box" style="left:68.55%; width:9.1%" title="当前木材">
-              <img class="w-4 h-4 shrink-0" src="/assets/wc3/ui/icons/lumber.png" alt="木材" />
-              <span class="font-mono text-[#6ee7b7] pr-1">{{ lumber() }}</span>
-            </div>
-            <div class="wc3-res-box" style="left:79.35%; width:9.1%" title="当前英雄等级 / 等级上限">
-              <img class="w-4 h-4 shrink-0" src="/assets/wc3/ui/icons/supply.png" alt="人口" />
-              <span class="font-mono text-[#fde68a] pr-1">{{ heroLevel() }} / 25</span>
-            </div>
-            <div class="wc3-res-box justify-center" style="left:90.15%; width:9.3%" title="DotA 地图版本与维修费状态">
-              <span class="font-mono text-[#5eff5e] tracking-tight">v6.83d</span>
-            </div>
-          </div>
-
           <!-- 3D WebGL 全屏视口（底部控制台与顶部栏直接叠在视口上，消除控制台上方黑条） -->
           <div class="absolute inset-0">
             <canvas #glCanvas width="1280" height="720"
                     class="absolute inset-0 w-full h-full block z-0 pointer-events-none"></canvas>
+            <!-- 夜晚：按原版夜间截图校准的地面颜色倍率（R 0.61 / G 0.76 / B 0.72，即 rgb(156,194,184) 正片叠底），血条与 HUD 不受影响 -->
+            <!-- 头顶血条 / 选择圈 / 跳字：与对战页共用画法（game/overlay-draw.ts） -->
+            <canvas #overlay class="absolute inset-0 w-full h-full block z-[1] pointer-events-none"></canvas>
             <div #viewLayer
-                 class="absolute inset-0 z-[1] pointer-events-auto bg-transparent"></div>
-
-            @if (showHealthBars()) {
-              @for (bar of overheadHpBars(); track bar.id) {
-                <div
-                  class="wc3-overhead-hp"
-                  [style.left.%]="bar.sx"
-                  [style.top.%]="bar.sy"
-                  [style.width.px]="bar.isTower ? 54 : bar.isHero ? 48 : 34"
-                  [style.height.px]="bar.isTower ? 7 : bar.isHero ? 6 : 4"
-                >
-                  <div
-                    class="h-full transition-all duration-75"
-                    [style.width.%]="bar.hpPct"
-                    [style.background]="bar.color"
-                  ></div>
-                </div>
-              }
-            }
-
-            @for (ft of activeFloatingTexts(); track ft.id) {
-              <div
-                class="wc3-floating-gold"
-                [style.left.%]="ft.sx"
-                [style.top.%]="ft.sy"
-                [style.color]="ft.color"
-                [style.opacity]="ft.opacity"
-              >
-                {{ ft.text }}
-              </div>
-            }
-
-            <!-- 左上角实时动作指令浮动提示 -->
-            <div class="absolute top-11 left-3 z-10 pointer-events-none space-y-1">
-              <div class="px-2.5 py-1 rounded bg-black/70 border border-amber-400/35 text-[11px] text-amber-100 font-mono flex items-center gap-2">
-                <span class="inline-block w-2 h-2 rounded-full" [ngClass]="isMoving() ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'"></span>
-                <span>坐标 ({{ heroPos().x }}, {{ heroPos().y }})</span>
-                <span class="text-amber-300">· {{ activeSequenceName() || 'Stand' }}</span>
-                <span class="text-emerald-300 font-bold">· 指令 {{ basicCommandLabel() }}</span>
-              </div>
-              @for (ev of recentEvents().slice(-3); track ev.timeMs + ev.text) {
-                <div class="px-2 py-0.5 rounded bg-black/65 text-[10px] text-white/90 border-l-2 border-amber-400">
-                  <span class="font-mono text-amber-300 mr-1">[{{ ev.timeText }}]</span>{{ ev.text }}
-                </div>
-              }
-            </div>
-
-            <!-- 右上角经典 DotA 6.83d 计分板（Multiboard） -->
-            <div class="absolute top-9 right-2.5 z-10 pointer-events-none bg-black/72 border border-[#a88948]/65 rounded px-2.5 py-1.5 text-[11px] text-[#f0e0b0] shadow-lg min-w-[235px]">
-              <div class="flex items-center justify-between border-b border-[#a88948]/35 pb-0.5 mb-1">
-                <span class="text-[#7ee787] font-black tracking-wide">DotA Allstars v6.83d</span>
-                <span class="font-mono text-amber-300">{{ clockMinText() }}:{{ clockSecText() }}</span>
-              </div>
-              <div class="flex items-center justify-between gap-3">
-                <span class="text-sky-300 font-bold flex items-center gap-1">
-                  <img [src]="heroIcon()" alt="" class="w-4 h-4 rounded-sm border border-amber-400/60" />
-                  {{ player() || 'wuxiancong' }} ({{ heroNameCn() }})
-                </span>
-                <span class="font-mono">
-                  <b class="text-emerald-300">{{ kills() }}</b>/<b class="text-rose-400">{{ deaths() }}</b>/<b class="text-sky-300">{{ assists() }}</b>
-                </span>
-              </div>
-              <div class="flex items-center justify-between text-[10px] text-amber-100/85 font-mono mt-0.5">
-                <span>正补/反补: <b class="text-amber-300">{{ lastHits() }}</b>/{{ denies() }}</span>
-                <span>野怪 <b class="text-amber-300">{{ neutrals() }}</b></span>
-                <span>位置: ({{ heroPos().x }},{{ heroPos().y }})</span>
-              </div>
-            </div>
-
-            <!-- 顶部四联菜单弹窗（地图信息 F9 / 菜单 F10 / 盟友 F11 / 聊天 F12） -->
-            @if (activeTopMenu()) {
-              <div class="absolute top-12 left-1/2 -translate-x-1/2 z-30 w-[92%] max-w-lg bg-[#120e09]/95 border-2 border-[#d4af37] rounded shadow-[0_0_28px_rgba(0,0,0,0.95)] p-4 text-[#f5e6c4]">
-                <div class="flex items-center justify-between border-b border-[#d4af37]/40 pb-2 mb-3">
-                  <h3 class="text-sm font-black text-[#fcd34d] tracking-wider">
-                    @switch (activeTopMenu()) {
-                      @case ('quests') { 地图信息与任务说明 (F9) }
-                      @case ('menu') { 魔兽争霸 III 游戏菜单 (F10) }
-                      @case ('allies') { 盟友与对局阵容 (F11) }
-                      @case ('chat') { 对局聊天与事件日志 (F12) }
-                    }
-                  </h3>
-                  <button type="button" (click)="activeTopMenu.set(null)"
-                          class="px-2 py-0.5 text-xs font-bold bg-[#2a1f12] border border-[#d4af37]/70 rounded text-amber-200 hover:bg-[#3b2c1a]">
-                    关闭 ×
-                  </button>
-                </div>
-
-                @if (activeTopMenu() === 'quests') {
-                  <div class="space-y-2 text-xs leading-relaxed">
-                    <div class="p-2 rounded bg-black/50 border border-amber-500/30">
-                      <div class="font-bold text-amber-300">DotA Allstars v6.83d（地形与物品原版还原）</div>
-                      <p class="text-amber-100/85 mt-0.5">近卫军团（左下翠绿森林）迎战天灾军团（右上荒芜之地），摧毁敌方遗迹（世界之树 / 冰封王座）即获胜。</p>
-                    </div>
-                    <ul class="list-disc list-inside space-y-1 text-[11px] text-amber-100/90">
-                      <li><b>自动出兵</b>：每 30 秒三路兵营刷新近战/远程小兵（每第 7 波附带攻城车），沿各路推进并与敌军和防御塔交战。</li>
-                      <li><b>防御塔防线</b>：各路防御塔主动攻击 700 码内敌方小兵与英雄，小兵遇塔停步攻塔并自动绕行防穿模。</li>
-                      <li><b>野怪与神符</b>：12 处野怪营地每整分钟刷新；上下河道神符点每 2 分钟刷新赏金/强化神符。</li>
-                    </ul>
-                  </div>
-                }
-
-                @if (activeTopMenu() === 'menu') {
-                  <div class="grid grid-cols-2 gap-2 text-xs">
-                    <button type="button" (click)="togglePlay(); activeTopMenu.set(null)"
-                            class="py-2 px-3 rounded bg-[#241a0e] border border-[#d4af37]/60 text-amber-200 font-bold hover:bg-[#352615]">
-                      {{ isPlaying() ? '暂停' : '播放' }}
-                    </button>
-                    <button type="button" (click)="resetCamera(); activeTopMenu.set(null)"
-                            class="py-2 px-3 rounded bg-[#241a0e] border border-[#d4af37]/60 text-amber-200 font-bold hover:bg-[#352615]">
-                      🎥 复位魔兽标准视角
-                    </button>
-                    <button type="button" (click)="reload(); activeTopMenu.set(null)"
-                            class="py-2 px-3 rounded bg-[#241a0e] border border-[#d4af37]/60 text-amber-200 font-bold hover:bg-[#352615] col-span-2">
-                      🔄 重新加载 3D 场景
-                    </button>
-                  </div>
-                }
-
-                @if (activeTopMenu() === 'allies') {
-                  <div class="space-y-2 text-xs">
-                    <div class="text-emerald-300 font-bold">🌿 近卫军团 (Sentinel)</div>
-                    <div class="flex items-center justify-between p-2 rounded bg-black/55 border border-emerald-500/40">
-                      <div class="flex items-center gap-2">
-                        <img [src]="heroIcon()" alt="" class="w-7 h-7 rounded border border-amber-400" />
-                        <div>
-                          <div class="font-bold text-sky-300">{{ player() || 'wuxiancong' }} · {{ heroNameCn() }} (Lv.{{ heroLevel() }})</div>
-                          <div class="text-[10px] text-amber-200/80">{{ heroTitle() }} · 坐标 ({{ heroPos().x }}, {{ heroPos().y }})</div>
-                        </div>
-                      </div>
-                      <div class="text-right font-mono">
-                        <div class="text-amber-300">金钱 {{ gold() }}</div>
-                        <div class="text-[10px]">KDA {{ kills() }}/{{ deaths() }}/{{ assists() }} · CS {{ lastHits() }}/{{ denies() }}</div>
-                      </div>
-                    </div>
-                    <div class="flex items-center justify-between text-[11px] text-amber-200/85 pt-1">
-                      <span>共享视野：已开启</span>
-                      <span>小地图盟友颜色模式：{{ mmAllyColorMode() ? '阵营双色' : '玩家原色' }}</span>
-                    </div>
-                  </div>
-                }
-
-                @if (activeTopMenu() === 'chat') {
-                  <div class="space-y-1.5 max-h-60 overflow-y-auto pr-1 text-xs font-mono">
-                    @for (ev of recentEvents(); track ev.timeMs + ev.text) {
-                      <div class="px-2 py-1 rounded bg-black/55 border-l-2 border-amber-400">
-                        <span class="text-amber-300 mr-1.5">[{{ ev.timeText }}]</span>
-                        <span class="text-sky-300 mr-1">{{ player() }}:</span>
-                        <span class="text-amber-100">{{ ev.text }}</span>
-                      </div>
-                    } @empty {
-                      <div class="text-amber-200/60 py-4 text-center">暂无动作聊天记录</div>
-                    }
-                  </div>
-                }
-              </div>
-            }
+                 class="absolute inset-0 z-[2] pointer-events-auto bg-transparent"></div>
 
             @if (loading()) {
               <div class="absolute top-12 right-3 z-10 pointer-events-none">
@@ -1119,7 +507,7 @@ export interface CommandCardSlot {
               </div>
             }
             @if (error()) {
-              <div class="absolute inset-0 flex items-center justify-center bg-black/70 z-10 p-6">
+              <div class="absolute inset-0 flex items-center justify-center bg-black/70 z-40 p-6">
                 <div class="max-w-md text-center space-y-3">
                   <p class="text-red-400 font-bold">{{ error() }}</p>
                   <button type="button" (click)="reload()"
@@ -1128,304 +516,180 @@ export interface CommandCardSlot {
               </div>
             }
 
-            <!-- 魔兽争霸3 底部控制台 HUD (1600x342，直接叠在 3D 视口底部，消除黑边) -->
-            <div class="wc3-console">
-              <div class="wc3-console-hit"></div>
-              <!-- 1. 小地图（含原版野怪营地、商店、河道神符、兵线方块点、英雄图标、信号波纹与镜头视野框） -->
-              <button type="button" class="wc3-abs wc3-mm" title="左键点击跳转镜头 / 点击右侧发信号按钮发送小地图信号"
-                      [style.left.%]="cf.mm.l" [style.top.%]="cf.mm.t"
-                      [style.width.%]="cf.mm.w" [style.height.%]="cf.mm.h"
-                      (click)="onMinimapClick($event)">
-                <img class="mm-base"
-                     src="/assets/dota/dota683_minimap.png"
-                     alt="minimap"
-                     [style.opacity]="mmShowTerrain() ? 1 : 0.12"
-                     draggable="false" />
+            <!-- ============ 原生控制台 HUD：与在线对战页 /play 共用同一套坐标与样式（game/w3-hud.ts） ============ -->
+            <div class="w3" style="z-index: 26">
+              <div class="w3-top" [style.background-image]="skin('topbar.png')"></div>
 
-                <!-- 原版野怪营地小地图图标（绿=小野 / 黄=中大野 / 红=远古与肉山，可通过右侧 1 个按钮开关） -->
-                @if (mmShowCamps()) {
-                  @for (c of minimapCamps; track c.id) {
-                    <img
-                      src="/assets/wc3/ui/mm-icon-camp.png"
-                      alt=""
-                      style="position:absolute;width:11px;height:11px;transform:translate(-50%,-50%);pointer-events:none;z-index:2"
-                      [style.left.%]="c.px"
-                      [style.top.%]="c.py"
-                      [style.filter]="c.filter"
-                      [title]="c.name"
-                    />
+              <!-- 左上四个菜单按钮 -->
+              @for (b of upperButtons; track b.id) {
+                <button type="button" class="w3-upper" [class.on]="activeTopMenu() === b.id" [style]="b.style"
+                        [style.--tex]="skin('upper-button.png')" (click)="toggleTopMenu(b.id)">
+                  {{ b.text }} (<em>{{ b.key }}</em>)
+                </button>
+              }
+
+              <!-- 时间指示器 -->
+              <div class="w3-time" [style]="L.time">
+                <div class="w3-time-sky" [style.background-image]="skin('ti-HumanUITile-TimeIndicator.png')" [style.background-position-x.%]="skyPos()"></div>
+                <div class="w3-time-frame" [style.background-image]="skin('ti-NightElfUITile-TimeIndicatorFrame.png')"></div>
+              </div>
+
+              <!-- 资源栏：金钱 / 分 / 秒 / 版本号 -->
+              <img class="w3-abs" [style]="L.resGoldIcon" src="/assets/wc3/native-ui/NightElf/res-gold.png" alt="" />
+              <div class="w3-res" [style]="L.resGold" (mouseenter)="showNativeTip('黄金', '录像中该玩家当前持有的金钱。')" (mouseleave)="hideTip()">{{ gold() }}</div>
+              <img class="w3-abs" [style]="L.resLumberIcon" src="/assets/wc3/native-ui/common/dota-lumber-clock.png" alt="" />
+              <div class="w3-res" [style]="L.resLumber" (mouseenter)="showNativeTip('分：', '对局已进行的分钟数。')" (mouseleave)="hideTip()">{{ clockMinText() }}</div>
+              <div class="w3-res" [style]="L.resSupply" (mouseenter)="showNativeTip('秒：', '对局已进行的秒数。')" (mouseleave)="hideTip()">{{ clockSecText() }}</div>
+              <div class="w3-res w3-upkeep" [style]="L.resUpkeep">v6.83d</div>
+
+              <!-- 多面板（DotA 计分板） -->
+              <div class="w3-mb-title" [style]="L.mbTitle">( {{ kills() }}/{{ deaths() }}/{{ assists() }} - {{ lastHits() }}/{{ denies() }} - {{ heroLevel() }} )</div>
+              <button type="button" class="w3-mb-btn" [class.open]="showScore()" [style]="L.mbBtn" (click)="showScore.set(!showScore())" aria-label="展开或收起计分板"></button>
+              @if (showScore()) {
+                <div class="w3-mb-board" [style]="L.mbBoard">
+                  <div class="w3-mb-row w3-mb-head"><span>近卫军团</span><span>{{ kills() }}</span></div>
+                  <div class="w3-mb-row">
+                    <img [src]="heroIcon()" alt="" />
+                    <span class="nm">{{ player() || 'wuxiancong' }}</span>
+                    <span class="lv">{{ heroLevel() }}</span>
+                    <span>{{ kills() }}/{{ deaths() }}/{{ assists() }}</span>
+                    <span>{{ lastHits() }}/{{ denies() }}</span>
+                    <span class="rs"></span>
+                  </div>
+                </div>
+              }
+
+              <!-- 3D 肖像（在控制台贴图之下，由贴图镂空露出）；点击聚焦英雄 -->
+              <div class="w3-abs w3-portrait" [style]="L.portrait" (click)="setCameraMode('hero')">
+                <img [src]="heroIcon()" alt="" draggable="false" style="position: absolute; inset: 0; opacity: 0.35" />
+                <canvas #portraitCanvas width="144" height="168" style="position: relative"></canvas>
+              </div>
+
+              <div class="w3-hit"></div><div class="w3-hit l"></div><div class="w3-hit r"></div>
+              <div class="w3-console" [style.background-image]="skin('console.png')"></div>
+
+              <!-- 小地图 -->
+              <div class="w3-abs w3-minimap" [style]="L.minimap">
+                <canvas #minimap width="256" height="256" style="display: block; width: 100%; height: 100%"
+                        (click)="onMinimapClick($event)" (contextmenu)="$event.preventDefault()"></canvas>
+              </div>
+
+              <!-- 小地图右侧五个按钮：信号 / 地形 / 盟友颜色 / 野怪营地 / 阵型 -->
+              @for (b of mmButtons(); track b.id) {
+                <button type="button" class="w3-abs w3-mmbtn" [style]="b.style" [style.background-image]="b.img"
+                        (click)="onMmButton(b.id)" (mouseenter)="showNativeTip(b.title, b.tip)" (mouseleave)="hideTip()" [attr.aria-label]="b.title"></button>
+              }
+
+              <!-- 生命 / 魔法 文本（肖像下方两条镂空） -->
+              <div class="w3-abs w3-hp" [style]="L.hpText" [style.color]="hpColor()">{{ heroHp() }} / {{ heroHpMax() }}</div>
+              <div class="w3-abs w3-mp" [style]="L.mpText">{{ heroMp() }} / {{ heroMpMax() }}</div>
+
+              <!-- 信息面板：SimpleInfoPanelUnitDetail -->
+              <div class="w3-abs w3-info" [style]="L.info">
+                <div class="w3-name">{{ heroNameCn() }}</div>
+                <div class="w3-xp" (mouseenter)="showNativeTip('经验值', '当前等级进度 ' + xpPercent().toFixed(0) + '%')" (mouseleave)="hideTip()">
+                  <i [style.width.%]="xpPercent()"></i>
+                  <span>等级 {{ heroLevel() }} {{ heroTitle() }}</span>
+                </div>
+                <div class="w3-icon-row" style="top: 27.4%">
+                  <img [src]="dmgIcon" alt="" />
+                  <div><span class="lb">攻击力:</span><span class="vl">{{ heroAtk() }}@if (heroAtkBonus() > 0) { <span style="color: #20ff20">+{{ heroAtkBonus() }}</span> }</span></div>
+                </div>
+                <div class="w3-icon-row" style="top: 54.8%">
+                  <img [src]="armorIcon" alt="" />
+                  <div><span class="lb">护甲:</span><span class="vl">{{ heroArmor() }}@if (heroArmorBonus() > 0) { <span style="color: #20ff20">+{{ heroArmorBonus() }}</span> }</span></div>
+                </div>
+                <div class="w3-hero-attr">
+                  <img [src]="attrIcon()" alt="" />
+                  <div>
+                    <span class="lb">力量:</span><span class="vl">{{ heroStr() }}@if (heroStrBonus() > 0) { <span style="color: #20ff20">+{{ heroStrBonus() }}</span> }</span>
+                    <span class="lb">敏捷:</span><span class="vl">{{ heroAgi() }}@if (heroAgiBonus() > 0) { <span style="color: #20ff20">+{{ heroAgiBonus() }}</span> }</span>
+                    <span class="lb">智力:</span><span class="vl">{{ heroInt() }}@if (heroIntBonus() > 0) { <span style="color: #20ff20">+{{ heroIntBonus() }}</span> }</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 物品栏 6 格 -->
+              @for (it of itemSlots(); track it.slot) {
+                <button type="button" class="w3-abs w3-btn" [class.empty]="!it.icon" [class.act]="!!it.activeToggle" [style]="L.inv[$index]"
+                        (mouseenter)="it.icon && showNativeTip(it.name, '物品栏热键：' + it.hotkey)" (mouseleave)="hideTip()" [attr.aria-label]="it.name || '空物品栏'">
+                  @if (it.icon) {
+                    <img [src]="it.icon" alt="" draggable="false" />
+                    @if (it.charges > 1) { <b class="num">{{ it.charges }}</b> }
                   }
-                }
+                </button>
+              }
 
-                <!-- 防御塔/兵营/遗迹/商店标记（商店使用原版 mm-icon-shop.png，防御塔与兵营使用魔兽原生锐利小方块） -->
-                @for (b of minimapBuildings(); track b.id) {
-                  @if (b.isShop) {
-                    <img
-                      src="/assets/wc3/ui/mm-icon-shop.png"
-                      alt=""
-                      style="position:absolute;width:10px;height:10px;transform:translate(-50%,-50%);pointer-events:none;z-index:3"
-                      [style.left.%]="b.px"
-                      [style.top.%]="b.py"
-                    />
+              <!-- 命令卡 4×3 -->
+              @for (sk of commandSlots(); track sk.id) {
+                @if (sk.icon && $index < 12) {
+                  <button type="button" class="w3-abs w3-btn" [class.dim]="!!sk.unlearned" [class.act]="!!sk.active" [style]="L.cmd[$index]" (click)="onCommandSlotClick(sk)"
+                          (mouseenter)="showNativeTip(cmdTipTitle(sk), cmdTipBody(sk))" (mouseleave)="hideTip()" [attr.aria-label]="sk.name">
+                    <img [src]="sk.icon" alt="" draggable="false" />
+                    @if (sk.level > 0) { <b class="num">{{ sk.level }}</b> }
+                  </button>
+                }
+              }
+
+              <!-- 原生提示框：固定在命令卡上方、贴右 -->
+              @if (tip(); as t) {
+                <div class="w3-tip">
+                  <div class="tt">{{ t.title }}</div>
+                  @if (t.body) { <div class="bd">{{ t.body }}</div> }
+                </div>
+              }
+
+              <!-- F9~F12 对话框（EscMenu 边框九宫格） -->
+              @if (activeTopMenu(); as mn) {
+                <div class="w3-dialog" style="--nine: url(/assets/wc3/native-ui/common/esc-nightelf-9.png)">
+                  @if (mn === 'quests') {
+                    <div class="hd">地图信息</div>
+                    <div class="tx">DotA Allstars v6.83d · 录像回放
+
+近卫军团（左下）迎战天灾军团（右上），摧毁敌方遗迹即获胜。
+自动出兵：每 30 秒三路兵营刷新小兵，每第 7 波附带攻城车。
+防御塔：主动攻击 700 码内的敌方小兵与英雄。
+野怪与神符：12 处野怪营地每整分钟刷新；河道神符每 2 分钟刷新。
+播放、倍速、跳转与镜头：在 菜单 (F10) 里打开录像工具栏。</div>
+                  } @else if (mn === 'menu') {
+                    <div class="hd">游戏菜单</div>
+                    <button type="button" class="w3-dbtn" (click)="togglePlay(); activeTopMenu.set(null)">{{ isPlaying() ? '暂停录像' : '继续播放' }}</button>
+                    <button type="button" class="w3-dbtn" (click)="showHealthBars.set(!showHealthBars())">显示生命条：{{ showHealthBars() ? '开' : '关' }}</button>
+                    <button type="button" class="w3-dbtn" (click)="toggleFog()">战争迷雾：{{ fogOn() ? '开' : '关' }}</button>
+                    <button type="button" class="w3-dbtn" (click)="resetCamera(); activeTopMenu.set(null)">复位镜头</button>
+                    <button type="button" class="w3-dbtn" (click)="setToolbarCollapsed(!toolbarCollapsed()); activeTopMenu.set(null)">录像工具栏：{{ toolbarCollapsed() ? '关' : '开' }}</button>
+                    <button type="button" class="w3-dbtn" (click)="reload(); activeTopMenu.set(null)">重新加载场景</button>
+                  } @else if (mn === 'allies') {
+                    <div class="hd">盟友</div>
+                    <div class="ally"><img [src]="heroIcon()" alt="" /><span>{{ player() || 'wuxiancong' }}</span><span>{{ heroNameCn() }} · 等级 {{ heroLevel() }}</span><span class="g">{{ gold() }}</span></div>
                   } @else {
-                    <span
-                      style="position:absolute;transform:translate(-50%,-50%);border:0.5px solid rgba(0,0,0,0.85);pointer-events:none;z-index:2"
-                      [style.left.%]="b.px"
-                      [style.top.%]="b.py"
-                      [style.width.px]="b.size"
-                      [style.height.px]="b.size"
-                      [style.background]="mmAllyColorMode() ? b.color : (b.color === '#10b981' ? '#38bdf8' : '#a855f7')"
-                    ></span>
+                    <div class="hd">消息记录</div>
+                    <div class="tx log">{{ logText() }}</div>
                   }
-                }
-
-                <!-- 实时兵线小兵与存活野怪点（还原魔兽原生锐利像素小方块） -->
-                @for (u of minimapSimUnits(); track $index) {
-                  <span
-                    style="position:absolute;width:3px;height:3px;transform:translate(-50%,-50%);pointer-events:none;z-index:3;box-shadow:0 0 1px #000"
-                    [style.left.%]="u.px"
-                    [style.top.%]="u.py"
-                    [style.background]="mmAllyColorMode() ? u.color : (u.team === 0 ? '#60a5fa' : u.team === 1 ? '#f43f5e' : '#fbbf24')"
-                  ></span>
-                }
-
-                <!-- 上下河道神符高亮标记 -->
-                @for (r of minimapRunes(); track r.id) {
-                  <img
-                    src="/assets/wc3/ui/mm-icon-rune.png"
-                    alt=""
-                    style="position:absolute;width:10px;height:10px;transform:translate(-50%,-50%);pointer-events:none;z-index:4;filter:drop-shadow(0 0 3px #38bdf8)"
-                    [style.left.%]="r.px"
-                    [style.top.%]="r.py"
-                    [title]="r.name"
-                  />
-                }
-
-                <!-- 英雄当前位置（魔兽原生英雄小地图图标 + 高亮光环） -->
-                <img
-                  src="/assets/wc3/ui/mm-icon-hero.png"
-                  alt=""
-                  style="position:absolute;width:14px;height:14px;transform:translate(-50%,-50%);pointer-events:none;z-index:6;filter:drop-shadow(0 0 4px #ffe14a)"
-                  [style.left.%]="minimapHeroPct().x"
-                  [style.top.%]="minimapHeroPct().y"
-                />
-
-                <!-- 小地图信号波纹动画 -->
-                @if (minimapPing()) {
-                  <img
-                    src="/assets/wc3/ui/mm-icon-ping.png"
-                    alt=""
-                    class="animate-ping"
-                    style="position:absolute;width:22px;height:22px;transform:translate(-50%,-50%);pointer-events:none;z-index:8"
-                    [style.left.%]="minimapPing()!.x"
-                    [style.top.%]="minimapPing()!.y"
-                  />
-                }
-
-                <!-- 当前镜头视野框 -->
-                <span class="wc3-cam"
-                      [style.left.%]="minimapCamPct().x"
-                      [style.top.%]="minimapCamPct().y"></span>
-              </button>
-
-              <button type="button"
-                      class="wc3-mm-sidebtn"
-                      [class.active-btn]="mmPingMode()"
-                      style="top:15.8%"
-                      (click)="triggerMinimapPing()"
-                      title="发送小地图信号 (Alt+G)">
-                <img src="/assets/wc3/ui/minimap-btn-ping.png" alt="发信号" />
-              </button>
-              <button type="button"
-                      class="wc3-mm-sidebtn"
-                      [class.active-btn]="mmShowTerrain()"
-                      style="top:28.9%"
-                      (click)="mmShowTerrain.set(!mmShowTerrain())"
-                      title="切换显示小地图地形 (Alt+T)">
-                <img src="/assets/wc3/ui/minimap-btn-terrain.png" alt="显示地形" />
-              </button>
-              <button type="button"
-                      class="wc3-mm-sidebtn"
-                      [class.active-btn]="mmAllyColorMode()"
-                      style="top:41.8%"
-                      (click)="mmAllyColorMode.set(!mmAllyColorMode())"
-                      title="切换盟友颜色模式 (Alt+A)">
-                <img src="/assets/wc3/ui/minimap-btn-ally.png" alt="盟友颜色" />
-              </button>
-              <button type="button"
-                      class="wc3-mm-sidebtn"
-                      [class.active-btn]="mmShowCamps()"
-                      style="top:55.8%; background:#19130c"
-                      (click)="mmShowCamps.set(!mmShowCamps())"
-                      title="显示/隐藏中立野怪营地标记 (Alt+C)">
-                <img src="/assets/wc3/ui/mm-icon-camp.png" alt="野怪营地" style="padding:2px" />
-              </button>
-              <button type="button"
-                      class="wc3-mm-sidebtn"
-                      [class.active-btn]="formationOn()"
-                      style="top:74.8%; height:12.2%"
-                      (click)="formationOn.set(!formationOn())"
-                      [title]="formationOn() ? '队形移动：已开启 (Alt+F)' : '队形移动：已关闭 (Alt+F)'">
-                <img [src]="formationOn() ? '/assets/wc3/ui/minimap-btn-formation-on.png' : '/assets/wc3/ui/minimap-btn-formation-off.png'"
-                     alt="队形开关" />
-              </button>
-
-              <!-- 2. 3D 动态英雄肖像（实时播放 Portrait / Portrait Talk 呼吸对白动作）与等级角标 -->
-              <div class="wc3-abs wc3-port"
-                   [style.left.%]="cf.port.l" [style.top.%]="cf.port.t"
-                   [style.width.%]="cf.port.w" [style.height.%]="cf.port.h"
-                   (click)="setCameraMode('hero')"
-                   title="点击聚焦英雄（3D 实时动态英雄对白肖像）">
-                <img class="absolute inset-0 w-full h-full object-cover opacity-35"
-                     [src]="heroIcon()"
-                     alt="portrait-fallback"
-                     draggable="false" />
-                <canvas #portraitCanvas width="140" height="150"
-                        class="relative z-[1] w-full h-full block"></canvas>
-                <span class="absolute bottom-1 right-1 z-[2] px-1.5 py-0.2 rounded bg-black/85 border border-amber-400/75 text-[10px] font-black text-amber-300">
-                  Lv.{{ heroLevel() }}
-                </span>
-              </div>
-
-              <!-- 3. 原生贴图生命值与魔法值条 -->
-              <div class="wc3-abs wc3-bar wc3-hp"
-                   [style.left.%]="cf.hp.l" [style.top.%]="cf.hp.t"
-                   [style.width.%]="cf.hp.w" [style.height.%]="cf.hp.h">
-                <i [style.width.%]="heroHpPct()"></i>
-                <span>{{ heroHp() }} / {{ heroHpMax() }}</span>
-              </div>
-              <div class="wc3-abs wc3-bar wc3-mp"
-                   [style.left.%]="cf.mp.l" [style.top.%]="cf.mp.t"
-                   [style.width.%]="cf.mp.w" [style.height.%]="cf.mp.h">
-                <i [style.width.%]="heroMpPct()"></i>
-                <span>{{ heroMp() }} / {{ heroMpMax() }}</span>
-              </div>
-
-              <!-- 4. 中央英雄属性面板（力量/敏捷/智力往右微调） -->
-              <div class="wc3-abs wc3-info"
-                   [style.left.%]="cf.info.l" [style.top.%]="cf.info.t"
-                   [style.width.%]="cf.info.w" [style.height.%]="cf.info.h">
-                <div>
-                  <div class="name">{{ heroNameCn() }}</div>
-                  <!-- 原生贴图经验条（仅显示等级文案；进度来自录像真实经验，无数据时为 0） -->
-                  <div class="wc3-xp-bar" [title]="'等级 ' + heroLevel()">
-                    <i [style.width.%]="xpPercent()"></i>
-                  </div>
-                  <div class="sub" style="margin-top:2px">等级 {{ heroLevel() }} · {{ heroTitle() }}</div>
+                  <button type="button" class="w3-dbtn ret" (click)="activeTopMenu.set(null)">返回录像</button>
                 </div>
-
-                <div class="grid grid-cols-2 gap-x-4 gap-y-1 my-auto pt-1">
-                  <!-- 攻击与护甲 -->
-                  <div class="space-y-1">
-                    <div class="flex items-center gap-1.5">
-                      <img class="w-5 h-5 shrink-0" src="/assets/wc3/ui/icons/infocard-attack-melee.png" alt="攻击" />
-                      <div class="leading-tight">
-                        <div class="text-[10px] text-amber-200/75">攻击</div>
-                        <div class="font-bold text-white">
-                          {{ heroAtk() }}
-                          @if (heroAtkBonus() > 0) {
-                            <span class="text-emerald-400">+{{ heroAtkBonus() }}</span>
-                          }
-                        </div>
-                      </div>
-                    </div>
-                    <div class="flex items-center gap-1.5">
-                      <img class="w-5 h-5 shrink-0" src="/assets/wc3/ui/icons/infocard-armor-hero.png" alt="护甲" />
-                      <div class="leading-tight">
-                        <div class="text-[10px] text-amber-200/75">护甲 · 移速 {{ heroMoveSpeed() }}</div>
-                        <div class="font-bold text-white">
-                          {{ heroArmor() }}
-                          @if (heroArmorBonus() > 0) {
-                            <span class="text-emerald-400">+{{ heroArmorBonus() }}</span>
-                          }
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="space-y-0.5 pl-5 ml-2">
-                    <div class="flex items-center gap-1.5">
-                      <img class="w-4 h-4 shrink-0" src="/assets/wc3/ui/icons/infocard-str.png" alt="力量" />
-                      <span class="text-amber-200/80 text-[10px] w-7">力量</span>
-                      <span class="font-bold text-white">{{ heroStr() }}</span>
-                      @if (heroStrBonus() > 0) {
-                        <span class="text-emerald-400 font-bold">+{{ heroStrBonus() }}</span>
-                      }
-                    </div>
-                    <div class="flex items-center gap-1.5">
-                      <img class="w-4 h-4 shrink-0" src="/assets/wc3/ui/icons/infocard-agi.png" alt="敏捷" />
-                      <span class="text-amber-200/80 text-[10px] w-7">敏捷</span>
-                      <span class="font-bold text-white">{{ heroAgi() }}</span>
-                      @if (heroAgiBonus() > 0) {
-                        <span class="text-emerald-400 font-bold">+{{ heroAgiBonus() }}</span>
-                      }
-                    </div>
-                    <div class="flex items-center gap-1.5">
-                      <img class="w-4 h-4 shrink-0" src="/assets/wc3/ui/icons/infocard-int.png" alt="智力" />
-                      <span class="text-amber-200/80 text-[10px] w-7">智力</span>
-                      <span class="font-bold text-white">{{ heroInt() }}</span>
-                      @if (heroIntBonus() > 0) {
-                        <span class="text-emerald-400 font-bold">+{{ heroIntBonus() }}</span>
-                      }
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- 5. 6格物品栏（实时同步 PUI/DRI、合成与臂章开关状态） -->
-              <div class="wc3-abs"
-                   [style.left.%]="cf.inv.l" [style.top.%]="cf.inv.t"
-                   [style.width.%]="cf.inv.w" [style.height.%]="cf.inv.h">
-                <div class="wc3-grid wc3-grid-inv">
-                  @for (it of itemSlots(); track it.slot) {
-                    <div class="wc3-slot"
-                         [class.has-item]="!!it.icon"
-                         [class.active-toggle]="!!it.activeToggle"
-                         [title]="it.code ? it.name + ' (' + it.hotkey + ')' : '物品栏(' + it.hotkey + ')'">
-                      @if (it.icon) {
-                        <img class="ico" [src]="it.icon" [alt]="it.name" draggable="false" />
-                        <span class="hk">{{ it.hotkey }}</span>
-                        @if (it.charges > 1) {
-                          <span class="lv">{{ it.charges }}</span>
-                        }
-                      }
-                    </div>
-                  }
-                </div>
-              </div>
-
-              <!-- 6. 12格命令与英雄技能面板 -->
-              <div class="wc3-abs"
-                   [style.left.%]="cf.cmd.l" [style.top.%]="cf.cmd.t"
-                   [style.width.%]="cf.cmd.w" [style.height.%]="cf.cmd.h">
-                <div class="wc3-grid wc3-grid-cmd">
-                  @for (sk of commandSlots(); track sk.id) {
-                    <button type="button"
-                            class="wc3-slot"
-                            [class.has-cmd]="!!sk.icon"
-                            [class.unlearned]="!!sk.unlearned"
-                            [class.active-cmd]="!!sk.active"
-                            [title]="sk.name ? sk.name + (sk.hotkey ? ' [' + sk.hotkey + ']' : '') : ''"
-                            (click)="onCommandSlotClick(sk)">
-                      @if (sk.icon) {
-                        <img class="ico" [src]="sk.icon" [alt]="sk.name" draggable="false" />
-                      }
-                      @if (sk.hotkey) {
-                        <span class="hk">{{ sk.hotkey }}</span>
-                      }
-                      @if (sk.level > 0) {
-                        <span class="lv">Lv.{{ sk.level }}</span>
-                      }
-                    </button>
-                  }
-                </div>
-              </div>
+              }
             </div>
           </div>
         </div>
 
         @if (showDebug()) {
           <aside class="w-full lg:w-72 border-t lg:border-t-0 lg:border-l border-white/10 bg-[#0b1118] p-3 space-y-3 overflow-y-auto max-h-[85vh]">
+            <section class="space-y-1.5">
+              <h2 class="text-xs font-black uppercase tracking-widest text-accent">英雄模型</h2>
+              <select class="w-full px-2 py-1.5 rounded bg-[#0c1018] border border-white/15 text-[11px] text-[#f0e0b0] disabled:opacity-45 disabled:cursor-not-allowed"
+                      [disabled]="!debugMode()" [value]="heroPresetLocked() ? currentHeroKey() : ''"
+                      (change)="onDebugHeroSelect($any($event.target).value)"
+                      [title]="debugMode() ? '调试：临时换成其它英雄模型' : '地址加 ?debug 后才能切换'">
+                <option value="">跟随录像：{{ replayHeroLabel() }}</option>
+                @for (h of heroRoster; track h.key) {
+                  <option [value]="h.key">{{ h.index }}. {{ h.nameZh }}</option>
+                }
+              </select>
+              @if (!debugMode()) {
+                <p class="text-[10px] text-[var(--text-muted)]">调试模式（地址加 <code>?debug</code>）才能切换，默认使用当前录像的英雄。</p>
+              }
+            </section>
             <section class="space-y-1.5">
               <h2 class="text-xs font-black uppercase tracking-widest text-accent">录像事件流 ({{ recentEvents().length }})</h2>
               <div class="space-y-1 max-h-56 overflow-y-auto pr-1 text-[11px]">
@@ -1468,10 +732,50 @@ export class Replay3dComponent implements OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly glCanvas = viewChild<ElementRef<HTMLCanvasElement>>('glCanvas');
   private readonly viewLayer = viewChild<ElementRef<HTMLDivElement>>('viewLayer');
+  private readonly overlayRef = viewChild<ElementRef<HTMLCanvasElement>>('overlay');
+  private readonly minimapRef = viewChild<ElementRef<HTMLCanvasElement>>('minimap');
   // 获取底部控制台 3D 动态英雄肖像画布引用
   private readonly portraitCanvas = viewChild<ElementRef<HTMLCanvasElement>>('portraitCanvas');
 
-  readonly cf = CF;
+  /** 各帧矩形与顶部菜单按钮：与在线对战页共用（game/w3-hud.ts） */
+  readonly L = W3_LAYOUT;
+  readonly upperButtons: { id: 'quests' | 'menu' | 'allies' | 'chat'; text: string; key: string; style: string }[] = [
+    { id: 'quests', text: '地图信息', key: 'F9', style: U(0.002, 0, 0.085, 0.022) },
+    { id: 'menu', text: '菜单', key: 'F10', style: U(0.087, 0, 0.085, 0.022) },
+    { id: 'allies', text: '盟友', key: 'F11', style: U(0.172, 0, 0.085, 0.022) },
+    { id: 'chat', text: '聊天', key: 'F12', style: U(0.257, 0, 0.085, 0.022) },
+  ];
+  readonly dmgIcon = `${NUI}/NightElf/info-dmg-hero.png`;
+  readonly armorIcon = `${NUI}/NightElf/info-armor-hero.png`;
+  readonly showScore = signal(false);
+  readonly tip = signal<{ title: string; body: string } | null>(null);
+  skin(file: string): string {
+    return `url(${NUI}/NightElf/${file})`;
+  }
+  showNativeTip(title: string, body: string): void {
+    this.tip.set({ title, body });
+  }
+  hideTip(): void {
+    this.tip.set(null);
+  }
+  cmdTipTitle(sk: CommandCardSlot): string {
+    return sk.name + (sk.hotkey ? ` [${sk.hotkey}]` : '');
+  }
+  cmdTipBody(sk: CommandCardSlot): string {
+    if (sk.unlearned) return '尚未学习。';
+    return sk.level > 0 && sk.maxLevel ? `等级 ${sk.level} / ${sk.maxLevel}` : '';
+  }
+  logText(): string {
+    const evs = this.recentEvents();
+    return evs.length ? evs.map((e) => `[${e.timeText}] ${e.text}`).join('\n') : '暂无记录';
+  }
+  onMmButton(id: string): void {
+    if (id === 'signal') this.triggerMinimapPing();
+    else if (id === 'terrain') this.mmShowTerrain.set(!this.mmShowTerrain());
+    else if (id === 'ally') this.mmAllyColorMode.set(!this.mmAllyColorMode());
+    else if (id === 'creep') this.mmShowCamps.set(!this.mmShowCamps());
+    else if (id === 'formation') this.formationOn.set(!this.formationOn());
+  }
 
   readonly loading = signal(true);
   readonly error = signal('');
@@ -1490,6 +794,8 @@ export class Replay3dComponent implements OnDestroy {
   readonly simUnits = signal(0);
   readonly simOn = signal(true);
   readonly showDebug = signal(false);
+  /** 调试模式：地址带 ?debug 时才允许在事件流面板里换英雄模型 */
+  readonly debugMode = signal(false);
 
   // 录像播放控制、顶部菜单弹窗、小地图侧边五按钮与实时英雄状态信息
   readonly matchList = signal<ReplayMatchSummary[]>([]);
@@ -1509,48 +815,25 @@ export class Replay3dComponent implements OnDestroy {
   readonly mmAllyColorMode = signal(true);
   readonly mmShowCamps = signal(true);
   readonly formationOn = signal(true);
-  readonly minimapPing = signal<{ x: number; y: number } | null>(null);
+  /** 小地图信号（世界坐标 + 发出时刻），画法与对战页共用 */
+  private pings: { x: number; y: number; t: number }[] = [];
+  /** 战争迷雾：以录像玩家（近卫）的视野为准；只影响显示 */
+  readonly fogOn = signal(true);
+  private readonly fog = new VisionGrid();
+  private fogAt = 0;
+  private minimapImg?: HTMLImageElement;
+  private minimapDrawnAt = 0;
 
-  readonly minimapCamps: { id: string; name: string; px: number; py: number; filter: string }[] = [
-    { id: 'rad_small', name: '近卫小野怪', x: 2960, y: -5008, tier: 'small' },
-    { id: 'rad_med_1', name: '近卫中野点(东)', x: 1584, y: -3984, tier: 'medium' },
-    { id: 'rad_med_2', name: '近卫中野点(南)', x: -1056, y: -4592, tier: 'medium' },
-    { id: 'rad_large_1', name: '近卫大野点(东)', x: 3072, y: -3712, tier: 'large' },
-    { id: 'rad_large_2', name: '近卫大野点(西)', x: -416, y: -3584, tier: 'large' },
-    { id: 'rad_ancient', name: '近卫远古怪', x: -3216, y: -256, tier: 'ancient' },
-    { id: 'dire_small', name: '天灾小野怪', x: -3088, y: 4256, tier: 'small' },
-    { id: 'dire_med_1', name: '天灾中野点(西)', x: -1648, y: 2352, tier: 'medium' },
-    { id: 'dire_med_2', name: '天灾中野点(北)', x: -288, y: 3456, tier: 'medium' },
-    { id: 'dire_large_1', name: '天灾大野点(西)', x: -4512, y: 3408, tier: 'large' },
-    { id: 'dire_large_2', name: '天灾大野点(东)', x: 1232, y: 3040, tier: 'large' },
-    { id: 'dire_ancient', name: '天灾远古怪', x: 4640, y: -976, tier: 'ancient' },
-    { id: 'roshan', name: '肉山巢穴 (Roshan)', x: 4176, y: -2288, tier: 'roshan' },
-  ].map((c) => {
-    const p = worldToMapPixel(c.x, c.y, DOTA_MAP_BOUNDS, 100, 100);
-    const filter =
-      c.tier === 'small'
-        ? 'hue-rotate(85deg) saturate(1.8) brightness(1.15)'
-        : c.tier === 'ancient' || c.tier === 'roshan'
-          ? 'hue-rotate(-25deg) saturate(2.2) brightness(1.1)'
-          : 'saturate(1.6) brightness(1.1)';
-    return { id: c.id, name: c.name, px: p.px, py: p.py, filter };
-  });
-
-  readonly minimapCamPct = signal({ x: 15, y: 85 });
-  readonly minimapHeroPct = signal({ x: 15, y: 85 });
-  readonly minimapBuildings = signal<{ id: string; px: number; py: number; size: number; color: string; isShop?: boolean }[]>([]);
-  readonly minimapSimUnits = signal<{ px: number; py: number; color: string; team: 0 | 1 | -1 }[]>([]);
-  // 小地图河道神符实时状态信息
-  readonly minimapRunes = signal<{ id: string; px: number; py: number; name: string; color: string }[]>([]);
+  /** 小地图上的建筑（塔 / 兵营 / 遗迹 / 泉水），与对战页一样画成带黑边的方块 */
+  readonly minimapBuildings = signal<{ x: number; y: number; team: 0 | 1; kind: 'tower' | 'rax' | 'ancient' }[]>([]);
   // 头顶血条开关、投影血条与飘金跳字信号
   readonly showHealthBars = signal(true);
-  readonly overheadHpBars = signal<{ id: string; sx: number; sy: number; hpPct: number; color: string; isHero?: boolean; isTower?: boolean; name?: string }[]>([]);
-  readonly activeFloatingTexts = signal<{ id: number; sx: number; sy: number; text: string; color: string; opacity: number }[]>([]);
   /** 英雄下拉（ZH_HERO_NAMES 顺序） */
   readonly heroRoster = DOTA_HERO_ROSTER;
   /** 当前选中英雄 key（unit code 小写）；手动选择后锁定不被录像覆盖 */
   readonly currentHeroKey = signal('emns');
-  readonly heroPresetLocked = signal(true);
+  /** true = 调试中手动换了模型；默认 false，始终使用当前录像的英雄 */
+  readonly heroPresetLocked = signal(false);
 
   readonly heroNameCn = signal('芙莉莲');
   readonly heroTitle = signal('先知 · 远程智力');
@@ -1619,6 +902,32 @@ export class Replay3dComponent implements OnDestroy {
     { id: 'sk4', hotkey: 'E', name: '无敌斩', level: 0, icon: '/assets/dota/abilityIcons/A0M1.png', unlearned: true },
   ]);
 
+
+  /** 以下派生量依赖上面的信号，须在其之后声明 */
+  readonly mmButtons = computed(() => {
+    const img = (f: string) => `url(${NUI}/NightElf/${f}.png)`;
+    return [
+      { id: 'signal', style: B(310, 66, 44, 40), img: img(this.mmPingMode() ? 'mm-signal-down' : 'mm-signal'), title: '小地图信号 (Alt+G)', tip: '点击后在小地图上点选位置发出信号。' },
+      { id: 'terrain', style: B(310, 110, 44, 40), img: img(this.mmShowTerrain() ? 'mm-terrain-on' : 'mm-terrain-off'), title: '切换地形显示 (Alt+T)', tip: '在小地图上显示或隐藏地形。' },
+      { id: 'ally', style: B(310, 154, 44, 40), img: img(this.mmAllyColorMode() ? 'mm-ally-on' : 'mm-ally-off'), title: '切换盟友颜色 (Alt+A)', tip: '在「玩家颜色」与「敌我颜色」之间切换小地图标记。' },
+      { id: 'creep', style: B(310, 198, 44, 40), img: img(this.mmShowCamps() ? 'mm-creep-on' : 'mm-creep-off'), title: '显示中立生物营地 (Alt+R)', tip: '在小地图上显示或隐藏野怪营地。' },
+      { id: 'formation', style: B(309, 248, 46, 46), img: img(this.formationOn() ? 'mm-formation-on' : 'mm-formation-off'), title: '切换队形移动 (Alt+F)', tip: '录像回放中此开关仅保留外观。' },
+    ];
+  });
+  readonly attrIcon = computed(() => `${NUI}/NightElf/info-hero-${getHeroByKey(this.currentHeroKey())?.primary || 'str'}.png`);
+  readonly hpColor = computed(() => {
+    const p = this.heroHp() / Math.max(1, this.heroHpMax());
+    return p > 0.66 ? '#20ff20' : p > 0.33 ? '#ffff20' : '#ff3030';
+  });
+  /** 天空盘随游戏时间滚动：DotA 一昼夜 8 分钟，开局为清晨 6 点 */
+  /** 游戏内时刻：按号角（出兵）后的时间算，号角前停在 6:00 */
+  readonly hours = computed(() => {
+    const horn = this.timeline?.gameHornMs || 0;
+    return timeOfDay(horn > 0 ? (this.currentMs() - horn) / 1000 : 0);
+  });
+  readonly skyPos = computed(() => skyPosition(this.hours()));
+  readonly night = computed(() => nightAmount(this.hours()));
+
   private timeline?: ReplayTimelineEngine;
   private lastTickTime = 0;
   private currentHeroModelUrl = '/assets/wc3/Units/NightElf/MalFurion/MalFurionNoStag.mdxbin';
@@ -1628,7 +937,6 @@ export class Replay3dComponent implements OnDestroy {
   private mdx?: Wc3MdxViewer;
   private seqPoll = 0;
   private disposed = false;
-  private readonly minimapSize = 176;
 
   constructor() {
     afterNextRender(() => {
@@ -1707,18 +1015,15 @@ export class Replay3dComponent implements OnDestroy {
   triggerMinimapPing(): void {
     const nextMode = !this.mmPingMode();
     this.mmPingMode.set(nextMode);
-    const pos = this.minimapHeroPct();
-    this.minimapPing.set({ x: pos.x, y: pos.y });
-    setTimeout(() => {
-      this.minimapPing.set(null);
-      this.mmPingMode.set(false);
-    }, 2400);
+    const pos = this.heroPos();
+    this.pings.push({ x: pos.x, y: pos.y, t: performance.now() });
+    setTimeout(() => this.mmPingMode.set(false), 2400);
   }
 
   readonly jumpTargetKey = signal('');
   /** 工具条自定义下拉（对齐语言选择：dropdown-blur + custom-scrollbar） */
   readonly toolbarMenu = signal<'match' | 'speed' | 'jump' | 'camera' | 'hero' | null>(null);
-  readonly toolbarCollapsed = signal(false);
+  readonly toolbarCollapsed = signal(true);
 
   setToolbarCollapsed(collapsed: boolean): void {
     this.toolbarCollapsed.set(collapsed);
@@ -1940,7 +1245,32 @@ export class Replay3dComponent implements OnDestroy {
     lich: 'ulic',
   };
 
+  /** 事件流面板里的英雄下拉：空值 = 跟随录像英雄 */
+  onDebugHeroSelect(value: string): void {
+    if (!this.debugMode()) return;
+    if (value) this.onSelectHeroPreset(value);
+    else this.followReplayHero();
+  }
+
+  /** 当前录像英雄的名字（下拉第一项） */
+  replayHeroLabel(): string {
+    const code = this.timeline?.sampleAt(this.currentMs()).heroCode || '';
+    const h = code ? getHeroByCode(code) : undefined;
+    return h ? `${h.index}. ${h.nameZh}` : '加载中…';
+  }
+
+  /** 解除调试锁定，模型回到当前录像的英雄 */
+  private followReplayHero(): void {
+    this.heroPresetLocked.set(false);
+    const code = this.timeline?.sampleAt(this.currentMs()).heroCode || '';
+    const h = code ? getHeroByCode(code) : undefined;
+    if (h) this.applyHeroRosterEntry(h, false);
+    this.applyReplayFrame(this.currentMs());
+  }
+
   onSelectHeroPreset(rawKey: string): void {
+    // 只有调试模式才允许用别的英雄模型，正常播放始终是录像里的英雄
+    if (!this.debugMode()) return;
     const key = this.legacyHeroKeys[rawKey] || rawKey;
     const hero = getHeroByKey(key);
     if (!hero) {
@@ -1989,81 +1319,134 @@ export class Replay3dComponent implements OnDestroy {
     const rect = el.getBoundingClientRect();
     const px = Math.max(0, Math.min(rect.width, ev.clientX - rect.left));
     const py = Math.max(0, Math.min(rect.height, ev.clientY - rect.top));
+    const { x, y } = mapPixelToWorld(px, py, DOTA_MAP_BOUNDS, rect.width, rect.height);
     if (this.mmPingMode() || ev.altKey) {
-      this.minimapPing.set({
-        x: (px / Math.max(1, rect.width)) * 100,
-        y: (py / Math.max(1, rect.height)) * 100,
-      });
-      setTimeout(() => {
-        this.minimapPing.set(null);
-        this.mmPingMode.set(false);
-      }, 2400);
+      this.pings.push({ x, y, t: performance.now() });
+      this.mmPingMode.set(false);
       return;
     }
-    const bounds = this.mdx.getMapBounds?.() || DOTA_MAP_BOUNDS;
-    const { x, y } = mapPixelToWorld(px, py, bounds, rect.width, rect.height);
     this.mdx.panCameraTo(x, y);
     this.cameraMode.set('free');
     this.updateMinimapMarker();
   }
 
-  private updateMinimapMarker(): void {
-    if (!this.mdx) return;
-    const focus = this.mdx.getCameraFocus();
-    const bounds = this.mdx.getMapBounds?.() || DOTA_MAP_BOUNDS;
-    const { px, py } = worldToMapPixel(
-      focus.x,
-      focus.y,
-      bounds,
-      this.minimapSize,
-      this.minimapSize
-    );
-    this.minimapCamPct.set({
-      x: Math.max(0, Math.min(100, (px / this.minimapSize) * 100)),
-      y: Math.max(0, Math.min(100, (py / this.minimapSize) * 100)),
-    });
+  toggleFog(): void {
+    this.fogOn.set(!this.fogOn());
+    this.fogAt = 0;
+    if (!this.fogOn()) this.mdx?.setSimUnitsHidden(() => false);
+  }
 
+  /** 敌方 / 中立单位在录像玩家视野外即处于迷雾中 */
+  private fogged(x: number, y: number, team: number): boolean {
+    return this.fogOn() && team !== 0 && !this.fog.visible(x, y);
+  }
+
+  /** 每 150ms 按近卫一方的视野（英雄、小兵、建筑；白天/夜晚）重算迷雾，并隐藏迷雾里的敌方模型 */
+  private updateFog(): void {
+    const mdx = this.mdx;
+    const now = performance.now();
+    if (!mdx || !this.fogOn() || now < this.fogAt) return;
+    this.fogAt = now + 150;
+    const night = this.night() > 0.5;
+    if (!this.fog.hasOccluders) this.fog.setOccluders(mdx.getVisionOccluders());
     const hp = this.heroPos();
-    const hPx = worldToMapPixel(hp.x, hp.y, bounds, this.minimapSize, this.minimapSize);
-    this.minimapHeroPct.set({
-      x: Math.max(0, Math.min(100, (hPx.px / this.minimapSize) * 100)),
-      y: Math.max(0, Math.min(100, (hPx.py / this.minimapSize) * 100)),
-    });
+    const src: VisionSource[] = [{ x: hp.x, y: hp.y, r: night ? 800 : 1800 }];
+    for (const u of mdx.getSimUnits()) if (u.team === 0) src.push({ x: u.x, y: u.y, r: night ? 800 : 1400 });
+    for (const b of this.minimapBuildings()) {
+      if (b.team !== 0) continue;
+      src.push({ x: b.x, y: b.y, r: b.kind === 'tower' ? (night ? 800 : 1800) : 900 });
+    }
+    this.fog.update(src);
+    mdx.setSimUnitsHidden((x, y, team) => this.fogged(x, y, team));
+  }
 
-    const units = this.mdx.getSimUnits();
-    this.minimapSimUnits.set(
-      units.map((u) => {
-        const up = worldToMapPixel(u.x, u.y, bounds, 100, 100);
-        return {
-          px: Math.max(0, Math.min(100, up.px)),
-          py: Math.max(0, Math.min(100, up.py)),
-          color: u.team === 0 ? '#22c55e' : u.team === 1 ? '#ef4444' : '#fbbf24',
-          team: u.team,
-        };
-      })
-    );
-    // 同步渲染上下河道神符在小地图上的实时位置与颜色
-    const runes = this.mdx.getSimRunes?.() || [];
-    const runeColors: Record<string, string> = {
-      bounty: '#fbbf24',
-      dd: '#38bdf8',
-      haste: '#f43f5e',
-      illusion: '#fde047',
-      invis: '#a855f7',
-      regen: '#22c55e',
+  /** 小地图：与对战页同一套画法（overlay-draw.ts drawMinimap），数据来自录像与场景模拟 */
+  private updateMinimapMarker(): void {
+    const c = this.minimapRef()?.nativeElement;
+    const mdx = this.mdx;
+    if (!c || !mdx) return;
+    const ctx = c.getContext('2d');
+    if (!ctx) return;
+    const S = c.width;
+    const myTeam = 0;
+    const units: MinimapScene['units'] = this.minimapBuildings().map((b) => ({
+      x: b.x,
+      y: b.y,
+      color: b.team === myTeam ? '#22c55e' : '#ef4444',
+      kind: b.kind,
+    }));
+    for (const u of mdx.getSimUnits()) {
+      if (u.kind === 'neutral' && !this.mmShowCamps()) continue;
+      if (this.fogged(u.x, u.y, u.team)) continue;
+      units.push({ x: u.x, y: u.y, color: u.team === -1 ? '#eab308' : u.team === myTeam ? '#22c55e' : '#ef4444', kind: 'small' });
+    }
+    const now = performance.now();
+    this.pings = this.pings.filter((p) => now - p.t < 3000);
+    const hp = this.heroPos();
+    drawMinimap(ctx, S, {
+      toPx: (x, y) => worldToMapPixel(x, y, DOTA_MAP_BOUNDS, S, S),
+      terrain: this.minimapImg,
+      showTerrain: this.mmShowTerrain(),
+      units,
+      runes: (mdx.getSimRunes?.() || []).filter((r) => !this.fogged(r.x, r.y, -1)),
+      heroes: [{ x: hp.x, y: hp.y, fill: this.mmAllyColorMode() ? '#ffffff' : PLAYER_COLORS[0], me: true }],
+      cam: mdx.getCameraFocus(),
+      pings: this.pings,
+      fog: this.fogOn() ? (c) => this.fog.drawMinimap(c, S, (x, y) => worldToMapPixel(x, y, DOTA_MAP_BOUNDS, S, S)) : undefined,
+    });
+  }
+
+  /** 头顶血条 / 英雄选择圈 / 跳字：与对战页同一套画法（overlay-draw.ts） */
+  private drawReplayOverlay(): void {
+    const c = this.overlayRef()?.nativeElement;
+    const mdx = this.mdx;
+    if (!c || !mdx) return;
+    const ctx = c.getContext('2d');
+    if (!ctx) return;
+    const { W, H } = prepareOverlay(c, ctx);
+    const project = (x: number, y: number, z: number) => {
+      const p = mdx.projectWorldToScreen(x, y, z);
+      return p ? { x: (p.sx / 100) * W, y: (p.sy / 100) * H } : null;
     };
-    this.minimapRunes.set(
-      runes.map((r) => {
-        const rp = worldToMapPixel(r.x, r.y, bounds, 100, 100);
-        return {
-          id: r.spotId,
-          px: Math.max(0, Math.min(100, rp.px)),
-          py: Math.max(0, Math.min(100, rp.py)),
-          name: `${r.spotName}·${r.nameCn}`,
-          color: runeColors[r.kind] || '#38bdf8',
-        };
-      })
-    );
+    const H0 = (x: number, y: number) => mdx.sampleHeight(x, y);
+    const myTeam = 0;
+    // 场景模拟里的英雄坐标会滞后于模型，英雄一律用录像当前位置（模型也按它摆放）
+    const hp = this.heroPos();
+    const ents = mdx.getSimHealthEntities().map((e) => (e.kind === 'hero' ? { ...e, x: hp.x, y: hp.y } : e));
+    // 战争迷雾的压暗在 WebGL 里画（平滑、全图），这里只推进浓度渐变
+    if (this.fogOn()) {
+      this.fog.fade();
+      mdx.setFogDensity(this.fog.density, FOG_ALPHA);
+    } else {
+      mdx.setFogDensity(null);
+    }
+    // 录像里选中的始终是该玩家的英雄：脚下画与对战页相同的绿色选择圈
+    drawGroundCircle(ctx, project, hp.x, hp.y, H0(hp.x, hp.y) + 6, 40, TEAM_HP[0], 2.5);
+    if (this.showHealthBars()) {
+      for (const e of ents) {
+        const isB = e.kind === 'tower';
+        if (isB && e.hp >= e.maxHp) continue;
+        if (e.kind !== 'tower' && this.fogged(e.x, e.y, e.team)) continue;
+        const kind = isB ? 'building' : e.kind === 'hero' ? 'hero' : 'unit';
+        const p = project(e.x, e.y, H0(e.x, e.y) + BAR_Z[kind]);
+        if (!p) continue;
+        const isHero = kind === 'hero';
+        drawUnitBar(ctx, {
+          x: p.x,
+          y: p.y,
+          kind,
+          hp: isHero ? this.heroHp() / Math.max(1, this.heroHpMax()) : e.hp / Math.max(1, e.maxHp),
+          color: e.team === -1 ? TEAM_HP[2] : e.team === myTeam ? TEAM_HP[0] : TEAM_HP[1],
+          mp: isHero ? this.heroMp() / Math.max(1, this.heroMpMax()) : 0,
+          label: isHero ? `${this.player() || 'wuxiancong'} · ${this.heroLevel()}` : undefined,
+          labelColor: readableColor(PLAYER_COLORS[0]),
+        });
+      }
+    }
+    for (const ft of mdx.getSimFloatingTexts()) {
+      const p = project(ft.x, ft.y, ft.z);
+      if (p) drawFloatText(ctx, p.x, p.y, ft.text, ft.color, 0.95);
+    }
   }
 
   private readQuery(): void {
@@ -2073,6 +1456,7 @@ export class Replay3dComponent implements OnDestroy {
     this.hero.set(q.get('hero') || '');
     this.timelineSec.set(Number(q.get('t') || 0) || 0);
     this.isLive.set(q.get('live') === '1');
+    this.debugMode.set(q.has('debug'));
   }
 
   private syncOverridesFromQuery(): Record<string, unknown> | null {
@@ -2091,23 +1475,12 @@ export class Replay3dComponent implements OnDestroy {
   private async loadMinimapBuildings(): Promise<void> {
     try {
       const cfg = await loadDotaMapConfig(DEFAULT_DOTA_MAP_URL);
-      const list = (cfg.buildings || [])
-        .map((b: DotaBuilding) => {
-          // 对齐原版 DotA 6.83d 小地图，仅在 2 个神秘商店与 2 个边路商店显示中立商店图标，基地内部 10 个 NPC 商人不在小地图显示小房子
-          if (b.kind === 'shop') return null;
-          if (b.id === 'shop_side_top_2' || b.id === 'shop_side_bot_2') return null;
-          const { px, py } = worldToMapPixel(b.x, b.y, cfg.bounds, 100, 100);
-          const isShop = b.kind === 'side_shop' || b.kind === 'secret_shop';
-          return {
-            id: b.id,
-            px,
-            py,
-            size: b.kind === 'ancient' || b.kind === 'fountain' ? 7 : 5,
-            color: isShop ? '#facc15' : b.team === 0 ? '#10b981' : '#ef4444',
-            isShop,
-          };
-        })
-        .filter(Boolean) as { id: string; px: number; py: number; size: number; color: string; isShop?: boolean }[];
+      // 与对战页引擎一致：塔、兵营、遗迹、泉水上小地图，商店不显示
+      const list = (cfg.buildings || []).flatMap((b: DotaBuilding) => {
+        const kind =
+          b.kind === 'tower' ? 'tower' : b.kind === 'ancient' ? 'ancient' : b.kind === 'rax_melee' || b.kind === 'rax_range' || b.kind === 'fountain' ? 'rax' : null;
+        return kind && (b.team === 0 || b.team === 1) ? [{ x: b.x, y: b.y, team: b.team as 0 | 1, kind: kind as 'tower' | 'rax' | 'ancient' }] : [];
+      });
       this.minimapBuildings.set(list);
     } catch {
       /* ignore */
@@ -2180,6 +1553,9 @@ export class Replay3dComponent implements OnDestroy {
     this.clockSecText.set(parts[1] || '00');
     // 手动选中英雄预设时，不被录像英雄覆盖名称/图标
     if (!this.heroPresetLocked()) {
+      // 模型始终是当前录像的英雄：按单位代码对到 112 英雄表，换英雄时连模型一起换
+      const replayHero = getHeroByCode(state.heroCode);
+      if (replayHero && replayHero.key !== this.currentHeroKey()) this.applyHeroRosterEntry(replayHero, false);
       this.heroNameCn.set(state.heroName);
       this.heroTitle.set(state.heroClassTitle);
       if (state.heroIcon) this.heroIcon.set(state.heroIcon);
@@ -2297,6 +1673,7 @@ export class Replay3dComponent implements OnDestroy {
       // 手动预设锁定期间跳过录像模型切换
       if (
         !this.heroPresetLocked() &&
+        !getHeroByCode(state.heroCode) &&
         state.heroModelUrl &&
         state.heroModelUrl !== this.currentHeroModelUrl
       ) {
@@ -2345,20 +1722,25 @@ export class Replay3dComponent implements OnDestroy {
     await this.waitForViewport(canvas);
 
     void this.loadMinimapBuildings();
-    void this.loadReplayData();
+    const replayReady = this.loadReplayData();
 
     try {
+      // 先等录像数据（最多 8 秒）：拿到录像英雄再建模型，免得先出现先知再换成录像英雄
+      await Promise.race([replayReady, new Promise<void>((r) => setTimeout(r, 8000))]);
+      if (this.disposed) return;
       const rect = canvas.getBoundingClientRect();
       const parent = canvas.parentElement?.getBoundingClientRect();
       canvas.width = Math.max(640, Math.floor(Math.max(rect.width, parent?.width || 0)) || 1280);
       canvas.height = Math.max(360, Math.floor(Math.max(rect.height, parent?.height || 0)) || 720);
 
-      // 启动即加载先知 MalFurionNoStag，刷新即可验证
+      // 直接加载当前录像的英雄；录像读不到时才用先知 MalFurionNoStag 兜底
       const furion = getHeroByKey('emns');
+      const replayHeroCode = this.timeline?.sampleAt(this.currentMs()).heroCode || '';
+      const firstHero = (replayHeroCode && getHeroByCode(replayHeroCode)) || furion;
       const modelUrl =
-        furion?.modelUrl || '/assets/wc3/Units/NightElf/MalFurion/MalFurionNoStag.mdxbin';
+        firstHero?.modelUrl || '/assets/wc3/Units/NightElf/MalFurion/MalFurionNoStag.mdxbin';
       const assetBaseUrl =
-        furion?.assetBaseUrl || '/assets/wc3/Units/NightElf/MalFurion/';
+        firstHero?.assetBaseUrl || '/assets/wc3/Units/NightElf/MalFurion/';
 
       const mdx = await Wc3MdxViewer.create({
         canvas,
@@ -2370,7 +1752,12 @@ export class Replay3dComponent implements OnDestroy {
         syncOverrides: this.syncOverridesFromQuery() as any,
       });
       this.mdx = mdx;
+      // 调试模式：控制台可用 __wc3.setBakedShadows(false) / __wc3.setTimeOfDay(h) 对比
+      if (this.debugMode()) (globalThis as unknown as { __wc3?: unknown }).__wc3 = mdx;
       this.currentHeroModelUrl = modelUrl;
+
+      this.minimapImg = new Image();
+      this.minimapImg.src = '/assets/dota/dota683_minimap.png';
 
       const loadPromise = mdx.load();
       // 地形 mesh 一就绪就显示画面（startLoop 已在 load 内启动）
@@ -2389,15 +1776,10 @@ export class Replay3dComponent implements OnDestroy {
           mdx.dispose();
           return;
         }
-        // 启动时 HUD 同步为先知（ZH 序 20）
-        if (furion) this.applyHeroRosterEntry(furion, true);
-        else {
-          this.modelName.set('MalFurionNoStag');
-          this.currentHeroKey.set('emns');
-          this.heroPresetLocked.set(true);
-          this.heroNameCn.set('先知');
-          this.heroTitle.set('先知 · 远程智力');
-        }
+        // 模型用当前录像的英雄；录像还没到时先用先知占位（不锁定，录像一到即切换）
+        const replayCode = this.timeline?.sampleAt(this.currentMs()).heroCode || '';
+        const startHero = (replayCode && getHeroByCode(replayCode)) || furion;
+        if (startHero) this.applyHeroRosterEntry(startHero, false);
         this.spiritBearSummoned = false;
         this.sequences.set(mdx.sequences || []);
         this.buildingCount.set(mdx.buildings?.length || 0);
@@ -2461,12 +1843,20 @@ export class Replay3dComponent implements OnDestroy {
         this.applyReplayFrame(this.currentMs());
       }
 
+      // 寻路栅格就绪后给时间线接上寻路（只做一次）：英雄按命令点寻路行走，不再直线穿地形
+      if (this.timeline && !this.timeline.hasPathFinder && this.mdx?.pathReady) {
+        const mdx = this.mdx;
+        this.timeline.setPathFinder((ax, ay, bx, by) => mdx.findPath(ax, ay, bx, by));
+        this.applyReplayFrame(this.currentMs());
+      }
+
       this.syncActiveSequence();
       // 仅号角后时钟驱动；无 GameStart 时 gameT=0 绝不刷兵；有录像时墙钟恒为 0
       if (this.timeline) {
         const horn = this.timeline.gameHornMs || 0;
         // 未解析到战鼓号角前，对局时钟视为未开始（避免 firstMove 被误当成已开打）
-        const gameT = horn > 0 ? Math.max(0, this.currentMs() - horn) : 0;
+        // 负数 = 战鼓还没响：模拟不出兵、不刷野、不刷神符，并清掉拖回开局前残留的单位
+        const gameT = horn > 0 ? this.currentMs() - horn : -1;
         this.mdx?.setSimSpeed(0);
         this.mdx?.syncSimGameTime(gameT);
       } else {
@@ -2475,50 +1865,17 @@ export class Replay3dComponent implements OnDestroy {
       }
       this.cameraMode.set(this.mdx?.cameraMode || this.cameraMode());
       this.simUnits.set(this.mdx?.simUnitCount || 0);
-      this.updateMinimapMarker();
-
-      // 每帧将 3D 战场战斗单位血条与飘金跳字投影至视口屏幕，并同步金钱统计
+      if (now - this.minimapDrawnAt >= 100) {
+        this.minimapDrawnAt = now;
+        this.updateMinimapMarker();
+      }
+      // 模板被热替换重建时，把仍在工作的画布/输入层接回来（否则 3D 视口一片漆黑）
+      this.mdx?.adoptDom({ canvas: this.glCanvas()?.nativeElement, viewLayer: this.viewLayer()?.nativeElement, portrait: this.portraitCanvas()?.nativeElement });
+      // 地形与模型按 DNC 昼夜光照着色（取代原来的全屏夜色遮罩）
+      this.mdx?.setTimeOfDay(this.hours());
+      this.updateFog();
+      this.drawReplayOverlay();
       if (this.mdx) {
-        if (this.showHealthBars()) {
-          const rawEntities = this.mdx.getSimHealthEntities();
-          const bars: { id: string; sx: number; sy: number; hpPct: number; color: string; isHero?: boolean; isTower?: boolean; name?: string }[] = [];
-          for (const ent of rawEntities) {
-            const screen = this.mdx.projectWorldToScreen(ent.x, ent.y, ent.z);
-            if (screen) {
-              const color = ent.team === 0 ? '#22c55e' : ent.team === 1 ? '#ef4444' : '#f59e0b';
-              bars.push({
-                id: ent.id,
-                sx: screen.sx,
-                sy: screen.sy,
-                hpPct: Math.min(100, Math.max(0, (ent.hp / Math.max(1, ent.maxHp)) * 100)),
-                color,
-                isHero: ent.kind === 'hero',
-                isTower: ent.kind === 'tower',
-                name: ent.name,
-              });
-            }
-          }
-          this.overheadHpBars.set(bars);
-        } else if (this.overheadHpBars().length) {
-          this.overheadHpBars.set([]);
-        }
-
-        const rawFts = this.mdx.getSimFloatingTexts();
-        const fts: { id: number; sx: number; sy: number; text: string; color: string; opacity: number }[] = [];
-        for (const ft of rawFts) {
-          const screen = this.mdx.projectWorldToScreen(ft.x, ft.y, ft.z);
-          if (screen) {
-            fts.push({
-              id: ft.id,
-              sx: screen.sx,
-              sy: screen.sy,
-              text: ft.text,
-              color: ft.color,
-              opacity: 0.95,
-            });
-          }
-        }
-        this.activeFloatingTexts.set(fts);
         this.gold.set(this.mdx.getSimGoldTotal());
       }
 

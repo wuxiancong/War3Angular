@@ -922,6 +922,76 @@ class Database {
     }
 
     /**
+     * 测试账号一键绑定注册邮箱 + 临时邮箱
+     * @param string $username
+     * @param string $email 默认测试邮箱
+     * @param bool $autoVerify 临时邮箱是否直接激活（跳过邮件点击）
+     */
+    public function bindTestAccountEmail($username, $email = '461079075@qq.com', $autoVerify = true) {
+        $username = trim($username);
+        $email = trim($email);
+        if ($email === '') {
+            $email = '461079075@qq.com';
+        }
+
+        // 注册邮箱：允许测试账号共享同一邮箱，不做排他查重
+        $reg = $this->setUserEmail($username, $email, false);
+        if (!$reg['success']) {
+            // 若 users 尚无该账号，尝试从 PvPGN 同步后再写一次
+            $this->syncFromPvpgn($username, $email);
+            $reg = $this->setUserEmail($username, $email, false);
+            if (!$reg['success']) {
+                return $reg;
+            }
+        }
+
+        $token = null;
+        $tempVerified = false;
+
+        if ($autoVerify) {
+            // 直接写入临时邮箱并标记已激活
+            try {
+                $stmtCheck = $this->pdo->prepare("SELECT COUNT(*) FROM users WHERE LOWER(username) = LOWER(?)");
+                $stmtCheck->execute([$username]);
+                if ((int)$stmtCheck->fetchColumn() === 0) {
+                    $this->syncFromPvpgn($username, $email);
+                }
+                $stmt = $this->pdo->prepare("UPDATE users SET
+                    temp_email = ?,
+                    is_temp_email_verified = 1,
+                    temp_email_token = NULL,
+                    temp_email_expires = NULL
+                    WHERE LOWER(username) = LOWER(?)");
+                $stmt->execute([$email, $username]);
+                $tempVerified = true;
+            } catch (PDOException $e) {
+                error_log('bindTestAccountEmail autoVerify error: ' . $e->getMessage());
+                return [
+                    'success' => false,
+                    'message' => '临时邮箱自动激活失败: ' . $e->getMessage()
+                ];
+            }
+        } else {
+            $temp = $this->setTempEmail($username, $email);
+            if (!$temp['success']) {
+                return $temp;
+            }
+            $token = $temp['token'] ?? null;
+        }
+
+        return [
+            'success' => true,
+            'username' => $username,
+            'email' => $email,
+            'users_updated' => $reg['users_updated'] ?? false,
+            'pvpgn_updated' => $reg['pvpgn_updated'] ?? false,
+            'temp_verified' => $tempVerified,
+            'token' => $token,
+            'message' => '测试账号邮箱绑定成功'
+        ];
+    }
+
+    /**
      * 设置/更新用户的临时通知邮箱 (允许重复，不作唯一性排他查重)
      * 生成验证 Token 并记录过期时间
      */
