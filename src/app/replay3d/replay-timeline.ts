@@ -410,6 +410,8 @@ export function formatMsClock(ms: number): string {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
+export type ReplayPathFinder = (ax: number, ay: number, bx: number, by: number) => [number, number][];
+
 export class ReplayTimelineEngine {
   readonly payload: ReplayMatchPayload;
   readonly durationMs: number;
@@ -422,6 +424,25 @@ export class ReplayTimelineEngine {
   private readonly recipeToRealItem = new Map<string, DotaItemDef>();
   private readonly realItems = new Map<string, DotaItemDef>();
   private readonly heroSkills: DotaHeroSkillDef[] = [];
+
+  /** 寻路函数（与对战页同一张栅格）；没有时英雄在命令点之间走直线 */
+  private findPath: ReplayPathFinder | null = null;
+
+  get hasPathFinder(): boolean {
+    return !!this.findPath;
+  }
+
+  /**
+   * 接上寻路栅格并重建时间线：录像里只有「点哪儿」的命令，没有实际走的路线，
+   * 原版由引擎寻路绕开树林/悬崖；不寻路的话英雄会沿直线穿过地形。
+   */
+  setPathFinder(fn: ReplayPathFinder | null): void {
+    this.findPath = fn;
+    this.moveKeyframes.length = 0;
+    this.snapshots.length = 0;
+    this.events.length = 0;
+    this.buildTimeline();
+  }
 
   constructor(payload: ReplayMatchPayload) {
     this.payload = payload;
@@ -478,8 +499,6 @@ export class ReplayTimelineEngine {
     const isDire = pid >= 6;
     let curX = isDire ? 6400 : -6864;
     let curY = isDire ? 6050 : -6800;
-    let targetX = curX;
-    let targetY = curY;
     let moveStartT = 0;
     let moveEndT = 0;
     let curFacing = isDire ? -Math.PI * 0.75 : Math.PI * 0.25;
@@ -539,29 +558,41 @@ export class ReplayTimelineEngine {
       }
     };
 
+    /** 当前移动命令剩余的路点（寻路结果；没有寻路时只有终点一个） */
+    let route: [number, number][] = [];
+
     const advanceHeroTo = (t: number) => {
-      if (moveEndT > moveStartT && t > moveStartT) {
-        const clampedT = Math.min(t, moveEndT);
-        const ratio = (clampedT - moveStartT) / Math.max(1, moveEndT - moveStartT);
-        const nx = curX + (targetX - curX) * ratio;
-        const ny = curY + (targetY - curY) * ratio;
+      while (route.length && t > moveStartT) {
+        const [wx, wy] = route[0];
+        const dist = Math.hypot(wx - curX, wy - curY);
+        if (dist < 1) {
+          route.shift();
+          continue;
+        }
+        const segMs = (dist / Math.max(100, baseSpeed)) * 1000;
+        const facing = Math.atan2(wy - curY, wx - curX);
+        const endT = Math.min(t, moveStartT + segMs);
+        const ratio = (endT - moveStartT) / segMs;
+        const nx = curX + (wx - curX) * ratio;
+        const ny = curY + (wy - curY) * ratio;
         this.moveKeyframes.push({
           t0: moveStartT,
-          t1: clampedT,
+          t1: endT,
           x0: curX,
           y0: curY,
           x1: nx,
           y1: ny,
-          facingRad: curFacing,
+          facingRad: facing,
           anim: 'Walk',
         });
+        curFacing = facing;
         curX = nx;
         curY = ny;
-        moveStartT = clampedT;
-        if (clampedT >= moveEndT) {
-          moveEndT = 0;
-        }
+        moveStartT = endT;
+        if (ratio >= 1) route.shift();
+        else break;
       }
+      if (!route.length) moveEndT = 0;
     };
 
     const checkRecipes = (t: number) => {
@@ -639,11 +670,11 @@ export class ReplayTimelineEngine {
           cutMoveKeyframesAt(t);
           const dist = Math.hypot(ax - curX, ay - curY);
           if (dist > 8) {
-            curFacing = Math.atan2(ay - curY, ax - curX);
             moveStartT = t;
-            moveEndT = t + (dist / Math.max(100, baseSpeed)) * 1000;
-            targetX = ax;
-            targetY = ay;
+            route = this.findPath ? this.findPath(curX, curY, ax, ay) : [[ax, ay]];
+            if (!route.length) route = [[ax, ay]];
+            curFacing = Math.atan2(route[0][1] - curY, route[0][0] - curX);
+            moveEndT = t + 1;
           }
         }
         if (pointCmd || Math.abs(ax) > 1 || Math.abs(ay) > 1) continue;
@@ -657,6 +688,7 @@ export class ReplayTimelineEngine {
           if (immCmd === 'stop' || immCmd === 'hold') {
             advanceHeroTo(t);
             cutMoveKeyframesAt(t);
+            route = [];
             moveEndT = 0;
             moveStartT = t;
           }

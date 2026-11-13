@@ -186,6 +186,10 @@ export interface SimUnit {
   scale: number;
   waypoints: [number, number][];
   wpIndex: number;
+  /** Terrain path toward waypoints[wpIndex] (when deps.findPath is set). */
+  path?: [number, number][];
+  pathIdx?: number;
+  pathFor?: number;
   instance: ModelInstance;
   alive: boolean;
   campId?: string;
@@ -275,6 +279,11 @@ export interface LaneSimDeps {
   random?: () => number;
   /** Schedules delayed removal of dead units; defaults to setTimeout. */
   defer?: (fn: () => void, delayMs: number) => void;
+  /**
+   * Optional terrain pathing (same grid as the playable engine). When given, units walk an
+   * A* path between lane waypoints instead of a straight line through trees and cliffs.
+   */
+  findPath?: (ax: number, ay: number, bx: number, by: number) => [number, number][];
 }
 
 const FLOAT_GOLD_COLOR = '#fbbf24';
@@ -311,6 +320,8 @@ export class LaneSim {
   lastPickupMessage = '';
   heroTarget: { x: number; y: number } | null = null;
   clockMs = 0;
+  /** True while an external clock says the match has not started (see syncGameClock). */
+  preGame = false;
   heroHp: number;
   heroMaxHp: number;
   heroDps: number;
@@ -336,6 +347,7 @@ export class LaneSim {
   private readonly heroInstance: ModelInstance | null;
   private readonly random: () => number;
   private readonly defer: (fn: () => void, delayMs: number) => void;
+  private readonly findPath?: (ax: number, ay: number, bx: number, by: number) => [number, number][];
 
   constructor(
     config: LaneSimConfig,
@@ -349,6 +361,7 @@ export class LaneSim {
     this.heroInstance = deps.heroInstance;
     this.random = deps.random ?? Math.random;
     this.defer = deps.defer ?? ((fn, ms) => void setTimeout(fn, ms));
+    this.findPath = deps.findPath;
     this.heroWalkSeq = deps.resolveHeroSeq('Walk');
     this.heroStandSeq = deps.resolveHeroSeq('Stand');
     this.heroAttackSeq = deps.resolveHeroSeq('Attack');
@@ -415,8 +428,32 @@ export class LaneSim {
    * catch-up ticks; moving backward clears lane units and re-arms the timers.
    */
   syncGameClock(gameTimeMs: number): void {
-    const t = Math.max(0, gameTimeMs);
-    if (Math.abs(t - this.clockMs) < 0.5) return;
+    // A negative time means the match has not started yet (before the horn):
+    // nothing may spawn, and anything left over from a later moment is removed.
+    if (gameTimeMs < 0) {
+      if (!this.preGame || this.clockMs !== 0) {
+        for (const u of [...this.units]) removeInstance(u.instance);
+        this.units = [];
+        for (const p of this.pickups) {
+          removeInstance(p.instance);
+          p.alive = false;
+        }
+        this.pickups = [];
+        this.clockMs = 0;
+        this.nextWaveAt = Math.max(0, this.config.startWavesAtMs ?? 90000);
+        this.nextCampAt = Math.max(0, this.config.startCampsAtMs ?? 30000);
+        this.nextPickupAt = 0;
+      }
+      this.preGame = true;
+      return;
+    }
+    this.preGame = false;
+    const t = gameTimeMs;
+    // 时钟恰好停在 0 时也要跑一次 tick，否则 0:00 的第一波兵与神符不会出现
+    if (Math.abs(t - this.clockMs) < 0.5) {
+      if (t === 0 && this.clockMs === 0) this.tick(0);
+      return;
+    }
     if (t + 50 < this.clockMs) {
       for (const u of [...this.units]) removeInstance(u.instance);
       this.units = [];
@@ -424,7 +461,7 @@ export class LaneSim {
       const interval = this.config.waveIntervalMs || 30000;
       const start = this.config.startWavesAtMs ?? 90000;
       this.nextWaveAt = Math.max(t, start);
-      if (t >= start) {
+      if (t > start) {
         // Skip to the next slot instead of spawning every missed wave at once.
         const n = Math.floor((t - start) / interval) + 1;
         this.nextWaveAt = start + n * interval;
@@ -443,7 +480,7 @@ export class LaneSim {
 
   /** Per-frame update. Spawns are started without blocking the caller. */
   tick(dtMs: number): void {
-    if (!this.config.enabled) return;
+    if (!this.config.enabled || this.preGame) return;
     this.clockMs += dtMs;
     const dt = dtMs / 1000;
     this.tickHero(dt);
@@ -458,7 +495,10 @@ export class LaneSim {
       void this.spawnWave();
     }
     if (this.clockMs >= this.nextCampAt) {
-      this.nextCampAt = this.clockMs + (this.config.campRefreshMs || 60000);
+      // war3map.j：号角后 30 秒先刷一次野（IQ2 → OH），之后 OH 每 60 秒触发（1:00、2:00…），
+      // 所以下次刷新对齐到整分钟，而不是在 0:30 的基础上 +60 秒
+      const refresh = this.config.campRefreshMs || 60000;
+      this.nextCampAt = (Math.floor(this.clockMs / refresh) + 1) * refresh;
       void this.refreshEmptyCamps(false);
     }
     if (this.clockMs >= this.nextPickupAt) {
@@ -664,7 +704,23 @@ export class LaneSim {
         }
         continue;
       }
-      const [tx, ty] = u.waypoints[u.wpIndex];
+      const [wx, wy] = u.waypoints[u.wpIndex];
+      // 有寻路栅格时沿 A* 路径走到下一个路点，避免直线穿过树林/悬崖
+      let tx = wx;
+      let ty = wy;
+      let onPath = false;
+      if (this.findPath) {
+        if (u.pathFor !== u.wpIndex || !u.path) {
+          u.path = this.findPath(u.x, u.y, wx, wy);
+          u.pathIdx = 0;
+          u.pathFor = u.wpIndex;
+        }
+        const idx = u.pathIdx ?? 0;
+        if (idx < u.path.length) {
+          [tx, ty] = u.path[idx];
+          onPath = idx < u.path.length - 1;
+        }
+      }
       const prevX = u.x;
       const prevY = u.y;
       const moved = moveToward(u.x, u.y, tx, ty, u.speed * dt);
@@ -695,7 +751,10 @@ export class LaneSim {
       if (u.instance.sequenceEnded && u.walkSeq >= 0) {
         u.instance.setSequence?.(u.walkSeq);
       }
-      if (moved.arrived) u.wpIndex += 1;
+      if (moved.arrived) {
+        if (onPath) u.pathIdx = (u.pathIdx ?? 0) + 1;
+        else u.wpIndex += 1;
+      }
     }
     this.units = this.units.filter((u) => u.alive);
   }

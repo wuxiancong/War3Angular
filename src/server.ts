@@ -187,6 +187,10 @@ const WAR3BOT_BUILD_ROOT = `${WAR3BOT_ROOT}/build/Desktop_Qt_5_15_2_VSCode_MSVC_
 const PLAYER_ACTIONS_DIR = `${WAR3BOT_BUILD_ROOT}/data/player_actions`;
 
 app.use('/assets/dota/heroIcons', express.static(`${WAR3BOT_ROOT}/images/heroIcons`));
+// 物品/技能图标优先用 scripts/extract-dota-icons.cjs 从 BLP 原图重新导出的版本（颜色正确），
+// 没导出的代码（地图数据之外的录像物品等）再回退到 War3Bot 旧导出
+app.use('/assets/dota/abilityIcons', express.static(join(process.cwd(), 'public/assets/dota/abilityIcons')));
+app.use('/assets/dota/itemIcons', express.static(join(process.cwd(), 'public/assets/dota/itemIcons')));
 app.use('/assets/dota/abilityIcons', express.static(`${WAR3BOT_BUILD_ROOT}/images/abilityIcons`));
 app.use('/assets/dota/itemIcons', express.static(`${WAR3BOT_BUILD_ROOT}/images/itemIcons`));
 app.use('/assets/dota/cmdIcons', express.static(`${WAR3BOT_BUILD_ROOT}/images/cmdIcons`));

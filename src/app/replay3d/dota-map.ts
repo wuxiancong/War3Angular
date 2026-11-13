@@ -8,7 +8,8 @@ export type DotaBuildingKind =
   | 'shop'
   | 'side_shop'
   | 'secret_shop'
-  | 'altar';
+  | 'altar'
+  | 'tavern';
 
 export interface DotaMapBounds {
   x0: number;

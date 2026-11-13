@@ -228,9 +228,11 @@ export class DotaSceneSim extends LaneSim {
     sampleHeight: HeightSampler,
     spawnModel: ModelSpawner,
     heroInstance: ModelInstance | null,
-    resolveHeroSeq: (name: string) => number
+    resolveHeroSeq: (name: string) => number,
+    /** 与对战页同一张寻路栅格；不传则小兵直线走路点 */
+    findPath?: (ax: number, ay: number, bx: number, by: number) => [number, number][]
   ) {
-    super(toLaneConfig(cfg), SCENE_CONTENT, { sampleHeight, spawnModel, heroInstance, resolveHeroSeq });
+    super(toLaneConfig(cfg), SCENE_CONTENT, { sampleHeight, spawnModel, heroInstance, resolveHeroSeq, findPath });
     this.cfg = cfg;
   }
 

@@ -28,7 +28,9 @@ export const routes: Routes = [
   { path: 'login', component: LoginComponent },
   { path: 'forgot-password', component: ForgotPasswordComponent },
   { path: 'matches', component: StatsComponent },
-  { path: 'replay-3d', component: Replay3dComponent },
+  { path: 'replay', component: Replay3dComponent },
+  // 旧地址保留跳转，已有的书签与外链不失效
+  { path: 'replay-3d', redirectTo: 'replay', pathMatch: 'full' },
   // 在线对战：网页对战（懒加载，避免把 3D 引擎打进首屏包）
   { path: 'play', loadComponent: () => import('./pages/play-3d.component').then((m) => m.Play3dComponent) },
   { path: 'ladder', component: LadderComponent },

@@ -26,7 +26,9 @@ import {
 import { GameEngine, type Command, type GameSetup, type PlayerSetup, type Unit } from '../game/game-engine';
 import { GameSession, RoomConnection, type LobbyState, type StartPayload } from '../game/game-session';
 import { GameView, PLAYER_COLORS } from '../game/game-view';
+import { drawMinimap, nightAmount, skyPosition, timeOfDay, type MinimapScene } from '../game/overlay-draw';
 import { getHeroByCode } from '../replay3d/dota-hero-roster';
+import { B, NUI, U, W3_LAYOUT } from '../game/w3-hud';
 
 const NL = String.fromCharCode(10);
 
@@ -113,6 +115,8 @@ interface Hud {
   clockSec: number;
   /** 时间指示器天空盘的 background-position-x（%） */
   skyPos: number;
+  /** 夜晚压暗强度 0~1 */
+  night: number;
   /** [击杀, 死亡, 助攻, 正补, 反补] */
   stats: number[];
   sel: SelInfo;
@@ -159,15 +163,6 @@ interface Cell {
 }
 type MenuId = 'quests' | 'menu' | 'allies' | 'log';
 
-const NUI = '/assets/wc3/native-ui';
-/** UI 单位(0.8×0.6，原点左上) → 百分比样式 */
-function U(x: number, y: number, w: number, h: number): string {
-  return `left:${(x / 0.8) * 100}%;top:${(y / 0.6) * 100}%;width:${(w / 0.8) * 100}%;height:${(h / 0.6) * 100}%`;
-}
-/** 底部控制台贴图像素(1600×352，1 单位=2000px) → 百分比样式 */
-function B(x: number, y: number, w: number, h: number): string {
-  return U(x / 2000, 0.424 + y / 2000, w / 2000, h / 2000);
-}
 const DMG_ICON: Record<string, string> = { normal: 'normal', pierce: 'pierce', siege: 'siege', magic: 'magic', chaos: 'chaos', hero: 'hero' };
 const ARMOR_ICON: Record<string, string> = { small: 'small', medium: 'medium', large: 'large', fort: 'fort', hero: 'hero', divine: 'divine', none: 'none', normal: 'small' };
 /** 天灾方商店（buildings.json 未带 unitId）→ 货架所属商店单位 */
@@ -194,6 +189,7 @@ const ITEM_KEYS = ['7', '8', '4', '5', '1', '2'];
   imports: [RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex flex-col flex-grow' },
+  styleUrl: '../game/w3-hud.css',
   styles: [
     `
       .pg-root { color: #e8e2d0; --gold: #d4af37; --panel: rgba(10, 14, 20, 0.92); --line: rgba(212, 175, 55, 0.35); }
@@ -226,132 +222,10 @@ const ITEM_KEYS = ['7', '8', '4', '5', '1', '2'];
       .shop-item { display: flex; align-items: center; gap: 6px; padding: 4px 6px; border: 1px solid transparent; border-radius: 4px; cursor: pointer; }
       .shop-item:hover { border-color: #f0c060; background: rgba(60, 46, 14, 0.5); }
       .shop-item.blocked { opacity: 0.45; }
-      .targeting { cursor: crosshair !important; }
+      /* 游戏视口用魔兽原版光标；选择目标时换成准星 */
+      .pg-view { cursor: url('/assets/wc3/ui/cursor-human-pointer.png') 2 2, auto; }
+      .targeting { cursor: url('/assets/wc3/ui/cursor-human-crosshair.png') 16 16, crosshair !important; }
       .scroll-thin { scrollbar-width: thin; scrollbar-color: #5a4a1c transparent; }
-      /* ================= 原生控制台 HUD =================
-         坐标系：WC3 UI 为 0.8×0.6（宽×高），宽屏下横向拉伸铺满；这里用百分比 + 容器查询单位还原。
-         --u = 0.001 个 UI 单位（字体 0.010 即 10u）。 */
-      .w3 { position: absolute; inset: 0; z-index: 10; pointer-events: none; container-type: size; color: #fff; user-select: none;
-        font-family: 'Friz Quadrata TT', 'FZLanTingHeiS', 'Microsoft YaHei', 'PingFang SC', sans-serif;
-        cursor: url('/assets/wc3/ui/cursor-human-pointer.png') 2 2, auto; }
-      .w3 > *, .w3 > * * { --u: calc(100cqh / 600); }
-      .w3 button { font-family: inherit; cursor: url('/assets/wc3/ui/cursor-human-active.png') 2 2, pointer; }
-      .w3-abs { position: absolute; pointer-events: auto; box-sizing: border-box; }
-      .w3-top { position: absolute; left: 0; top: 0; width: 100%; height: 5.3333%; background-size: 100% 100%; background-repeat: no-repeat; }
-      .w3-console { position: absolute; left: 0; bottom: 0; width: 100%; height: 29.3333%; background-size: 100% 100%; background-repeat: no-repeat; }
-      /* 控制台实体部分拦截点击，避免点到下面的世界 */
-      .w3-hit { position: absolute; left: 0; bottom: 0; width: 100%; height: 20.5%; pointer-events: auto; }
-      .w3-hit.l { width: 25.6%; height: 26.5%; }
-      .w3-hit.r { left: auto; right: 0; width: 23.5%; height: 25.5%; }
-
-      /* ---- 顶部菜单按钮：UpperMenuButtonTexture 精灵图（u 0~0.664；常态 v 0~0.172，按下 0.25~，高亮 0.75~ 叠加） ---- */
-      .w3-upper { position: absolute; pointer-events: auto; border: 0; padding: 0; color: #fff; font-size: calc(var(--u) * 10); line-height: 1;
-        background-color: transparent; background-image: var(--tex); background-repeat: no-repeat; background-size: 150.59% 581.82%; background-position: 0 0;
-        text-shadow: 0 1px 1px #000; white-space: nowrap; overflow: hidden; }
-      .w3-upper em { font-style: normal; color: #fed312; }
-      .w3-upper::after { content: ''; position: absolute; inset: 0; background-image: var(--tex); background-repeat: no-repeat; background-size: 150.59% 581.82%;
-        background-position: 0 90.57%; mix-blend-mode: screen; opacity: 0; pointer-events: none; }
-      .w3-upper:hover { color: #ffd412; }
-      .w3-upper:hover::after { opacity: 1; }
-      .w3-upper:active, .w3-upper.on { background-position: 0 30.19%; padding: calc(var(--u) * 1) 0 0 calc(var(--u) * 1); }
-
-      /* ---- 时间指示器 ---- */
-      .w3-time { position: absolute; }
-      .w3-time-sky { position: absolute; left: 39.06%; top: 9.4%; width: 21.88%; height: 43.75%; border-radius: 50%; background-size: 200% 100%; background-repeat: repeat-x; }
-      .w3-time-frame { position: absolute; inset: 0; background-size: 100% 100%; background-repeat: no-repeat; }
-
-      /* ---- 资源栏 ---- */
-      .w3-res { position: absolute; pointer-events: auto; text-align: right; font-size: calc(var(--u) * 10); line-height: calc(var(--u) * 16.4); color: #fff; text-shadow: 0 1px 1px #000; white-space: nowrap; }
-      .w3-upkeep { text-align: center; }
-
-      /* ---- 多面板 ---- */
-      .w3-mb-title { position: absolute; pointer-events: auto; padding: 0 calc(var(--u) * 9); font-size: calc(var(--u) * 11); display: flex; align-items: center; white-space: nowrap; color: #fff;
-        border-style: solid; border-width: calc(var(--u) * 5); border-image: url('/assets/wc3/native-ui/common/multiboard-9.png') 16 fill / calc(var(--u) * 7) stretch; }
-      .w3-mb-btn { position: absolute; pointer-events: auto; padding: 0; background: #000 url('/assets/wc3/native-ui/common/mm-min-enabled.png') center / 62% 62% no-repeat;
-        border-style: solid; border-width: calc(var(--u) * 5); border-image: url('/assets/wc3/native-ui/common/multiboard-9.png') 16 / calc(var(--u) * 7) stretch; }
-      .w3-mb-btn:not(.open) { transform: scaleY(-1); }
-      .w3-mb-board { position: absolute; pointer-events: auto; padding: calc(var(--u) * 4) calc(var(--u) * 7); font-size: calc(var(--u) * 9.5);
-        border-style: solid; border-width: calc(var(--u) * 5); border-image: url('/assets/wc3/native-ui/common/multiboard-9.png') 16 fill / calc(var(--u) * 7) stretch; }
-      .w3-mb-row { display: grid; grid-template-columns: calc(var(--u) * 13) calc(var(--u) * 78) calc(var(--u) * 16) calc(var(--u) * 46) calc(var(--u) * 40) calc(var(--u) * 18); align-items: center; gap: calc(var(--u) * 3); line-height: calc(var(--u) * 14.5); white-space: nowrap; }
-      .w3-mb-row img { width: calc(var(--u) * 12); height: calc(var(--u) * 12); display: block; }
-      .w3-mb-row .nm { overflow: hidden; text-overflow: ellipsis; }
-      .w3-mb-row .rs { color: #f87171; }
-      .w3-mb-row.dead { opacity: 0.55; }
-      .w3-mb-head { display: flex; justify-content: space-between; color: #fed312; }
-
-      /* ---- 文字层 ---- */
-      .w3-msgs { position: absolute; left: 2.5%; bottom: 31.5%; max-width: 55%; font-size: calc(var(--u) * 11); line-height: 1.35; text-shadow: 0 1px 2px #000, 0 0 2px #000; }
-      .w3-err, .w3-hint, .w3-respawn { position: absolute; left: 50%; transform: translateX(-50%); bottom: 31%; font-size: calc(var(--u) * 12); color: #ffcc00; text-shadow: 0 1px 2px #000, 0 0 3px #000; white-space: nowrap; }
-      .w3-hint { bottom: 35%; color: #fff; }
-      .w3-respawn { bottom: 60%; font-size: calc(var(--u) * 16); color: #ff5a5a; }
-      .w3-net { position: absolute; left: 0.5%; top: 6%; font-size: calc(var(--u) * 8); opacity: 0.45; }
-
-      /* ---- 小地图 / 肖像 ---- */
-      .w3-minimap { background: #000; cursor: url('/assets/wc3/ui/cursor-human-crosshair.png') 16 16, crosshair; image-rendering: auto; }
-      .w3-portrait { overflow: hidden; background: #05070a; }
-      .w3-portrait canvas, .w3-portrait img { width: 100%; height: 100%; display: block; object-fit: cover; }
-      .w3-portrait canvas.hidden { display: none; }
-      .w3-mmbtn { border: 0; padding: 0; background-color: transparent; background-size: 100% 100%; background-repeat: no-repeat; }
-      .w3-mmbtn:hover { filter: brightness(1.25); }
-      .w3-mmbtn:active { transform: translate(1px, 1px); }
-      .w3-hp, .w3-mp { text-align: center; font-size: calc(var(--u) * 9.5); display: flex; align-items: center; justify-content: center; pointer-events: none; text-shadow: 0 1px 1px #000; }
-      .w3-hp { color: #20ff20; }
-      .w3-mp { color: #bfd8ff; }
-
-      /* ---- 信息面板：字体尺寸取自 SimpleInfoPanel.fdf（标题 0.013 / 标签与数值 0.0085） ---- */
-      .w3-info { pointer-events: auto; }
-      .w3-name { text-align: center; font-size: calc(var(--u) * 13); line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 1px #000; }
-      .w3-class { text-align: center; font-size: calc(var(--u) * 8.5); margin-top: calc(var(--u) * 5.5); }
-      .w3-xp { position: relative; width: 67.4%; height: calc(var(--u) * 15.625); margin: calc(var(--u) * 1.5) auto 0; background: #000; }
-      .w3-xp > i { position: absolute; left: 1.5%; top: 12%; bottom: 12%; max-width: 97%; background: #7a1fa8 url('/assets/wc3/native-ui/NightElf/xp-fill.png') left center / 100% 100%; background-blend-mode: multiply; }
-      .w3-xp::after { content: ''; position: absolute; inset: 0; background: url('/assets/wc3/native-ui/NightElf/xp-border.png') center / 100% 100% no-repeat; }
-      .w3-xp > span { position: absolute; inset: 0; z-index: 1; display: flex; align-items: center; justify-content: center; font-size: calc(var(--u) * 8.5); white-space: nowrap; text-shadow: 0 1px 1px #000; }
-      .w3-icon-row, .w3-hero-attr { position: absolute; display: flex; align-items: flex-start; font-size: calc(var(--u) * 8.5); line-height: 1.2; }
-      .w3-icon-row { left: 2.1%; }
-      .w3-icon-row img, .w3-hero-attr img { width: 4cqw; height: 5.3333cqh; flex: none; }
-      .w3-icon-row > div, .w3-hero-attr > div { display: flex; flex-direction: column; padding-top: calc(var(--u) * 3); }
-      .w3-hero-attr { left: 57.9%; top: 21.9%; height: 42.8%; align-items: center; }
-      .w3-hero-attr > div { padding-top: 0; }
-      .w3-info .lb { color: #fcd312; }
-      .w3-info .vl { padding-left: calc(var(--u) * 5); color: #fff; }
-      .w3-hero-attr .vl { margin-bottom: calc(var(--u) * 4); }
-      .w3-status { position: absolute; left: 2.1%; right: 2%; top: 87%; font-size: calc(var(--u) * 8.5); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-      /* ---- 物品栏 / 命令卡按钮 ---- */
-      .w3-btn { border: 0; padding: 0; background: #000; overflow: hidden; }
-      /* 空物品格透明，露出控制台贴图上的格子美术 */
-      .w3-btn.empty { background: transparent; }
-      .w3-btn > img { width: 100%; height: 100%; display: block; }
-      .w3-btn:hover > img { filter: brightness(1.18); }
-      .w3-btn:active > img { transform: scale(0.94); }
-      .w3-btn.dim > img { filter: grayscale(0.85) brightness(0.42); }
-      .w3-btn.act::after { content: ''; position: absolute; inset: 0; background: url('/assets/wc3/native-ui/NightElf/cmd-active.png') center / 100% 100% no-repeat; pointer-events: none; }
-      /* 冷却：原版 UI-Cooldown-Indicator 为顺时针扫过的暗色扇形 */
-      .w3-btn .cd { position: absolute; inset: 0; pointer-events: none; background: conic-gradient(transparent calc((100 - var(--p)) * 1%), rgba(0, 0, 0, 0.72) 0); }
-      .w3-btn .num { position: absolute; right: 4%; bottom: 0; font-size: calc(var(--u) * 9); font-weight: 400; color: #fff; text-shadow: 0 0 2px #000, 0 1px 1px #000, 1px 0 1px #000; pointer-events: none; }
-      .w3-invcover { background-size: 100% 145.45%; background-position: 0 100%; background-repeat: no-repeat; pointer-events: none; }
-
-      /* ---- 提示框（ToolTipBackground + ToolTipBorder 九宫格） ---- */
-      .w3-tip { position: absolute; right: 0.35%; bottom: 27.4%; width: 36%; max-height: 60%; overflow: hidden; pointer-events: none; padding: calc(var(--u) * 3) calc(var(--u) * 5);
-        border-style: solid; border-width: calc(var(--u) * 5); border-image: url('/assets/wc3/native-ui/common/tooltip-9.png') 16 fill / calc(var(--u) * 7) stretch; }
-      .w3-tip .tt { font-size: calc(var(--u) * 11); color: #fff; }
-      .w3-tip .cost { display: flex; gap: calc(var(--u) * 10); font-size: calc(var(--u) * 9.5); color: #fed312; margin-top: calc(var(--u) * 2); }
-      .w3-tip .cost span { display: inline-flex; align-items: center; gap: calc(var(--u) * 3); }
-      .w3-tip .cost img { width: calc(var(--u) * 11); height: calc(var(--u) * 11); }
-      .w3-tip .bd { font-size: calc(var(--u) * 9.5); line-height: 1.35; white-space: pre-wrap; margin-top: calc(var(--u) * 4); color: #fff; }
-
-      /* ---- 对话框（EscMenuBackground + EscMenuBorder 九宫格） ---- */
-      .w3-dialog { position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%); width: 44%; max-height: 62%; pointer-events: auto; display: flex; flex-direction: column; gap: calc(var(--u) * 6);
-        padding: calc(var(--u) * 14) calc(var(--u) * 16); border-style: solid; border-width: calc(var(--u) * 22); border-image: var(--nine) 64 fill / calc(var(--u) * 30) stretch; }
-      .w3-dialog .hd { text-align: center; font-size: calc(var(--u) * 16); color: #fed312; text-shadow: 0 1px 2px #000; }
-      .w3-dialog .tx { font-size: calc(var(--u) * 10); line-height: 1.5; white-space: pre-wrap; overflow: auto; }
-      .w3-dialog .tx.log { max-height: 40cqh; }
-      .w3-dialog .ally { display: grid; grid-template-columns: calc(var(--u) * 18) 1fr 1.2fr auto; gap: calc(var(--u) * 6); align-items: center; font-size: calc(var(--u) * 10); }
-      .w3-dialog .ally img { width: calc(var(--u) * 16); height: calc(var(--u) * 16); }
-      .w3-dialog .ally .g { color: #fed312; }
-      .w3-dbtn { align-self: center; min-width: 46%; padding: calc(var(--u) * 5) calc(var(--u) * 12); font-size: calc(var(--u) * 11); color: #fed312; background: rgba(0, 0, 0, 0.72); border: 1px solid #8a6d1a; }
-      .w3-dbtn:hover { color: #fff; border-color: #fed312; }
-      .w3-dbtn.ret { margin-top: calc(var(--u) * 4); }
     `,
   ],
   template: `
@@ -366,7 +240,7 @@ const ITEM_KEYS = ['7', '8', '4', '5', '1', '2'];
                 <div class="text-lg font-black text-[#f0c060] mb-1">网页对战 · DotA 6.83d</div>
                 <div class="text-xs opacity-70 leading-relaxed">
                   浏览器内的魔兽争霸 III DotA 对战：数值取自地图 SLK，联机采用与 War3 相同的锁步指令同步。
-                  <a routerLink="/replay-3d" class="text-[#7dd3fc] underline ml-1">去看录像回放 →</a>
+                  <a routerLink="/replay" class="text-[#7dd3fc] underline ml-1">去看录像回放 →</a>
                 </div>
                 <label class="block text-xs mt-3 mb-1 opacity-80">玩家昵称</label>
                 <input class="pg-input w-full" maxlength="16" [value]="playerName()" (input)="setPlayerName($any($event.target).value)" />
@@ -520,8 +394,9 @@ const ITEM_KEYS = ['7', '8', '4', '5', '1', '2'];
       <!-- ============================== 对局 ============================== -->
       <div class="absolute inset-0" [class.hidden]="phase() !== 'loading' && phase() !== 'playing'">
         <canvas #glCanvas width="1280" height="720" class="absolute inset-0 w-full h-full block z-0 pointer-events-none"></canvas>
+        <!-- 夜晚：按原版夜间截图校准的地面颜色倍率（R 0.61 / G 0.76 / B 0.72，即 rgb(156,194,184) 正片叠底），血条与 HUD 不受影响 -->
         <canvas #overlay class="absolute inset-0 w-full h-full block z-[1] pointer-events-none"></canvas>
-        <div #viewLayer class="absolute inset-0 z-[2]" [class.targeting]="!!targeting()"
+        <div #viewLayer class="pg-view absolute inset-0 z-[2]" [class.targeting]="!!targeting()"
              (pointerdown)="onViewPointerDown($event)" (pointermove)="onViewPointerMove($event)"></div>
 
         @if (phase() === 'loading') {
@@ -586,7 +461,6 @@ const ITEM_KEYS = ['7', '8', '4', '5', '1', '2'];
             @if (errText()) { <div class="w3-err">{{ errText() }}</div> }
             @if (targeting(); as tg) { <div class="w3-hint">{{ tg.label }}</div> }
             @if (h.respawn > 0) { <div class="w3-respawn">你的英雄已阵亡，{{ h.respawn }} 秒后复活</div> }
-            <div class="w3-net">{{ h.net }}</div>
 
             <!-- 底部控制台：四块瓦片 v=0.3125~1（Tile02 为 0.414~1），高 0.176 -->
             <!-- 3D 肖像（Portrait / Portrait Talk）；无肖像模型时退回头像图标 -->
@@ -600,8 +474,11 @@ const ITEM_KEYS = ['7', '8', '4', '5', '1', '2'];
 
 
             <!-- 小地图 -->
-            <canvas #minimap width="256" height="256" class="w3-abs w3-minimap" [style]="L.minimap"
-                    (pointerdown)="onMinimapDown($event)" (contextmenu)="$event.preventDefault()"></canvas>
+            <!-- 画布包一层定位容器：直接把绝对定位的 canvas 放在尺寸容器(.w3)里，部分 Chromium 环境会在视口左上角多合成出一块它的重影 -->
+            <div class="w3-abs w3-minimap" [style]="L.minimap">
+              <canvas #minimap width="256" height="256" style="display: block; width: 100%; height: 100%"
+                      (pointerdown)="onMinimapDown($event)" (contextmenu)="$event.preventDefault()"></canvas>
+            </div>
 
             <!-- 小地图右侧五个按钮：信号 / 地形 / 盟友颜色 / 野怪营地 / 阵型 -->
             @for (b of mmButtons(); track b.id) {
@@ -625,13 +502,13 @@ const ITEM_KEYS = ['7', '8', '4', '5', '1', '2'];
                 <div class="w3-class">{{ h.sel.cls }}</div>
               }
               @if (h.sel.dmg) {
-                <div class="w3-icon-row" style="top: 21.9%">
+                <div class="w3-icon-row" style="top: 27.4%">
                   <img [src]="h.sel.dmgIcon" alt="" />
                   <div><span class="lb">攻击力:</span><span class="vl">{{ h.sel.dmg }}</span></div>
                 </div>
               }
               @if (h.sel.armor) {
-                <div class="w3-icon-row" style="top: 43.2%">
+                <div class="w3-icon-row" style="top: 54.8%">
                   <img [src]="h.sel.armorIcon" alt="" />
                   <div><span class="lb">护甲:</span><span class="vl">{{ h.sel.armor }}</span></div>
                 </div>
@@ -710,6 +587,7 @@ A 攻击移动 / 强制攻击，S 停止，H 保持原位，M 移动。
                   <div class="hd">游戏菜单</div>
                   <button type="button" class="w3-dbtn" (click)="toggleCamLock()">镜头跟随英雄：{{ camLock() ? '开' : '关' }}</button>
                   <button type="button" class="w3-dbtn" (click)="toggleHpBars()">显示生命条：{{ hpBars() ? '开' : '关' }}</button>
+                  <button type="button" class="w3-dbtn" (click)="toggleFog()">战争迷雾：{{ fogOn() ? '开' : '关' }}</button>
                   <button type="button" class="w3-dbtn" (click)="quitGame()">退出游戏</button>
                 } @else if (mn === 'allies') {
                   <div class="hd">盟友</div>
@@ -849,27 +727,8 @@ export class Play3dComponent implements OnDestroy {
     { id: 'allies', text: '盟友', key: 'F11', style: U(0.172, 0, 0.085, 0.022) },
     { id: 'log', text: '聊天', key: 'F12', style: U(0.257, 0, 0.085, 0.022) },
   ];
-  /** 各帧矩形。顶栏数值来自 ResourceBar.fdf / Multiboard.fdf；底部来自控制台贴图镂空（见 native-ui/manifest.json） */
-  readonly L = {
-    time: U(0.336, 0, 0.128, 0.064),
-    resGoldIcon: U(0.46172, 0.003125, 0.01640625, 0.01640625),
-    resGold: U(0.47516, 0.003125, 0.06, 0.01640625),
-    resLumberIcon: U(0.46172 + 0.0859375, 0.003125, 0.01640625, 0.01640625),
-    resLumber: U(0.561875, 0.003125, 0.06, 0.01640625),
-    resSupply: U(0.64859, 0.003125, 0.06, 0.01640625),
-    resUpkeep: U(0.72109, 0.003125, 0.07578125, 0.01640625),
-    mbBtn: U(0.778, 0.0262, 0.018, 0.0175),
-    mbTitle: `right:${((0.8 - 0.778 - 0.0057) / 0.8) * 100}%;top:${(0.0262 / 0.6) * 100}%;height:${(0.0175 / 0.6) * 100}%`,
-    mbBoard: `right:${((0.8 - 0.796) / 0.8) * 100}%;top:${((0.0262 + 0.0175 - 0.004) / 0.6) * 100}%`,
-    minimap: B(20, 58, 276, 279),
-    portrait: B(435, 122, 144, 168),
-    hpText: B(437, 298, 140, 22),
-    mpText: B(437, 325, 141, 20),
-    info: B(620, 60, 380, 292),
-    invCover: B(992, 0, 256, 352),
-    inv: [0, 1, 2, 3, 4, 5].map((i) => B(1032 + (i % 2) * 78, 126 + Math.floor(i / 2) * 78, 66, 66)),
-    cmd: Array.from({ length: 12 }, (_, i) => B([1233, 1321, 1408, 1495][i % 4], [86, 173, 260][Math.floor(i / 4)], 79, 79)),
-  };
+  /** 各帧矩形：与录像页共用，见 game/w3-hud.ts */
+  readonly L = W3_LAYOUT;
   readonly mmButtons = computed(() => {
     const img = (f: string) => `url(${NUI}/NightElf/${f}.png)`;
     return [
@@ -1213,6 +1072,9 @@ export class Play3dComponent implements OnDestroy {
     const view = this.view;
     const mdx = this.mdx;
     if (!engine || !session || !view || !mdx || this.phase() !== 'playing') return;
+    // 模板被热替换重建时，把仍在工作的画布/输入层接回来（否则 3D 视口一片漆黑）
+    mdx.adoptDom({ canvas: this.glCanvas()?.nativeElement, viewLayer: this.viewLayer()?.nativeElement, portrait: this.portraitCanvas()?.nativeElement });
+    view.setOverlay(this.overlayRef()?.nativeElement);
     session.pump(dtMs);
     if (engine.events.length) {
       const rest = view.consumeEvents(engine.events.splice(0));
@@ -1223,10 +1085,9 @@ export class Play3dComponent implements OnDestroy {
     }
     const me = engine.heroes[this.mySlot];
     // 用户手动移动镜头（边缘滚屏/方向键/中键）即解除跟随
-    if (this.camLock() && mdx.cameraMode === 'free') {
-      if (this.camGrace > 0) this.camGrace--;
-      else this.camLock.set(false);
-    }
+    // camGrace：刚回到英雄后的几帧内忽略「镜头被手动移动」的判定，按帧递减（不依赖是否有输入）
+    if (this.camGrace > 0) this.camGrace--;
+    else if (this.camLock() && mdx.cameraMode === 'free') this.camLock.set(false);
     if (this.camLock() && me) {
       const p = view.visualPos(me.id) || me;
       mdx.focusOn(p.x, p.y);
@@ -1371,12 +1232,15 @@ export class Play3dComponent implements OnDestroy {
     this.syncPortrait(selUnit);
     this.cells.set(this.buildCells(me, skills));
     const shown = Math.max(0, Math.floor(sec));
-    // 昼夜：按 480 秒一昼夜、开局为清晨 6 点推算（未从脚本取证）
-    const hours = (6 + (Math.max(0, sec) / 480) * 24) % 24;
+    // 昼夜：war3map.j 开局 6:00、SetTimeOfDayScale 0.625 → 480 秒一昼夜；地形与模型按 DNC 光照着色
+    const hours = timeOfDay(sec);
+    if (this.view) this.view.night = nightAmount(hours) > 0.5;
+    this.mdx?.setTimeOfDay(hours);
     this.hud.set({
       clockMin: Math.floor(shown / 60),
       clockSec: shown % 60,
-      skyPos: -50 + (((hours - 12 + 24) % 24) / 24) * 200,
+      skyPos: skyPosition(hours),
+      night: nightAmount(hours),
       stats: [h.kills, h.deaths, h.assists, h.lastHits, h.denies],
       sel: selInfo,
       clock,
@@ -1727,67 +1591,41 @@ export class Play3dComponent implements OnDestroy {
     const ctx = c.getContext('2d');
     if (!ctx) return;
     const S = c.width;
-    ctx.fillStyle = '#0a1210';
-    ctx.fillRect(0, 0, S, S);
-    if (this.mmTerrain() && this.minimapImg?.complete && this.minimapImg.naturalWidth) ctx.drawImage(this.minimapImg, 0, 0, S, S);
-    const P = (x: number, y: number) => worldToMapPixel(x, y, DOTA_MAP_BOUNDS, S, S);
     const myTeam = this.myTeam();
+    const units: MinimapScene['units'] = [];
     for (const u of engine.units.values()) {
       if (!u.alive || u.hero) continue;
       if (u.kind === 'neutral' && !this.mmCreeps()) continue;
-      const { px, py } = P(u.x, u.y);
-      const col = u.team === 2 ? '#eab308' : u.team === myTeam ? '#22c55e' : '#ef4444';
-      ctx.fillStyle = col;
-      if (u.kind === 'creep' || u.kind === 'neutral') ctx.fillRect(px - 1, py - 1, 2.5, 2.5);
-      else {
-        const r = u.kind === 'ancient' ? 5 : u.kind === 'tower' ? 3.5 : 3;
-        ctx.fillRect(px - r, py - r, r * 2, r * 2);
-        ctx.strokeStyle = '#000';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(px - r, py - r, r * 2, r * 2);
-      }
+      if (this.view?.fogged(u)) continue;
+      const color = u.team === 2 ? '#eab308' : u.team === myTeam ? '#22c55e' : '#ef4444';
+      const kind = u.kind === 'creep' || u.kind === 'neutral' ? 'small' : u.kind === 'ancient' ? 'ancient' : u.kind === 'tower' ? 'tower' : 'rax';
+      units.push({ x: u.x, y: u.y, color, kind });
     }
-    for (const r of engine.runes) {
-      if (!r) continue;
-      const { px, py } = P(r.x, r.y);
-      ctx.fillStyle = '#c084fc';
-      ctx.beginPath();
-      ctx.arc(px, py, 3, 0, Math.PI * 2);
-      ctx.fill();
-    }
+    const heroes: MinimapScene['heroes'] = [];
     for (const u of engine.heroes) {
       if (!u?.hero || !u.alive) continue;
       if (u.team !== myTeam && engine.hasBuff(u, 'invis')) continue;
-      const { px, py } = P(u.x, u.y);
-      ctx.beginPath();
-      ctx.arc(px, py, u.hero.slot === this.mySlot ? 5 : 4, 0, Math.PI * 2);
+      if (this.view?.fogged(u)) continue;
+      const me = u.hero.slot === this.mySlot;
       // 盟友颜色开关：关=玩家颜色，开=敌我颜色（己方青绿 / 敌方红）
-      ctx.fillStyle = this.mmAlly() ? (u.hero.slot === this.mySlot ? '#ffffff' : u.team === myTeam ? '#00e0c0' : '#ff2020') : PLAYER_COLORS[u.hero.slot];
-      ctx.fill();
-      ctx.lineWidth = u.hero.slot === this.mySlot ? 2 : 1;
-      ctx.strokeStyle = u.hero.slot === this.mySlot ? '#fff' : '#000';
-      ctx.stroke();
+      const fill = this.mmAlly() ? (me ? '#ffffff' : u.team === myTeam ? '#00e0c0' : '#ff2020') : PLAYER_COLORS[u.hero.slot];
+      heroes.push({ x: u.x, y: u.y, fill, me });
     }
-    // 镜头框
-    if (this.mdx) {
-      const f = this.mdx.getCameraFocus();
-      const { px, py } = P(f.x, f.y);
-      ctx.strokeStyle = '#fff';
-      ctx.lineWidth = 1;
-      ctx.strokeRect(px - 18, py - 11, 36, 22);
-    }
-    // 信号：向外扩散的圆环
     const now = performance.now();
     this.pings = this.pings.filter((p) => now - p.t < 3000);
-    for (const p of this.pings) {
-      const { px, py } = P(p.x, p.y);
-      const k = ((now - p.t) % 1000) / 1000;
-      ctx.strokeStyle = `rgba(0,255,0,${1 - k})`;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(px, py, 4 + k * 16, 0, Math.PI * 2);
-      ctx.stroke();
-    }
+    // 画法与录像页共用（overlay-draw.ts）
+    drawMinimap(ctx, S, {
+      toPx: (x, y) => worldToMapPixel(x, y, DOTA_MAP_BOUNDS, S, S),
+      terrain: this.minimapImg,
+      showTerrain: this.mmTerrain(),
+      units,
+      // 没有视野的河道里看不到神符
+      runes: engine.runes.filter((r): r is NonNullable<typeof r> => !!r && !(this.view?.fogOn && !this.view.fog.visible(r.x, r.y))),
+      heroes,
+      cam: this.mdx ? this.mdx.getCameraFocus() : null,
+      pings: this.pings,
+      fog: this.view?.fogOn ? (c) => this.view?.fog.drawMinimap(c, S, (x, y) => worldToMapPixel(x, y, DOTA_MAP_BOUNDS, S, S)) : undefined,
+    });
   }
 
   // ============================================================ 原生提示框 / 菜单 / 小地图按钮
@@ -1802,6 +1640,13 @@ export class Play3dComponent implements OnDestroy {
   }
   logText(): string {
     return this.log.join(NL) || '（暂无消息）';
+  }
+  /** 战争迷雾：开启时只能看到己方视野内的敌方单位（本端显示，不影响同步） */
+  readonly fogOn = signal(true);
+  toggleFog(): void {
+    const next = !this.fogOn();
+    this.fogOn.set(next);
+    if (this.view) this.view.fogOn = next;
   }
   toggleHpBars(): void {
     const next = !this.hpBars();

@@ -585,7 +585,10 @@ export class GameEngine {
     if (since >= 0) {
       const wave = this.ticks(this.C.creepWaveIntervalSec);
       if (since % wave === 0) this.spawnWave();
-      if (since % this.ticks(this.C.neutralSpawnIntervalSec) === this.ticks(30) % this.ticks(this.C.neutralSpawnIntervalSec)) this.spawnNeutrals();
+      // 野怪：war3map.j IU2 号角时注册 30 秒单次（IQ2 → TriggerEvaluate(OH)）+ OH 每 60 秒，
+      // 即 0:30、1:00、2:00、3:00…（以前算成 0:30、1:30、2:30）
+      const camp = this.ticks(this.C.neutralSpawnIntervalSec);
+      if (since === this.ticks(30) || (since > 0 && since % camp === 0)) this.spawnNeutrals();
       if (since % this.ticks(this.C.runeIntervalSec) === 0) this.spawnRunes(since === 0);
     }
 
