@@ -859,6 +859,131 @@ class Database {
     }
 
     /**
+     * 重置密码：同时更新网页 bcrypt 与 PvPGN SRP3 salt/verifier（及 passhash1）
+     *
+     * @return array{success:bool,message:string,web_updated?:bool,pvpgn_updated?:bool}
+     */
+    public function updatePasswordBoth($username, $password) {
+        require_once __DIR__ . '/bnetsrp3.php';
+
+        $username = trim($username);
+        if ($username === '' || $password === '') {
+            return ['success' => false, 'message' => '用户名或密码为空'];
+        }
+
+        try {
+            $creds = BnetSRP3Helper::generateCredentials($username, $password);
+        } catch (Throwable $e) {
+            error_log('[updatePasswordBoth] SRP3 计算失败: ' . $e->getMessage());
+            return ['success' => false, 'message' => '密码凭据计算失败: ' . $e->getMessage()];
+        }
+
+        $webHash = password_hash($password, PASSWORD_BCRYPT);
+        $webUpdated = false;
+        $pvpgnUpdated = false;
+
+        try {
+            $this->pdo->beginTransaction();
+
+            $stmt = $this->pdo->prepare(
+                "UPDATE users SET
+                    web_password_hash = ?,
+                    acct_passhash1 = ?,
+                    acct_salt = ?,
+                    acct_verifier = ?,
+                    password_reset_token = NULL,
+                    password_reset_expires = NULL
+                 WHERE LOWER(username) = LOWER(?)"
+            );
+            if (!$stmt->execute([
+                $webHash,
+                $creds['passhash1'],
+                $creds['salt_hex'],
+                $creds['verifier_hex'],
+                $username
+            ])) {
+                $this->pdo->rollBack();
+                return ['success' => false, 'message' => '网页端密码更新失败'];
+            }
+            $webUpdated = true;
+
+            // PvPGN 表列名兼容：acct_salt / BNET_acct_salt
+            $tables = ['pvpgn_BNET', 'BNET', 'pvpgn_bnet', 'bnet'];
+            foreach ($tables as $table) {
+                try {
+                    $exists = $this->pdo->query("SHOW TABLES LIKE " . $this->pdo->quote($table))->fetch();
+                    if (!$exists) {
+                        continue;
+                    }
+
+                    $cols = [];
+                    $colStmt = $this->pdo->query("SHOW COLUMNS FROM `{$table}`");
+                    foreach ($colStmt->fetchAll(PDO::FETCH_ASSOC) as $col) {
+                        $cols[strtolower($col['Field'])] = $col['Field'];
+                    }
+
+                    $saltCol = $cols['acct_salt'] ?? ($cols['bnet_acct_salt'] ?? null);
+                    $verCol = $cols['acct_verifier'] ?? ($cols['bnet_acct_verifier'] ?? null);
+                    $hashCol = $cols['acct_passhash1'] ?? ($cols['bnet_acct_passhash1'] ?? null);
+                    $userCol = $cols['username'] ?? ($cols['acct_username'] ?? null);
+                    if (!$saltCol || !$verCol || !$userCol) {
+                        continue;
+                    }
+
+                    $sets = ["`{$saltCol}` = ?", "`{$verCol}` = ?"];
+                    $params = [$creds['salt_hex'], $creds['verifier_hex']];
+                    if ($hashCol) {
+                        $sets[] = "`{$hashCol}` = ?";
+                        $params[] = $creds['passhash1'];
+                    }
+                    $params[] = $username;
+
+                    $sql = "UPDATE `{$table}` SET " . implode(', ', $sets)
+                         . " WHERE LOWER(`{$userCol}`) = LOWER(?)";
+                    $upd = $this->pdo->prepare($sql);
+                    if ($upd->execute($params) && $upd->rowCount() > 0) {
+                        $pvpgnUpdated = true;
+                        break;
+                    }
+                    // 再试 acct_username
+                    if (isset($cols['acct_username']) && $userCol !== $cols['acct_username']) {
+                        $sql2 = "UPDATE `{$table}` SET " . implode(', ', $sets)
+                              . " WHERE LOWER(`{$cols['acct_username']}`) = LOWER(?)";
+                        $upd2 = $this->pdo->prepare($sql2);
+                        if ($upd2->execute($params) && $upd2->rowCount() > 0) {
+                            $pvpgnUpdated = true;
+                            break;
+                        }
+                    }
+                } catch (Throwable $te) {
+                    error_log("[updatePasswordBoth] 更新表 {$table} 跳过: " . $te->getMessage());
+                }
+            }
+
+            $this->pdo->commit();
+        } catch (Throwable $e) {
+            if ($this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
+            error_log('[updatePasswordBoth] ' . $e->getMessage());
+            return ['success' => false, 'message' => '数据库更新失败'];
+        }
+
+        if (!$pvpgnUpdated) {
+            error_log("[updatePasswordBoth] 警告: 用户 {$username} 的 PvPGN 表未更新到行（可能列名不同或账号仅在 users）");
+        }
+
+        return [
+            'success' => true,
+            'message' => $pvpgnUpdated
+                ? '密码已重置（网页端与战网凭据均已更新）'
+                : '网页端密码已更新，但未匹配到 PvPGN 账号行，战网登录可能仍失败',
+            'web_updated' => $webUpdated,
+            'pvpgn_updated' => $pvpgnUpdated
+        ];
+    }
+
+    /**
      * 验证邮箱 Token
      */
     public function verifyEmailToken($token) {

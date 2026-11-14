@@ -83,6 +83,38 @@ export const zh_CN: TranslationSchema = {
         webAuthFail: "登录验证失败，请检查账号密码",
         bnetAuthFail: "账号验证失败"
     },
+    forgot: {
+        title: "找回密码",
+        subtitle: "输入注册邮箱，我们将发送重置链接",
+        email: "注册邮箱",
+        emailHint: "请使用账号绑定的邮箱",
+        emailError: "请输入有效的电子邮箱地址",
+        submit: "发送重置链接",
+        back: "返回登录",
+        success: "重置链接已发送，请查收邮箱（含垃圾箱）",
+        fail: "发送失败，请稍后再试"
+    },
+    reset: {
+        title: "重置密码",
+        subtitle: "请设置新的登录密码",
+        account: "账号",
+        pass: "新密码",
+        confirm: "确认新密码",
+        passHint: "必须包含大小写字母、数字及特殊符号，且不少于 8 位",
+        confirmHint: "请再次输入密码以确保一致",
+        passError: "密码强度不足，请按要求输入",
+        passRequired: "请输入新密码",
+        confirmError: "两次输入的密码不一致",
+        submit: "确认重置",
+        validating: "正在验证链接…",
+        success: "密码已重置成功，请使用新密码登录",
+        fail: "重置失败，请稍后再试",
+        invalidToken: "重置链接无效或已过期",
+        missingToken: "缺少重置令牌，请重新申请找回密码",
+        requestAgain: "重新申请找回密码",
+        backLogin: "返回登录",
+        goLogin: "前往登录"
+    },
     hero: {
         mainTitle: "CC对战平台",
         subTitle: "专业·公平·纯净的魔兽争霸对战环境",

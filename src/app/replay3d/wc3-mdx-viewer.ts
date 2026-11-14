@@ -6,6 +6,7 @@ import { PathGrid } from '../game/path-grid';
 import {
   RADIANT_SPAWN,
   DOTA_MAP_BOUNDS,
+  DOTA_CAMERA_BOUNDS,
   loadDotaMapConfig,
   DEFAULT_DOTA_MAP_URL,
   type DotaBuildingKind,
@@ -1506,10 +1507,13 @@ export class Wc3MdxViewer {
   }
 
   private clampTargetToMap(): void {
+    // 原版镜头边界（可玩区域减镜头边距），再与地图实际范围取交集
     const b = this.getMapBounds();
-    const m = 384; // keep focus inside playable cells
-    this.target[0] = Math.max(b.x0 + m, Math.min(b.x1 - m, this.target[0]));
-    this.target[1] = Math.max(b.y0 + m, Math.min(b.y1 - m, this.target[1]));
+    const c = DOTA_CAMERA_BOUNDS;
+    const x0 = Math.max(b.x0, c.x0), x1 = Math.min(b.x1, c.x1);
+    const y0 = Math.max(b.y0, c.y0), y1 = Math.min(b.y1, c.y1);
+    this.target[0] = Math.max(x0, Math.min(x1, this.target[0]));
+    this.target[1] = Math.max(y0, Math.min(y1, this.target[1]));
     this.target[2] = this.sampleHeight(this.target[0], this.target[1]) + 80;
   }
 

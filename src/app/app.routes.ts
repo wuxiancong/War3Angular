@@ -3,6 +3,7 @@ import { HomeComponent } from './pages/home.component';
 import { RegisterComponent } from './pages/register.component';
 import { LoginComponent } from './pages/login.component';
 import { ForgotPasswordComponent } from './pages/forgot-password.component';
+import { ResetPasswordComponent } from './pages/reset-password.component';
 import { StatsComponent } from './pages/stats.component';
 import { LadderComponent } from './pages/ladder.component';
 import { SquadComponent } from './pages/squad.component';
@@ -27,6 +28,7 @@ export const routes: Routes = [
   { path: 'register', component: RegisterComponent },
   { path: 'login', component: LoginComponent },
   { path: 'forgot-password', component: ForgotPasswordComponent },
+  { path: 'reset-password', component: ResetPasswordComponent },
   { path: 'matches', component: StatsComponent },
   { path: 'replay', component: Replay3dComponent },
   // 旧地址保留跳转，已有的书签与外链不失效

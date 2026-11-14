@@ -156,6 +156,50 @@ class Mailer {
         </div>";
     }
 
+    public function getPasswordResetTemplate($username, $reset_link) {
+        $safeUsername = htmlspecialchars($username);
+        $safeLink = htmlspecialchars($reset_link);
+
+        return "
+        <div style='font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 10px; overflow: hidden; background: #ffffff;'>
+            <div style='background: linear-gradient(135deg, #b45309 0%, #d97706 100%); color: white; padding: 25px; text-align: center;'>
+                <h2 style='margin: 0; font-size: 22px;'>🔑 找回密码</h2>
+            </div>
+            <div style='padding: 30px; color: #333; line-height: 1.6;'>
+                <p style='font-size: 16px;'>尊敬的 <strong>{$safeUsername}</strong>，您好：</p>
+                <p>我们收到了您的密码重置请求。请点击下方按钮设置新密码（链接 1 小时内有效）：</p>
+                <div style='text-align: center; margin: 35px 0;'>
+                    <a href='{$safeLink}' style='background-color: #d97706; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px; display: inline-block;'>重置密码</a>
+                </div>
+                <p style='color: #888; font-size: 13px;'>若按钮无法点击，请复制以下链接到浏览器打开：</p>
+                <p style='word-break: break-all; font-size: 13px; color: #d97706; background: #fffbeb; padding: 10px; border-radius: 4px;'>{$safeLink}</p>
+                <p style='color: #999; font-size: 12px; margin-top: 30px;'>如非本人操作，请忽略本邮件，账号密码不会被更改。</p>
+            </div>
+        </div>";
+    }
+
+    /** 密码修改成功通知（不含新密码明文） */
+    public function getPasswordChangedTemplate($username, $changedAt = null) {
+        $safeUsername = htmlspecialchars($username);
+        $timeText = htmlspecialchars($changedAt ?: date('Y-m-d H:i:s'));
+
+        return "
+        <div style='font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 10px; overflow: hidden; background: #ffffff;'>
+            <div style='background: linear-gradient(135deg, #047857 0%, #10b981 100%); color: white; padding: 25px; text-align: center;'>
+                <h2 style='margin: 0; font-size: 22px;'>✅ 密码修改成功</h2>
+            </div>
+            <div style='padding: 30px; color: #333; line-height: 1.6;'>
+                <p style='font-size: 16px;'>尊敬的 <strong>{$safeUsername}</strong>，您好：</p>
+                <p>您的账号密码已于 <strong>{$timeText}</strong> 修改成功。</p>
+                <p>网页端登录与战网登录密码均已同步更新。请使用新密码登录。</p>
+                <div style='margin: 24px 0; padding: 14px 16px; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; color: #065f46; font-size: 14px;'>
+                    若非本人操作，请立即通过「找回密码」重新设置密码，并联系客服核查账号安全。
+                </div>
+                <p style='color: #999; font-size: 12px; margin-top: 28px;'>本邮件为系统通知，请勿直接回复。</p>
+            </div>
+        </div>";
+    }
+
     public function getTempEmailTemplate($username, $email, $verify_link, $isResend = false) {
         $header = __('temp_email_mail_header');
         $greeting = __('temp_email_mail_greeting');

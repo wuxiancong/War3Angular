@@ -83,6 +83,38 @@ export const en: TranslationSchema = {
         webAuthFail: "Login failed, please check credentials",
         bnetAuthFail: "Account authentication failed"
     },
+    forgot: {
+        title: "FORGOT PASSWORD",
+        subtitle: "Enter your registered email to receive a reset link",
+        email: "Registered Email",
+        emailHint: "Use the email bound to your account",
+        emailError: "Please enter a valid email address",
+        submit: "Send Reset Link",
+        back: "Back to Login",
+        success: "Reset link sent. Please check your inbox (and spam).",
+        fail: "Failed to send. Please try again later."
+    },
+    reset: {
+        title: "RESET PASSWORD",
+        subtitle: "Set a new login password",
+        account: "Account",
+        pass: "New Password",
+        confirm: "Confirm Password",
+        passHint: "Must include upper/lower case, digits and symbols, min 8 chars",
+        confirmHint: "Re-enter the password to confirm",
+        passError: "Password too weak, please follow requirements",
+        passRequired: "Please enter a new password",
+        confirmError: "Passwords do not match",
+        submit: "Reset Password",
+        validating: "Validating link…",
+        success: "Password reset successfully. Please sign in with the new password.",
+        fail: "Reset failed. Please try again later.",
+        invalidToken: "Reset link is invalid or expired",
+        missingToken: "Missing reset token. Please request a new link.",
+        requestAgain: "Request a new reset link",
+        backLogin: "Back to Login",
+        goLogin: "Go to Login"
+    },
     hero: {
         mainTitle: "CC PLATFORM",
         subTitle: "PROFESSIONAL · FAIR · PURE WARCRAFT III ENVIRONMENT",

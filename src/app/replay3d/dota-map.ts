@@ -137,6 +137,18 @@ export const DOTA_MAP_BOUNDS: DotaMapBounds = {
 };
 
 /**
+ * 原版镜头焦点可移动的范围（世界坐标）。
+ * war3map.j 的 SetCameraBounds 用可玩区域 x -7552..7552、y -7936..7424，再减 GetCameraMargin；
+ * 引擎边距按左右 512、上下 256 计（Hive Workshop 论坛给的数值，没有在实机上核对过）。
+ */
+export const DOTA_CAMERA_BOUNDS: DotaMapBounds = {
+  x0: -7552 + 512,
+  x1: 7552 - 512,
+  y0: -7936 + 256,
+  y1: 7424 - 256,
+};
+
+/**
  * Bake DotA minimap + building pins + optional hero spawn into one canvas
  * used as the ground plane texture (no 3D cylinders/boxes).
  */
