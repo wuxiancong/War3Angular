@@ -1,4 +1,5 @@
 import { pool, query } from './db.js';
+import { AcDetectionInput, AntiCheatService } from './anticheat.service.js';
 
 export interface PlayerReportItem {
   userName: string;
@@ -22,6 +23,8 @@ export interface MatchReportPayload {
   durationSeconds: number;
   players: PlayerReportItem[];
   actionHash?: string;
+  acStatus?: 'PENDING' | 'FROZEN'; // 主机实时反作弊状态
+  acDetections?: AcDetectionInput[]; // 主机实时检测命中列表
 }
 
 export interface LadderUserRecord {
@@ -353,10 +356,13 @@ export class LadderService {
         p.newScore = Math.max(100, p.oldScore + finalDelta);
       }
 
-      // D. 原子写入 matches / match_results / ladder_stats
+      const isFrozen = payload.acStatus === 'FROZEN';
+      const acStatus = isFrozen ? 'FROZEN' : 'PENDING';
+
+      // D. 原子写入 matches / match_results / ladder_stats（冻结局仅归档战绩与证据，不改天梯分）
       await conn.execute(
-        `INSERT INTO matches (match_id, map_name, game_mode, winner_team, start_time, duration_seconds, match_type)
-         VALUES (?, ?, ?, ?, ?, ?, 1)`,
+        `INSERT INTO matches (match_id, map_name, game_mode, winner_team, start_time, duration_seconds, match_type, ac_status)
+         VALUES (?, ?, ?, ?, ?, ?, 1, ?)`,
         [
           payload.matchId,
           'DotA v6.83d',
@@ -364,14 +370,17 @@ export class LadderService {
           payload.winnerTeam,
           new Date(Date.now() - payload.durationSeconds * 1000),
           payload.durationSeconds,
+          acStatus,
         ]
       );
 
       for (const p of calculatedPlayers) {
+        const appliedDelta = isFrozen ? 0 : p.deltaScore;
+
         await conn.execute(
           `INSERT INTO match_results (match_id, userName, team_id, is_winner, hero_name, hero_level, kills, deaths, assists,
-                                     last_hits, denies, gold_earned, is_mvp, score_point)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                                     last_hits, denies, gold_earned, is_mvp, score_point, delta_score)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             payload.matchId,
             p.userName,
@@ -387,8 +396,13 @@ export class LadderService {
             p.gold,
             p.isMvp ? 1 : 0,
             p.performanceScore,
+            appliedDelta,
           ]
         );
+
+        if (isFrozen) {
+          continue;
+        }
 
         const newRank = scoreToRankLevel(p.newScore);
         const winInc = p.isWinner && !p.isAbandon ? 1 : 0;
@@ -432,19 +446,25 @@ export class LadderService {
         );
       }
 
+      // E. 写入主机随本局上报的实时反作弊证据，并按规则自动建案
+      if (payload.acDetections && payload.acDetections.length > 0) {
+        await AntiCheatService.recordDetectionsInTx(conn, payload.matchId, payload.acDetections);
+      }
+
       await conn.commit();
 
       return {
         success: true,
-        message: '天梯比赛结算完成并持久化入库',
+        message: isFrozen ? '比赛命中反作弊强证据，已冻结积分并转入复核队列' : '天梯比赛结算完成并持久化入库',
         data: {
           matchId: payload.matchId,
           winnerTeam: payload.winnerTeam,
+          acStatus,
           settledPlayers: calculatedPlayers.map((p) => ({
             userName: p.userName,
             oldScore: p.oldScore,
-            deltaScore: p.deltaScore,
-            newScore: p.newScore,
+            deltaScore: isFrozen ? 0 : p.deltaScore,
+            newScore: isFrozen ? p.oldScore : p.newScore,
             isMvp: p.isMvp,
             isSvp: p.isSvp,
             performanceScore: p.performanceScore,
