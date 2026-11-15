@@ -429,6 +429,7 @@ registerGameRoomRoutes(app);
 // 注册天梯数据查询与特权安全结算路由
 import { verifyBotSignature, rateLimit } from './server/security.middleware.js';
 import { LadderService } from './server/ladder.service.js';
+import { AntiCheatService } from './server/anticheat.service.js';
 
 /**
  * 1. 查询单个玩家天梯战报/资料
@@ -506,6 +507,49 @@ app.post('/api/ladder/settle', verifyBotSignature, async (req, res) => {
   } catch (err: any) {
     console.error('天梯比赛结算落库异常:', err);
     return res.status(500).json({ success: false, error: '天梯结算落库失败: ' + (err.message || String(err)) });
+  }
+});
+
+/**
+ * 5. 反外挂判决执行接口（HMAC 鉴权 + 幂等 + 单事务回滚/补偿）
+ * POST /api/ac/verdict
+ */
+app.post('/api/ac/verdict', verifyBotSignature, async (req, res) => {
+  try {
+    const result = await AntiCheatService.applyVerdict(req.body);
+    return res.json(result);
+  } catch (err: any) {
+    console.error('反外挂判决执行异常:', err);
+    return res.status(400).json({ success: false, error: err.message || String(err) });
+  }
+});
+
+/**
+ * 6. 玩家举报接口（仅记录弱信号，不单独定罪）
+ * POST /api/ac/report
+ */
+app.post('/api/ac/report', rateLimit(30, 60), async (req, res) => {
+  try {
+    const result = await AntiCheatService.submitPlayerReport(req.body);
+    return res.json(result);
+  } catch (err: any) {
+    return res.status(400).json({ success: false, error: err.message || String(err) });
+  }
+});
+
+/**
+ * 7. 复核后台案件列表查询
+ * GET /api/ac/cases?status=OPEN&limit=50
+ */
+app.get('/api/ac/cases', rateLimit(60, 60), async (req, res) => {
+  const status = String(req.query['status'] || 'OPEN').toUpperCase();
+  const limit = parseInt(String(req.query['limit'] || '50'), 10);
+  try {
+    const list = await AntiCheatService.listCases(status, limit);
+    return res.json({ success: true, data: list });
+  } catch (err: any) {
+    console.error('查询反外挂案件异常:', err);
+    return res.status(500).json({ success: false, error: '查询反外挂案件失败' });
   }
 });
 
