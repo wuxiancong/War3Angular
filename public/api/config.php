@@ -1,21 +1,84 @@
 <?php
 // api/config.php
+// 本地联调：优先读环境变量 / 同级 .env；默认连本机 MySQL（与 War3Bot [mysql] 对齐）
 
-// 数据库连接配置
-define('DB_HOST', '127.0.0.1');
-define('DB_NAME', 'pvpgn');
-define('DB_USER', 'pvpgn');
-define('DB_PASS', ''); // 请在部署时修改为真实密码
+function war3_load_dotenv_if_present(): void
+{
+    $candidates = [
+        __DIR__ . '/.env',
+        __DIR__ . '/../.env',
+        __DIR__ . '/../../.env',
+    ];
+    foreach ($candidates as $path) {
+        if (!is_readable($path)) {
+            continue;
+        }
+        $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        if ($lines === false) {
+            continue;
+        }
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if ($line === '' || $line[0] === '#' || strpos($line, '=') === false) {
+                continue;
+            }
+            [$k, $v] = explode('=', $line, 2);
+            $k = trim($k);
+            $v = trim($v, " \t\"'");
+            if ($k !== '' && getenv($k) === false) {
+                putenv("$k=$v");
+                $_ENV[$k] = $v;
+            }
+        }
+        break;
+    }
+}
+
+war3_load_dotenv_if_present();
+
+$appMode = strtolower(getenv('APP_MODE') ?: (getenv('LOCAL_MODE') === 'true' ? 'local' : 'local'));
+$isLocalLike = in_array($appMode, ['local', 'test'], true)
+    || filter_var(getenv('LOCAL_MODE') ?: 'true', FILTER_VALIDATE_BOOLEAN)
+    || filter_var(getenv('DEBUG_MODE') ?: 'false', FILTER_VALIDATE_BOOLEAN);
+
+if (!defined('APP_MODE')) {
+    define('APP_MODE', $appMode);
+}
+if (!defined('IS_LOCAL_MODE')) {
+    define('IS_LOCAL_MODE', $isLocalLike);
+}
+
+// 数据库连接配置（本地默认 127.0.0.1；正式部署用环境变量覆盖）
+if (!defined('DB_HOST')) {
+    define('DB_HOST', getenv('DATABASE_URL') ?: ($isLocalLike ? '127.0.0.1' : '139.155.155.166'));
+}
+if (!defined('DB_NAME')) {
+    define('DB_NAME', getenv('DATABASE_NAME') ?: 'pvpgn');
+}
+if (!defined('DB_USER')) {
+    define('DB_USER', getenv('DATABASE_USER') ?: 'pvpgn');
+}
+if (!defined('DB_PASS')) {
+    define('DB_PASS', getenv('DATABASE_PASSWORD') ?: 'Wxc@15685243548');
+}
 
 // PvPGN 服务器配置
-define('PVPGN_HOST', '127.0.0.1');
-define('PVPGN_PORT', 6112);
+if (!defined('PVPGN_HOST')) {
+    define('PVPGN_HOST', getenv('PVPGN_HOST') ?: '127.0.0.1');
+}
+if (!defined('PVPGN_PORT')) {
+    define('PVPGN_PORT', intval(getenv('PVPGN_PORT') ?: 6112));
+}
 
 // 代理设置
-define('HTTP_PROXY', 'http://127.0.0.1:10809');
+if (!defined('HTTP_PROXY')) {
+    define('HTTP_PROXY', getenv('HTTP_PROXY') ?: (getenv('ALL_PROXY') ?: ''));
+}
 
 // AI首先模型
-define('GEMINI_MODEL', 'gemini-2.0-flash');
+if (!defined('GEMINI_MODEL')) {
+    define('GEMINI_MODEL', getenv('GEMINI_MODEL') ?: 'gemini-2.0-flash');
+}
 
 // ============================================================
 // AI API 密钥配置 (可在此处直接填入密钥，也可通过 .env 配置)
@@ -25,15 +88,9 @@ if (!defined('DEEPSEEK_API_KEY')) {
 }
 
 if (!defined('GEMINI_API_KEY')) {
-    define('GEMINI_API_KEY', getenv('GEMINI_API_KEY') ?: 'AIzaSyBqeOa7eGHlMCevtWUt45TkmkT-O5Uq-sA');
+    define('GEMINI_API_KEY', getenv('GEMINI_API_KEY') ?: '');
 }
 
 if (!defined('GEMINI_API_KEYS')) {
-    define('GEMINI_API_KEYS', getenv('GEMINI_API_KEYS') ?: 'AIzaSyDupz4HnGkaz1Fdo-7fUGc1QCusTiURXCk,AIzaSyBWKPG_90GGGMPj0tOZTaIt8mk3tMnDDNs,AIzaSyAqHjxfuwxzjVINdJp3VdWRKqT02vVso88,AIzaSyBxl4WVX4s74rOOnB3A4w6Ed_KTr6GhzkQ,AIzaSyDF1_fsjxep703Ps8IgxFNVQqrl2KPpyJA,AIzaSyCh9mFFlpHs7kODSoly31-geZ0s2HvwwBU,AIzaSyBKjchJe93rRRrv1-OrxWKmtPVwN3Zpd-Y,AIzaSyCxXFUNN-vSgKGpzz9Z4CqMlmmrMiqzRi4,AIzaSyArMwhI7YXa-39LUxDfCtHOGwMI4iN3KXg,AIzaSyDpXRR3A4ggZ1IMhSHCVjkK6dfS1ksJs6U,AIzaSyDwo7jTRjflNThItvrmis57kSe2Soi8avM,AIzaSyBSNMZNJ8Ka7K9429MnXVs3DzMLzt8sNDY,AIzaSyBvR6u09ZLgNkzJ3QX7QmB3MqcbdOzfp0I,AIzaSyA7zrFMqT_y0u7OVtcqTRVjh5A2DfMNGjU');
+    define('GEMINI_API_KEYS', getenv('GEMINI_API_KEYS') ?: '');
 }
-
-// 代理设置（国内服务器直连 Google 会超时，若服务器安装了 Clash / V2Ray 等代理，可填入如 'http://127.0.0.1:10809' 或 'http://127.0.0.1:7890'）
-if (!defined('HTTP_PROXY')) {
-    define('HTTP_PROXY', getenv('HTTP_PROXY') ?: (getenv('ALL_PROXY') ?: ''));
-}
-

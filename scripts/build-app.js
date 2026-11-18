@@ -21,10 +21,17 @@ console.log(`GEMINI_API_KEYS length: ${apiKeys.length}`);
 const isDev = process.argv.includes('--dev');
 // 配置 --allowed-hosts 支持局域网 IP 与各种 Host 访问，防止 Angular Vite 拦截
 const ngBin = path.join(__dirname, '../node_modules/@angular/cli/bin/ng.js');
-const baseCmd = isDev ? `node "${ngBin}" serve --port=4200 --host=0.0.0.0 --allowed-hosts` : `node "${ngBin}" build`;
+const proxyFlag = isDev ? '--proxy-config=proxy.conf.json' : '';
+const baseCmd = isDev
+  ? `node "${ngBin}" serve --port=4200 --host=0.0.0.0 --allowed-hosts ${proxyFlag}`
+  : `node "${ngBin}" build`;
 const hmrFlag = isDev && process.env.DISABLE_HMR ? '--live-reload=false' : '';
 
 const cmd = `${baseCmd} --define=GEMINI_API_KEY="'${apiKey}'" --define=GEMINI_API_KEYS="'${apiKeys}'" ${hmrFlag}`;
+
+if (isDev) {
+  console.log('Dev proxy: /api → http://127.0.0.1:4000 (set APP_MODE=local in .env; War3Bot ladder.api_base should match PUBLIC_API_BASE)');
+}
 
 try {
   console.log(`Executing: ${isDev ? 'ng serve' : 'ng build'}`);

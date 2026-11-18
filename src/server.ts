@@ -427,9 +427,80 @@ import { registerGameRoomRoutes } from './server/game-rooms.js';
 registerGameRoomRoutes(app);
 
 // 注册天梯数据查询与特权安全结算路由
+import { createHash } from 'node:crypto';
 import { verifyBotSignature, rateLimit } from './server/security.middleware.js';
 import { LadderService } from './server/ladder.service.js';
 import { AntiCheatService } from './server/anticheat.service.js';
+import { describeRuntime, runtimeConfig } from './server/runtime-config.js';
+
+/**
+ * 0. 运行时信息（本地联调自检：确认连的是本机库 / 推荐 Bot api_base）
+ * GET /api/runtime/info
+ */
+app.get('/api/runtime/info', rateLimit(30, 60), (_req, res) => {
+  return res.json({ success: true, data: describeRuntime() });
+});
+
+/**
+ * 0b. Launcher 兼容：完整战绩包（与 PHP player_stats.php 同结构）
+ * GET /api/player_stats.php?userName=xxx&t=...&sign=...
+ * 本地模式可放宽签名；正式环境仍校验 MD5(userName+t+APP_SECRET)
+ */
+function verifyLauncherStatsSign(req: any): { ok: boolean; error?: string } {
+  if (runtimeConfig.isDebugLike) {
+    return { ok: true };
+  }
+  const userName = String(req.query['userName'] || req.query['username'] || req.query['user'] || '').trim();
+  const timestamp = parseInt(String(req.query['t'] || '0'), 10);
+  const signature = String(req.query['sign'] || '');
+  if (!userName || !signature || timestamp <= 0) {
+    return { ok: false, error: 'Missing security parameters' };
+  }
+  if (Math.abs(Math.floor(Date.now() / 1000) - timestamp) > 60) {
+    return { ok: false, error: 'Request expired' };
+  }
+  const secret = process.env['JWT_SECRET'] || 'CC_War3_@#_Platform_2026_SecureKey';
+  const expected = createHash('md5').update(`${userName}${timestamp}${secret}`).digest('hex');
+  if (signature !== expected) {
+    return { ok: false, error: 'Invalid signature' };
+  }
+  return { ok: true };
+}
+
+app.get(['/api/player_stats.php', '/api/player_stats'], rateLimit(120, 60), async (req, res) => {
+  const check = verifyLauncherStatsSign(req);
+  if (!check.ok) {
+    return res.status(403).json({ error: check.error });
+  }
+  const userName = String(req.query['userName'] || req.query['username'] || req.query['user'] || '').trim();
+  if (!userName) {
+    return res.status(400).json({ error: 'Invalid username' });
+  }
+  try {
+    const data = await LadderService.getPlayerDetailedStats(userName);
+    if (!data) {
+      return res.status(404).json({ error: 'Player stats not found' });
+    }
+    return res.json(data);
+  } catch (err: any) {
+    console.error('player_stats 兼容接口异常:', err);
+    return res.status(500).json({ error: 'Server error: ' + (err.message || String(err)) });
+  }
+});
+
+app.get(['/api/user_status.php', '/api/user_status'], rateLimit(120, 60), async (req, res) => {
+  const userName = String(req.query['userName'] || req.query['username'] || req.query['user'] || '').trim();
+  if (!userName) {
+    return res.status(400).json({ success: false, message: 'Username required' });
+  }
+  try {
+    const data = await LadderService.getUserStatus(userName);
+    return res.json({ success: true, data });
+  } catch (err: any) {
+    console.error('user_status 兼容接口异常:', err);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
 
 /**
  * 1. 查询单个玩家天梯战报/资料
@@ -588,6 +659,9 @@ if (isMainModule(import.meta.url) || process.env['pm_id']) {
     }
 
     console.log(`Node Express server listening on http://localhost:${port}`);
+    console.log(
+      `[Runtime] mode=${runtimeConfig.mode} db=${runtimeConfig.dbHost}/${runtimeConfig.dbName} apiBase=${runtimeConfig.recommendedApiBase}`
+    );
   });
 }
 

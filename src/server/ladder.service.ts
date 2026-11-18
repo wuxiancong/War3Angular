@@ -1,5 +1,11 @@
-import { pool, query } from './db.js';
+import { getConnection, ladderUpsertSql, query, useSqlite } from './db.js';
 import { AcDetectionInput, AntiCheatService } from './anticheat.service.js';
+import {
+  isEligibleLadderMode,
+  isSoloMode,
+  normalizeGameMode,
+  runtimeConfig,
+} from './runtime-config.js';
 
 export interface PlayerReportItem {
   userName: string;
@@ -25,6 +31,9 @@ export interface MatchReportPayload {
   actionHash?: string;
   acStatus?: 'PENDING' | 'FROZEN'; // 主机实时反作弊状态
   acDetections?: AcDetectionInput[]; // 主机实时检测命中列表
+  /** War3Bot debug_mode / 本地联调：允许人数不足局落库（仍须正规模式） */
+  debugMode?: boolean;
+  localMode?: boolean;
 }
 
 export interface LadderUserRecord {
@@ -98,7 +107,9 @@ function evaluatePerformance(
 
 export class LadderService {
   /**
-   * 1. 验证上报比赛合法性 (数据防伪、时长合规、人头守恒)
+   * 1. 验证上报比赛合法性 (模式门禁、数据防伪、时长合规、人头守恒)
+   * - 非 5v5 / SOLO 一律拒绝落库（debug 也不例外）
+   * - local/test/debug：放宽最短时长与人头守恒，允许人数不足局写入
    */
   static validateMatchIntegrity(payload: MatchReportPayload): { valid: boolean; reason?: string } {
     if (!payload.matchId || !payload.players || payload.players.length === 0) {
@@ -107,8 +118,47 @@ export class LadderService {
     if (payload.winnerTeam !== 1 && payload.winnerTeam !== 2) {
       return { valid: false, reason: '胜利方队伍参数非法 (必须为 1:近卫 或 2:天灾)' };
     }
-    if (payload.durationSeconds < 180) {
-      return { valid: false, reason: '比赛时长过短 (小于3分钟)，判定为无效局不计入天梯积分' };
+
+    const mode = normalizeGameMode(payload.mode);
+    if (!isEligibleLadderMode(mode)) {
+      return {
+        valid: false,
+        reason: `非正规模式 [${payload.mode || '(空)'}] 禁止写入天梯库（仅允许 5v5: AP/CM/RD/SD/AR/XL 及变体，或 SOLO 1v1）`,
+      };
+    }
+
+    const debugLike =
+      !!payload.debugMode ||
+      !!payload.localMode ||
+      runtimeConfig.isDebugLike;
+
+    const minDuration = debugLike ? runtimeConfig.minDurationSeconds : 180;
+    if (payload.durationSeconds < minDuration) {
+      return {
+        valid: false,
+        reason: `比赛时长过短 (小于${Math.round(minDuration / 60)}分钟)，判定为无效局不计入天梯积分`,
+      };
+    }
+
+    // 人数门禁：正式环境要求满编；debug/local 允许不足，但仍要求双方至少各 1 人（SOLO）或总共 ≥2
+    const humans = payload.players.filter((p) => !!p.userName?.trim());
+    const team1 = humans.filter((p) => p.team === 1).length;
+    const team2 = humans.filter((p) => p.team === 2).length;
+    if (isSoloMode(mode)) {
+      if (team1 < 1 || team2 < 1) {
+        return { valid: false, reason: 'SOLO 1v1 需要对阵双方各至少 1 名有效玩家' };
+      }
+      if (!debugLike && humans.length !== 2) {
+        return { valid: false, reason: '正式环境 SOLO 必须恰好 2 名玩家' };
+      }
+    } else {
+      // 5v5
+      if (!debugLike && humans.length < 10) {
+        return { valid: false, reason: `正式环境 5v5 需要 10 名玩家，当前 ${humans.length}` };
+      }
+      if (debugLike && (team1 < 1 || team2 < 1 || humans.length < 2)) {
+        return { valid: false, reason: '测试局至少需要对阵双方各 1 人且总人数≥2' };
+      }
     }
 
     // 人头数与死亡数守恒检查
@@ -133,8 +183,12 @@ export class LadderService {
       }
     }
 
-    // 近卫击杀与天灾死亡差值校验 (允许少量野怪/防御塔自杀，误差不可过大)
-    if (Math.abs(sentinelKills - scourgeDeaths) > 10 || Math.abs(scourgeKills - sentinelDeaths) > 10) {
+    // 近卫击杀与天灾死亡差值校验；debug 局放宽（人少时野怪误差相对更大）
+    const killSlack = debugLike ? 25 : 10;
+    if (
+      Math.abs(sentinelKills - scourgeDeaths) > killSlack ||
+      Math.abs(scourgeKills - sentinelDeaths) > killSlack
+    ) {
       return { valid: false, reason: '战斗数据不符合人头守恒定律，涉嫌伪造注入' };
     }
 
@@ -144,40 +198,49 @@ export class LadderService {
   /**
    * 2. 查询玩家天梯档案
    */
+  static emptyProfile(userName: string): LadderUserRecord {
+    return {
+      userName,
+      score: 1000,
+      rank_level: 0,
+      rank_code: '-',
+      rank_title: '见习新手',
+      wins: 0,
+      losses: 0,
+      escapes: 0,
+      winRate: 0,
+      total_kills: 0,
+      total_deaths: 0,
+      total_assists: 0,
+      kda: 0,
+      mvp_count: 0,
+      current_win_streak: 0,
+      max_win_streak: 0,
+      total_play_time_mins: 0,
+    };
+  }
+
   static async getPlayerProfile(userName: string): Promise<LadderUserRecord | null> {
     const cleanUser = userName.trim();
     if (!cleanUser) return null;
 
-    const rows = await query<any>(
-      `SELECT userName, score, rank_level, wins, losses, escapes, total_kills, total_deaths,
-              total_assists, mvp_count, current_win_streak, max_win_streak, total_play_time_mins
-       FROM ladder_stats WHERE userName = ? LIMIT 1`,
-      [cleanUser]
-    );
+    try {
+      const rows = await query<any>(
+        `SELECT userName, score, rank_level, wins, losses, escapes, total_kills, total_deaths,
+                total_assists, mvp_count, current_win_streak, max_win_streak, total_play_time_mins
+         FROM ladder_stats WHERE userName = ? LIMIT 1`,
+        [cleanUser]
+      );
 
-    if (!rows || rows.length === 0) {
-      return {
-        userName: cleanUser,
-        score: 1000,
-        rank_level: 0,
-        rank_code: '-',
-        rank_title: '见习新手',
-        wins: 0,
-        losses: 0,
-        escapes: 0,
-        winRate: 0,
-        total_kills: 0,
-        total_deaths: 0,
-        total_assists: 0,
-        kda: 0,
-        mvp_count: 0,
-        current_win_streak: 0,
-        max_win_streak: 0,
-        total_play_time_mins: 0,
-      };
+      if (!rows || rows.length === 0) {
+        return this.emptyProfile(cleanUser);
+      }
+
+      return this.mapLadderRow(rows[0]);
+    } catch (err) {
+      console.warn(`[Ladder] getPlayerProfile(${cleanUser}) DB unavailable, empty profile:`, (err as Error)?.message || err);
+      return this.emptyProfile(cleanUser);
     }
-
-    return this.mapLadderRow(rows[0]);
   }
 
   /**
@@ -207,30 +270,180 @@ export class LadderService {
    */
   static async getPlayerMatches(userName: string, limit = 20): Promise<any[]> {
     const safeLimit = Math.min(Math.max(1, limit), 50);
-    return await query<any>(
-      `SELECT m.match_id, m.map_name, m.game_mode, m.winner_team, m.start_time, m.duration_seconds,
-              mr.team_id, mr.is_winner, mr.hero_name, mr.kills, mr.deaths, mr.assists,
-              mr.last_hits, mr.denies, mr.gold_earned, mr.is_mvp, mr.score_point
-       FROM match_results mr
-       JOIN matches m ON mr.match_id = m.match_id
-       WHERE mr.userName = ?
-       ORDER BY m.start_time DESC
-       LIMIT ?`,
-      [userName.trim(), safeLimit]
-    );
+    try {
+      return await query<any>(
+        `SELECT m.match_id, m.map_name, m.game_mode, m.winner_team, m.start_time, m.duration_seconds,
+                mr.team_id, mr.is_winner, mr.hero_name, mr.kills, mr.deaths, mr.assists,
+                mr.last_hits, mr.denies, mr.gold_earned, mr.is_mvp, mr.score_point
+         FROM match_results mr
+         JOIN matches m ON mr.match_id = m.match_id
+         WHERE mr.userName = ?
+         ORDER BY m.start_time DESC
+         LIMIT ?`,
+        [userName.trim(), safeLimit]
+      );
+    } catch (err) {
+      console.warn(`[Ladder] getPlayerMatches(${userName}) failed:`, (err as Error)?.message || err);
+      return [];
+    }
+  }
+
+  /**
+   * 4b. Launcher 兼容：与 public/api/player_stats.php 同结构的完整战绩包
+   */
+  static async getPlayerDetailedStats(userName: string): Promise<any | null> {
+    const cleanUser = userName.trim();
+    if (!cleanUser) return null;
+
+    // 无档案 / DB 不可用时也返回空骨架，方便 Launcher 用占位动画而不是 404/500
+    const profile = (await this.getPlayerProfile(cleanUser)) || this.emptyProfile(cleanUser);
+
+    const wins = profile.wins || 0;
+    const losses = profile.losses || 0;
+    const escapes = profile.escapes || 0;
+    const totalGames = wins + losses + escapes;
+    const winRate = totalGames > 0 ? Math.round((wins / totalGames) * 1000) / 10 : 0;
+    const escapeRate = totalGames > 0 ? Math.round((escapes / totalGames) * 1000) / 10 : 0;
+    const playMins = profile.total_play_time_mins || 0;
+
+    let heroRows: any[] = [];
+    try {
+      heroRows = await query<any>(
+        `SELECT hero_name, games_played, wins, total_kills, total_deaths, total_assists, max_kills, max_duration_secs
+         FROM player_hero_stats WHERE userName = ? OR username = ?
+         ORDER BY games_played DESC, wins DESC LIMIT 30`,
+        [cleanUser, cleanUser]
+      );
+    } catch {
+      heroRows = [];
+    }
+
+    const heroes = heroRows.map((hero) => {
+      const hGames = Number(hero.games_played || 0);
+      const hWins = Number(hero.wins || 0);
+      const hDeaths = Math.max(1, Number(hero.total_deaths || 0));
+      const hKda = Math.round(((Number(hero.total_kills || 0) + Number(hero.total_assists || 0)) / hDeaths) * 100) / 100;
+      const hWinRate = hGames > 0 ? Math.round((hWins / hGames) * 1000) / 10 : 0;
+      const winPart = hWinRate * 0.4;
+      const kdaPart = (Math.min(hKda, 12) / 12) * 100 * 0.35;
+      const gamesPart = (Math.min(hGames, 50) / 50) * 100 * 0.25;
+      return {
+        name: hero.hero_name,
+        games: hGames,
+        wins: hWins,
+        winRate: hWinRate,
+        kda: String(hKda),
+        heroScore: Math.round((winPart + kdaPart + gamesPart) * 10) / 10,
+        max_kills: Number(hero.max_kills || 0),
+        max_duration_secs: Number(hero.max_duration_secs || 0),
+      };
+    });
+    heroes.sort((a, b) => b.heroScore - a.heroScore || b.winRate - a.winRate);
+
+    let modeRows: any[] = [];
+    try {
+      modeRows = await query<any>(
+        `SELECT game_mode, games_played, wins FROM player_mode_stats WHERE userName = ? OR username = ?`,
+        [cleanUser, cleanUser]
+      );
+    } catch {
+      modeRows = [];
+    }
+    const modes: Record<string, { games: number; wins: number; winRate: number }> = {};
+    for (const mode of modeRows) {
+      const mGames = Number(mode.games_played || 0);
+      const mWins = Number(mode.wins || 0);
+      modes[mode.game_mode] = {
+        games: mGames,
+        wins: mWins,
+        winRate: mGames > 0 ? Math.round((mWins / mGames) * 1000) / 10 : 0,
+      };
+    }
+
+    const matches = await this.getPlayerMatches(cleanUser, 15);
+
+    return {
+      ladder: {
+        score: profile.score,
+        rank_level: profile.rank_level,
+        rank_name: profile.rank_code,
+        total_games: totalGames,
+        wins,
+        losses,
+        draws: 0,
+        escapes,
+        win_rate: winRate,
+        escape_rate: escapeRate,
+        kda: String(profile.kda),
+        gpm: '0',
+        mvps: profile.mvp_count,
+        current_streak: profile.current_win_streak,
+        max_streak: profile.max_win_streak,
+        total_time_mins: playMins,
+        total_kills: profile.total_kills,
+        total_deaths: profile.total_deaths,
+        total_assists: profile.total_assists,
+      },
+      heroes,
+      modes,
+      recent_matches: matches,
+    };
+  }
+
+  /** Launcher user_status.php 兼容：认证 / 素质 */
+  static async getUserStatus(userName: string): Promise<any | null> {
+    const cleanUser = userName.trim();
+    if (!cleanUser) return null;
+    try {
+      const rows = await query<any>(
+        `SELECT is_phone_verified, total_ingame_time, cheat_records_count, report_records_count
+         FROM users WHERE username = ? OR userName = ? LIMIT 1`,
+        [cleanUser, cleanUser]
+      );
+      if (!rows || rows.length === 0) {
+        // 本地测试账号可能只有 ladder_stats：给可查询的默认态
+        return {
+          is_phone_verified: false,
+          total_ingame_time: 0,
+          cheat_records_count: 0,
+          report_records_count: 0,
+          is_fully_verified: false,
+        };
+      }
+      const u = rows[0];
+      const phone = Number(u.is_phone_verified) === 1;
+      const mins = Number(u.total_ingame_time || 0);
+      return {
+        is_phone_verified: phone,
+        total_ingame_time: mins,
+        cheat_records_count: Number(u.cheat_records_count || 0),
+        report_records_count: Number(u.report_records_count || 0),
+        is_fully_verified: phone && mins >= 10080,
+      };
+    } catch {
+      return {
+        is_phone_verified: false,
+        total_ingame_time: 0,
+        cheat_records_count: 0,
+        report_records_count: 0,
+        is_fully_verified: false,
+      };
+    }
   }
 
   /**
    * 5. 核心事务落库：幂等防重 + 与 War3Bot 对齐的 Elo/K/KP/MVP/SVP 结算
    */
   static async settleMatch(payload: MatchReportPayload): Promise<{ success: boolean; message: string; data?: any }> {
-    const conn = await pool.getConnection();
+    const conn = await getConnection();
     try {
       await conn.beginTransaction();
 
-      // A. 事务内幂等：已结算直接返回
+      // A. 事务内幂等：已结算直接返回（SQLite 无 FOR UPDATE）
       const [existingRaw] = await conn.execute(
-        'SELECT match_id FROM matches WHERE match_id = ? LIMIT 1 FOR UPDATE',
+        useSqlite
+          ? 'SELECT match_id FROM matches WHERE match_id = ? LIMIT 1'
+          : 'SELECT match_id FROM matches WHERE match_id = ? LIMIT 1 FOR UPDATE',
         [payload.matchId]
       );
       const existingRows = existingRaw as any[];
@@ -359,16 +572,19 @@ export class LadderService {
       const isFrozen = payload.acStatus === 'FROZEN';
       const acStatus = isFrozen ? 'FROZEN' : 'PENDING';
 
+      const storedMode = normalizeGameMode(payload.mode) || 'ap';
+
       // D. 原子写入 matches / match_results / ladder_stats（冻结局仅归档战绩与证据，不改天梯分）
+      const startTime = new Date(Date.now() - payload.durationSeconds * 1000);
       await conn.execute(
         `INSERT INTO matches (match_id, map_name, game_mode, winner_team, start_time, duration_seconds, match_type, ac_status)
          VALUES (?, ?, ?, ?, ?, ?, 1, ?)`,
         [
           payload.matchId,
           'DotA v6.83d',
-          payload.mode || 'ap',
+          storedMode,
           payload.winnerTeam,
-          new Date(Date.now() - payload.durationSeconds * 1000),
+          useSqlite ? startTime.toISOString() : startTime,
           payload.durationSeconds,
           acStatus,
         ]
@@ -412,22 +628,7 @@ export class LadderService {
         const playTimeInc = Math.floor(payload.durationSeconds / 60);
 
         await conn.execute(
-          `INSERT INTO ladder_stats (userName, score, rank_level, wins, losses, escapes, total_kills, total_deaths,
-                                     total_assists, mvp_count, current_win_streak, max_win_streak, total_play_time_mins)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-           ON DUPLICATE KEY UPDATE
-             score = VALUES(score),
-             rank_level = VALUES(rank_level),
-             wins = wins + VALUES(wins),
-             losses = losses + VALUES(losses),
-             escapes = escapes + VALUES(escapes),
-             total_kills = total_kills + VALUES(total_kills),
-             total_deaths = total_deaths + VALUES(total_deaths),
-             total_assists = total_assists + VALUES(total_assists),
-             mvp_count = mvp_count + VALUES(mvp_count),
-             current_win_streak = IF(VALUES(wins) > 0, current_win_streak + 1, 0),
-             max_win_streak = GREATEST(max_win_streak, IF(VALUES(wins) > 0, current_win_streak + 1, 0)),
-             total_play_time_mins = total_play_time_mins + VALUES(total_play_time_mins)`,
+          ladderUpsertSql(),
           [
             p.userName,
             p.newScore,

@@ -1,8 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
 import crypto from 'node:crypto';
+import { runtimeConfig } from './runtime-config.js';
 
 // 平台 War3Bot 与 War3Angular 间通信共享私钥 (生产环境由环境变量注入)
-const BOT_SECRET_KEY = process.env['BOT_SECRET_KEY'] || 'War3_Bot_Ladder_Secret_Token_2026';
+const BOT_SECRET_KEY = runtimeConfig.botSecretKey;
 
 // 内存防重放 Nonce 缓存容器 (保留 5 分钟内使用过的随机 Nonce)
 const usedNonces = new Map<string, number>();

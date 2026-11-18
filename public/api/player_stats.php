@@ -96,12 +96,12 @@ try {
     $playTime = intval($ladder_row['total_play_time_mins'] ?? 0);
     $gpm = ($playTime > 0) ? round($gold / $playTime, 1) : 0;
 
-    // 2. Query hero stats
+    // 2. Query hero stats（英雄榜：返回更多条目，并计算英雄分）
     $sql_heroes = "SELECT hero_name, games_played, wins, total_kills, total_deaths, total_assists, max_kills, max_duration_secs 
                    FROM player_hero_stats 
                    WHERE username = ? 
                    ORDER BY games_played DESC, wins DESC 
-                   LIMIT 10";
+                   LIMIT 30";
     $stmt_heroes = $pdo->prepare($sql_heroes);
     $stmt_heroes->execute([$username]);
     $hero_rows = $stmt_heroes->fetchAll();
@@ -112,17 +112,30 @@ try {
         $h_wins = intval($hero['wins']);
         $h_deaths = max(1, intval($hero['total_deaths']));
         $h_kda = round((intval($hero['total_kills']) + intval($hero['total_assists'])) / $h_deaths, 2);
-        
+        $h_winRate = ($h_games > 0) ? round(($h_wins / $h_games) * 100, 1) : 0;
+        // 英雄分 = 胜率40% + KDA35% + 场次置信25%（与 Launcher StatsComponent 对齐）
+        $winPart = $h_winRate * 0.4;
+        $kdaPart = min($h_kda, 12.0) / 12.0 * 100.0 * 0.35;
+        $gamesPart = min($h_games, 50) / 50.0 * 100.0 * 0.25;
+        $h_score = round($winPart + $kdaPart + $gamesPart, 1);
+
         $heroes_stats[] = [
             "name" => $hero['hero_name'],
             "games" => $h_games,
             "wins" => $h_wins,
-            "winRate" => ($h_games > 0) ? round(($h_wins / $h_games) * 100, 1) : 0,
+            "winRate" => $h_winRate,
             "kda" => (string)$h_kda,
+            "heroScore" => $h_score,
             "max_kills" => intval($hero['max_kills']),
             "max_duration_secs" => intval($hero['max_duration_secs'])
         ];
     }
+    usort($heroes_stats, function ($a, $b) {
+        if ($a['heroScore'] == $b['heroScore']) {
+            return ($b['winRate'] <=> $a['winRate']);
+        }
+        return ($b['heroScore'] <=> $a['heroScore']);
+    });
 
     // 3. Query mode stats
     $sql_modes = "SELECT game_mode, games_played, wins FROM player_mode_stats WHERE username = ?";

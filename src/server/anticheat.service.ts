@@ -1,5 +1,4 @@
-import { PoolConnection } from 'mysql2/promise';
-import { pool, query } from './db.js';
+import { getConnection, query, type DbExecutor } from './db.js';
 import { scoreToRankLevel } from './ladder.service.js';
 
 export interface AcDetectionInput {
@@ -41,7 +40,7 @@ export class AntiCheatService {
    * 在结算事务内写入检测命中，并按需自动建案进入复核队列
    */
   static async recordDetectionsInTx(
-    conn: PoolConnection,
+    conn: DbExecutor,
     matchId: number | string,
     detections: AcDetectionInput[]
   ): Promise<void> {
@@ -105,7 +104,7 @@ export class AntiCheatService {
       throw new Error('缺少必需的判决参数 (verdictId, matchId, status)');
     }
 
-    const conn = await pool.getConnection();
+    const conn = await getConnection();
     try {
       await conn.beginTransaction();
 
@@ -227,7 +226,7 @@ export class AntiCheatService {
    * 事务内调整玩家天梯分、段位、连胜与信誉分
    */
   private static async adjustPlayerScoreInTx(
-    conn: PoolConnection,
+    conn: DbExecutor,
     userName: string,
     scoreDelta: number,
     resetStreak: boolean,
